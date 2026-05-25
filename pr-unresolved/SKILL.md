@@ -14,9 +14,9 @@ Extract owner, repo, and PR number from the argument (e.g. `https://github.com/o
 
 If no argument was given, ask the user for the PR URL before proceeding.
 
-## Step 2 — Fetch unresolved review threads via GraphQL
+## Step 2 — Fetch unresolved review threads via GraphQL (paginated)
 
-Run:
+Run the following query, then repeat with the `endCursor` value until `hasNextPage` is false. Collect all thread nodes across pages.
 
 ```bash
 gh api graphql -f query='
@@ -25,13 +25,17 @@ gh api graphql -f query='
     pullRequest(number: NUMBER) {
       title
       url
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: CURSOR) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           isResolved
           isOutdated
           path
           line
-          comments(first: 10) {
+          comments(first: 50) {
             nodes {
               author { login }
               body
@@ -41,7 +45,23 @@ gh api graphql -f query='
           }
         }
       }
-      reviews(first: 50, states: [CHANGES_REQUESTED]) {
+    }
+  }
+}'
+```
+
+Replace OWNER, REPO, NUMBER with values parsed from the URL. For the first call use `null` as the CURSOR value (without quotes); for subsequent pages use the `endCursor` string from the previous response.
+
+After collecting all pages, keep only threads where **both** `isResolved: false` AND `isOutdated: false`. This is the definition of "unresolved" — do not apply any other filter.
+
+## Step 3 — Fetch review-level comments (all states)
+
+```bash
+gh api graphql -f query='
+{
+  repository(owner: "OWNER", name: "REPO") {
+    pullRequest(number: NUMBER) {
+      reviews(first: 100) {
         nodes {
           author { login }
           body
@@ -55,27 +75,25 @@ gh api graphql -f query='
 }'
 ```
 
-Replace OWNER, REPO, NUMBER with values parsed from the URL.
+Include reviews from **all states** (APPROVED, CHANGES_REQUESTED, COMMENTED). Omit only reviews with an empty body.
 
-## Step 3 — Fetch general PR comments (non-inline)
+## Step 4 — Fetch general PR comments (non-inline)
 
 ```bash
-gh api repos/OWNER/REPO/issues/NUMBER/comments
+gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate
 ```
 
-## Step 4 — Assign severity
+## Step 5 — Assign severity
 
-For each unresolved thread, infer severity from the reviewer's language:
+For each unresolved thread and review comment, infer severity from the reviewer's language:
 
 - **critical** — security issues, auth bypass, data loss, broken functionality
 - **warning** — correctness bugs, missing error handling, truncation, UX regressions
 - **nit** — accessibility, style, naming, minor cleanup
 
-For human reviewers raising CHANGES_REQUESTED, default to `warning` unless the content clearly warrants `critical`.
-
 Assign finding IDs: `C1, C2…` for critical · `W1, W2…` for warning · `N1, N2…` for nit.
 
-## Step 5 — Present the findings
+## Step 6 — Present the findings
 
 Header:
 
@@ -118,8 +136,7 @@ N1 — <title>  path/to/file:LINE
 
 ## Notes
 
-- Include threads where `isResolved: false` **and** `isOutdated: false`. Skip outdated threads.
-- Omit CHANGES_REQUESTED reviews with no body.
+- An unresolved thread is one where `isResolved: false` AND `isOutdated: false`. Do not skip any thread that meets this criteria.
 - For threads with replies, use the last reply as the comment excerpt instead of the first.
 - If `gh` is not authenticated or the repo is private without access, surface the error clearly and suggest `gh auth login`.
 - If there are zero unresolved items, say so explicitly and confirm the PR looks ready to merge.
