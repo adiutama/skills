@@ -1,6 +1,6 @@
 # AI Skills
 
-A collection of reusable AI agent skills.
+A collection of reusable AI agent skills, following the [agentskills.io](https://agentskills.io/) open standard.
 
 ## Skills
 
