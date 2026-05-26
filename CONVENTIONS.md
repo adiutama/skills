@@ -1,5 +1,19 @@
 # Skill conventions
 
+## Repository layout
+
+```
+.
+├── skills/
+│   └── skill-name/
+│       ├── SKILL.md
+│       ├── references/
+│       └── scripts/
+└── scripts/            repo-level helpers (link/unlink, maintenance)
+```
+
+Skill packages must live under `skills/<skill-name>/`.
+
 ## Directory layout
 
 ```
