@@ -1,7 +1,7 @@
 ---
 name: commit-change
-description: Generate commit message options from staged changes and optionally commit with explicit confirmation.
-compatibility: Requires a git repository with staged changes.
+description: Generate a balanced commit message from edited-file context, then stage and commit with explicit confirmation.
+compatibility: Requires a git repository and edited-file context in the current session.
 metadata:
   argument-hint: "[scope-hint]"
 allowed-tools: Bash(git:*) Read Write
@@ -9,38 +9,31 @@ allowed-tools: Bash(git:*) Read Write
 
 Invoked as `/commit-change [scope-hint]`.
 
-## Step 1 - Gather context
+## Operating contract
 
-Run:
-- `git diff --cached --stat`
-- `git diff --cached`
-- `git log -8 --pretty=format:%s`
-- `git status --short`
+- Source of truth for changed files: session context (edited/open/recent/user-listed files).
+- Never use CLI to discover changed files (`git status`, broad `git diff`, or similar).
+- Git is for execution; require confirmation for staging only.
+- Ask at most one focused clarification when intent is ambiguous.
 
-If there are no staged changes, ask once whether to stage all via `git add -A`. If declined, stop.
+## Workflow
 
-Use argument as scope hint when provided.
+1. Build `target_files` from context. If empty, ask user to provide files and stop.
+2. Read changes from context/tooling for `target_files` and infer intent/impact.
+3. Show exact `target_files` and ask: confirm staging?
+4. Only on explicit yes, run:
+   - `git add -- <target_files...>`
+5. Draft one default commit message (balanced style):
+   - Conventional Commit
+   - Imperative subject, <= 72 chars
+   - Include a concise body focused on why/impact
+6. Scope selection:
+   - Prefer `[scope-hint]` when it clearly matches
+   - Else infer one short scope from dominant area
+   - Omit scope when mixed/unrelated
+7. Present the default message directly. Only generate A/B/C variants if user explicitly asks for alternatives.
+8. After staging is confirmed and the default message is prepared, run commit immediately:
+   - `git commit -m "<subject>"` (no body)
+   - `git commit -m "<subject>" -m "<body>"` (with body)
 
-## Step 2 - Draft candidates
-
-Produce 3 commit message candidates:
-- Conventional Commit format
-- Scope derived from dominant changed area (or omitted if mixed)
-- Subject in imperative mood, <= 72 chars
-- Body only when useful, focused on why/impact
-- Candidate A concise, B balanced, C impact-focused
-
-Scope rules:
-- Use provided scope hint if it clearly matches the staged diff.
-- Otherwise infer one short scope from changed paths/symbols.
-- If multiple unrelated areas are touched, omit scope instead of guessing.
-
-Then recommend one candidate with a one-line rationale.
-
-## Step 3 - Finalize on request
-
-If the user asks to commit, use their selected candidate exactly and run:
-- `git commit -m "<subject>"` when there is no body
-- `git commit -m "<subject>" -m "<body>"` when body exists
-
-Never auto-commit without explicit user confirmation.
+Never auto-stage.
