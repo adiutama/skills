@@ -7,9 +7,9 @@ metadata:
 allowed-tools: Read Write Glob rg
 ---
 
-# Optimize Skill
-
 Invoked as `/optimize-skill [folder-path|file-path|plain-text]`.
+
+# Optimize Skill
 
 ## Goal
 Return a shorter, sharper version with equal or better control quality. Keep meaning, constraints, and behavior intact.

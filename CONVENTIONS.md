@@ -1,87 +1,71 @@
 # Skill conventions
 
-## Repository layout
+This document reflects the current repository style (as implemented in existing skills), not an idealized strict spec.
 
-```
+## Core principles
+
+- Optimize for execution clarity first, stylistic purity second.
+- Keep commands explicit, deterministic, and easy to run.
+- Prefer concise instructions that still preserve safety constraints.
+- Treat existing successful patterns as valid templates.
+
+## Naming convention
+
+- Skill names use `verb-object[-qualifier]` in kebab-case.
+- Skill directory name and `name:` in frontmatter must match.
+- Command form should read naturally: `/review-pr`, `/post-pr-review`, `/refactor-safely`.
+
+## Repository and package layout
+
+```text
 .
+├── docs/                    # shared references/templates used by multiple skills
 ├── skills/
-│   └── skill-name/
+│   └── <skill-name>/
 │       ├── SKILL.md
-│       ├── references/
-│       └── scripts/
-└── scripts/            repo-level helpers (link/unlink, maintenance)
+│       ├── references/      # guidance docs used at runtime
+│       ├── assets/          # optional templates/examples
+│       └── scripts/         # optional shell helpers
+└── scripts/                 # repo-level helpers
 ```
 
-Skill packages must live under `skills/<skill-name>/`.
+- Skill packages must live under `skills/<skill-name>/`.
+- `references/` is the default home for guidance docs.
+- `assets/` is allowed for reusable templates/examples.
+- Omit `scripts/` or `assets/` when unused.
+- Use repo-level `docs/` for shared guidance/templates referenced by more than one skill.
 
-## Directory layout
+## Global docs
 
-```
-skill-name/
-├── SKILL.md
-├── references/     guidance docs the skill reads at runtime
-│   └── *.md
-└── scripts/        shell helpers (omit if none needed)
-    └── *.sh
-```
+Use `docs/` when content is cross-skill or long-lived project guidance:
 
-Use `references/` for all guidance docs. Never use `assets/` or any other name.
+- Shared review templates, output schemas, and reusable checklists.
+- Shared terminology, conventions, and examples used by multiple skills.
+- Onboarding/reference material that should not be duplicated per skill.
 
-## SKILL.md frontmatter
+Keep per-skill specifics inside that skill package:
 
-Required fields, in this order:
+- `references/` for runtime guidance loaded by the skill.
+- `assets/` for skill-scoped templates/examples.
 
-```yaml
----
-name: kebab-case-name
-description: One sentence — what it does and when to use it.
-compatibility: What the environment must have (e.g. "Requires gh CLI authenticated to GitHub, and jq.")
-metadata:
-  argument-hint: "<required-arg> [optional-arg]"
-allowed-tools: Bash(gh:*) Read Write
----
-```
+## SKILL.md baseline
 
-`allowed-tools` must be present. List only what the skill actually uses.
+- `name` and `description` are required.
+- Keep folder name, `name:`, and command naming aligned.
+- Include `compatibility`, `metadata.argument-hint`, and `allowed-tools` when relevant.
+- Legacy top-level `argument-hint` is acceptable for existing skills; prefer `metadata.argument-hint` for new or refactored skills.
+- Keep instructions concise, executable, and deterministic.
 
-## SKILL.md body structure
+## Body and reference baseline
 
-1. **Invocation line** — first line of body, no heading:
-   ```
-   Invoked as `/skill-name [args]`. <Error handling note if needed.>
-   ```
+- Command skills should start with `Invoked as ...`, then procedural `Step N` sections.
+- Always-on behavior skills may use protocol-style sections (`Goal`, `Protocol`, `Rules`).
+- Minimal numbered workflow format is also valid for simple skills (title + `1..N` steps), as used by `pickup-handoff`.
+- Keep runtime guidance in `references/` and skill-scoped templates/examples in `assets/`.
+- Use explicit file paths in instructions when ambiguity is possible.
 
-2. **Steps** — `## Step N — Title` (em dash, not hyphen; "Step" prefix, no trailing period):
-   ```markdown
-   ## Step 1 — Gather data
-   ## Step 2 — Write the review
-   ```
+## See also
 
-3. **Notes** (optional) — a single `## Notes` section at the end for edge cases, prerequisites, and error handling.
-
-## Reference paths inside SKILL.md
-
-Always use `<SKILL_DIR>/references/filename.md` — never relative markdown links:
-
-```markdown
-Follow `<SKILL_DIR>/references/format.md` for output format.
-```
-
-## Reference file conventions
-
-**File naming:** single lowercase word matching what the file governs (`checklist.md`, `format.md`, `body.md`, `output.md`). Use a subdirectory only when multiple files share a common scope.
-
-**H1:** Sentence case, matching the file's purpose loosely:
-```markdown
-# Body guidance        ← not "# Review Body Guidance"
-# Summary format       ← not "# Pre-Post Summary Format"
-# Event inference      ← not "# Event Inference"
-```
-
-**Section headings:** Sentence case throughout (`## Finding format`, not `## Finding Format`).
-
-**Finding separator:** Em dash `—` everywhere — in finding block headings and in index/output lines:
-```
-### C1 — short title       ← not "### C1 - short title"
-C1 — title  path/file:L   ← not "C1 - title  path/file:L"
-```
+- [SKILL template](docs/templates/SKILL.template.md)
+- [Best practices](docs/references/best-practices.md)
+- [Author checklist](docs/references/author-checklist.md)

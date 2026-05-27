@@ -1,5 +1,5 @@
 ---
-name: commit-change
+name: commit-changes
 description: Check staged changes first; otherwise use context-discovered file changes to stage and commit with a generated message.
 compatibility: Requires a git repository and edited-file context in the current session.
 metadata:
@@ -7,9 +7,9 @@ metadata:
 allowed-tools: Bash(git:*) Read Write
 ---
 
-Invoked as `/commit-change [scope-hint] [--skip-stage]`.
+Invoked as `/commit-changes [scope-hint] [--skip-stage]`.
 
-## Operating contract
+## Step 1 — Operating contract
 
 - Changed-file source is session context (edited/open/recent/user-listed files).
 - Never use CLI to discover modified files (no `git status`, no broad working-tree diffs).
@@ -17,7 +17,7 @@ Invoked as `/commit-change [scope-hint] [--skip-stage]`.
 - Stage by default; skip only when `--skip-stage` is explicit.
 - Ask at most one focused clarification when intent is ambiguous.
 
-## Workflow
+## Step 2 — Workflow
 
 1. Detect staged files first:
    - Run `git diff --cached --name-status`.

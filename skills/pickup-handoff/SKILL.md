@@ -1,10 +1,10 @@
 ---
-name: pickup
+name: pickup-handoff
 description: Load a handoff file from a provided path, send a short kickoff, and wait for confirmation before starting.
 argument-hint: "Path to handoff .md file"
 ---
 
-# Pickup
+# Pickup handoff
 
 1. Use the argument as the handoff file path.
 2. Read the file.

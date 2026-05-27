@@ -1,9 +1,9 @@
 ---
-name: reconcile
+name: reconcile-context
 description: Reconcile working context with live file state on every edit task. Track per-file intent, refresh before writing, confirm before overwriting manual edits, and sync context after each change.
 ---
 
-# Reconcile
+# Reconcile context
 
 ## Goal
 Maintain trust by treating user manual edits as authoritative and keeping agent context synced to current file state.

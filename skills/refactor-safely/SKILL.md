@@ -1,5 +1,5 @@
 ---
-name: thoughtful-refactor
+name: refactor-safely
 description: Refactor code in any language with a beauty-first, safety-first style while preserving behavior. Use when the user asks to clean up, beautify, restructure, harden, or make code more readable without changing functionality.
 disable-model-invocation: true
 metadata:
@@ -7,9 +7,9 @@ metadata:
 allowed-tools: Read Write Edit rg Glob Bash
 ---
 
-# Thoughtful Refactor
+Invoked as `/refactor-safely [file-path|folder-path|symbol-name]`.
 
-Invoked as `/thoughtful-refactor [file-path|folder-path|symbol-name]`.
+# Refactor safely
 
 ## Philosophy
 

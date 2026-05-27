@@ -7,6 +7,7 @@ SOURCE_DIR="${SOURCE_DIR:-${REPO_ROOT}/skills}"
 GLOBAL_SKILLS_DIR="${GLOBAL_SKILLS_DIR:-${HOME}/.agents/skills}"
 EXTRA_ADD_ARGS=()
 LOCAL_SKILL_NAMES=()
+REPO_KNOWN_SKILL_NAMES=()
 REPO_MANAGED_GLOBAL_NAMES=()
 STALE_SKILL_NAMES=()
 
@@ -81,10 +82,70 @@ collect_local_skill_names() {
   fi
 }
 
-# Convert readlink output to an absolute path.
+# Collect skill names that have existed in this repo (current + historical)
+# from tracked paths matching skills/<name>/SKILL.md.
+collect_repo_known_skill_names() {
+  local names=()
+  local path=""
+  local name=""
+
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] && names+=("${name}")
+  done < <(collect_local_skill_names)
+
+  if git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    while IFS= read -r path; do
+      [[ -n "${path}" ]] || continue
+      case "${path}" in
+        skills/*/SKILL.md)
+          name="${path#skills/}"
+          name="${name%/SKILL.md}"
+          names+=("${name}")
+          ;;
+      esac
+    done < <(
+      git -C "${REPO_ROOT}" log --pretty=format: --name-only -- "skills/*/SKILL.md" | sort -u
+    )
+  fi
+
+  if [[ ${#names[@]} -gt 0 ]]; then
+    printf '%s\n' "${names[@]}" | sort -u
+  fi
+}
+
+# Lexically normalize an absolute path (without requiring it to exist).
+normalize_absolute_path_lexically() {
+  local input_path="$1"
+  local -a parts=()
+  local -a resolved_parts=()
+  local part=""
+
+  [[ "${input_path}" == /* ]] || return 1
+
+  IFS='/' read -r -a parts <<< "${input_path}"
+  for part in "${parts[@]}"; do
+    [[ -z "${part}" || "${part}" == "." ]] && continue
+    if [[ "${part}" == ".." ]]; then
+      if [[ ${#resolved_parts[@]} -gt 0 ]]; then
+        unset "resolved_parts[$((${#resolved_parts[@]} - 1))]"
+      fi
+      continue
+    fi
+    resolved_parts+=("${part}")
+  done
+
+  if [[ ${#resolved_parts[@]} -eq 0 ]]; then
+    printf '/\n'
+  else
+    printf '/%s\n' "$(IFS=/; echo "${resolved_parts[*]}")"
+  fi
+}
+
+# Convert readlink output to an absolute path, even if target is missing.
 resolve_link_target() {
   local link_path="$1"
   local raw_target
+  local absolute_target
   raw_target="$(readlink "${link_path}" || true)"
 
   if [[ -z "${raw_target}" ]]; then
@@ -92,11 +153,12 @@ resolve_link_target() {
   fi
 
   if [[ "${raw_target}" == /* ]]; then
-    printf '%s\n' "${raw_target}"
-    return 0
+    absolute_target="${raw_target}"
+  else
+    absolute_target="$(dirname "${link_path}")/${raw_target}"
   fi
 
-  printf '%s\n' "$(cd "$(dirname "${link_path}")" && cd "$(dirname "${raw_target}")" && pwd)/$(basename "${raw_target}")"
+  normalize_absolute_path_lexically "${absolute_target}"
 }
 
 # Collect global skill names that are managed by this repo
@@ -105,6 +167,9 @@ collect_repo_managed_global_names() {
   local names=()
   local entry=""
   local target=""
+  local normalized_source=""
+
+  normalized_source="$(normalize_absolute_path_lexically "${SOURCE_DIR}")"
 
   if [[ -d "${GLOBAL_SKILLS_DIR}" ]]; then
     while IFS= read -r entry; do
@@ -112,7 +177,7 @@ collect_repo_managed_global_names() {
       target="$(resolve_link_target "${entry}" || true)"
       [[ -n "${target}" ]] || continue
 
-      if [[ "${target}" == "${SOURCE_DIR}/"* ]]; then
+      if [[ "${target}" == "${normalized_source}/"* ]]; then
         names+=("${entry##*/}")
       fi
     done < <(
@@ -120,10 +185,24 @@ collect_repo_managed_global_names() {
         [[ -L "${p}" ]] && printf '%s\n' "${p}"
       done | sort
     )
+
+    # Also include copied/global directory installs that match known repo skills.
+    while IFS= read -r entry; do
+      [[ -n "${entry}" ]] || continue
+      if [[ -d "${entry}" && -f "${entry}/SKILL.md" ]]; then
+        if contains_name "${entry##*/}" "${REPO_KNOWN_SKILL_NAMES[@]}"; then
+          names+=("${entry##*/}")
+        fi
+      fi
+    done < <(
+      for p in "${GLOBAL_SKILLS_DIR}"/*; do
+        [[ -d "${p}" ]] && printf '%s\n' "${p}"
+      done | sort
+    )
   fi
 
   if [[ ${#names[@]} -gt 0 ]]; then
-    printf '%s\n' "${names[@]}"
+    printf '%s\n' "${names[@]}" | sort -u
   fi
 }
 
@@ -199,6 +278,11 @@ main() {
   while IFS= read -r name; do
     [[ -n "${name}" ]] && LOCAL_SKILL_NAMES+=("${name}")
   done < <(collect_local_skill_names)
+
+  REPO_KNOWN_SKILL_NAMES=()
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] && REPO_KNOWN_SKILL_NAMES+=("${name}")
+  done < <(collect_repo_known_skill_names)
 
   REPO_MANAGED_GLOBAL_NAMES=()
   while IFS= read -r name; do
