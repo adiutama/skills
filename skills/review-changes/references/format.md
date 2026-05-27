@@ -32,7 +32,7 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
 
 ## Session file template
 
-    # Local review - <branch>
+    # Review changes - <branch>
 
     ## Meta
 
@@ -65,7 +65,7 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
     - …
 
 **Rules:**
-- H1 must be `# Local review - <branch>` (real branch name, no file paths).
+- H1 must be `# Review changes - <branch>` (real branch name, no file paths).
 - Pass cell must match the session file number (`01`, `02`, …).
 - Keep only real findings; no placeholder text.
 - Remove Tests or Out of scope if empty, or replace with `- None.`
@@ -86,7 +86,7 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
 
 Print after saving, then stop:
 
-    Saved: reviews/local/<slug>/<NN>.md
+    Saved: reviews/review-changes/<slug>/<NN>.md
     N critical · N warning · N nit
 
     Stance: <Ready / Ready with notes / Not ready> — <one-sentence reason>

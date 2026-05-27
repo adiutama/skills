@@ -7,26 +7,60 @@
 
 set -euo pipefail
 
-command -v gh  &>/dev/null || { echo "Error: gh CLI not installed. See https://cli.github.com" >&2; exit 1; }
-command -v jq  &>/dev/null || { echo "Error: jq not installed. Run: brew install jq" >&2; exit 1; }
+usage() {
+  echo "Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>" >&2
+}
 
-OWNER=${1:?"Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>"}
-REPO=${2:?"Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>"}
-NUMBER=${3:?"Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>"}
-HEAD_SHA=${4:?"Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>"}
-EVENT=${5:?"Usage: post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT>"}
+require_dependencies() {
+  command -v gh &>/dev/null || {
+    echo "Error: gh CLI not installed. See https://cli.github.com" >&2
+    exit 1
+  }
+  command -v jq &>/dev/null || {
+    echo "Error: jq not installed. Run: brew install jq" >&2
+    exit 1
+  }
+}
 
-INPUT=$(cat)
+build_payload() {
+  local head_sha="$1"
+  local event="$2"
 
-PAYLOAD=$(printf '%s' "$INPUT" | jq \
-  --arg commit_id "$HEAD_SHA" \
-  --arg event     "$EVENT" \
-  '. + {commit_id: $commit_id, event: $event}
-   | if (.comments // [] | length) > 0
-     then .comments |= map(. + {side: "RIGHT"})
-     else del(.comments)
-     end')
+  jq \
+    --arg commit_id "$head_sha" \
+    --arg event "$event" \
+    '. + {commit_id: $commit_id, event: $event}
+     | if (.comments // [] | length) > 0
+       then .comments |= map(. + {side: "RIGHT"})
+       else del(.comments)
+       end'
+}
 
-printf '%s' "$PAYLOAD" | gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" \
-  --method POST \
-  --input - | jq -r '.html_url'
+post_review() {
+  local owner="$1"
+  local repo="$2"
+  local number="$3"
+
+  gh api "repos/${owner}/${repo}/pulls/${number}/reviews" \
+    --method POST \
+    --input - | jq -r '.html_url'
+}
+
+main() {
+  local owner repo number head_sha event
+  owner=${1:-}
+  repo=${2:-}
+  number=${3:-}
+  head_sha=${4:-}
+  event=${5:-}
+
+  [[ -n "$owner" && -n "$repo" && -n "$number" && -n "$head_sha" && -n "$event" ]] || {
+    usage
+    exit 1
+  }
+
+  require_dependencies
+  build_payload "$head_sha" "$event" | post_review "$owner" "$repo" "$number"
+}
+
+main "$@"

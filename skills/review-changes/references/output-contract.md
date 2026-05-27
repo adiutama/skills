@@ -1,6 +1,6 @@
-# Local review output contract
+# Review changes output contract
 
-This file defines the output rules for every local review session. The workflow is in `SKILL.md`; this file covers what findings look like and how to write them.
+This file defines the output rules for every review-changes session. The workflow is in `SKILL.md`; this file covers what findings look like and how to write them.
 
 ## Your job
 
@@ -21,7 +21,7 @@ Follow the skeleton in `assets/template.md`. Do not leave instructional or place
 
 ### Title and meta
 
-- H1 is `# Local review - <branch>` only (real git branch name). Do not put file paths in the title.
+- H1 is `# Review changes - <branch>` only (real git branch name). Do not put file paths in the title.
 - Set the Pass meta cell to match the session file number (`01`, `02`, ...).
 
 ### Strip and tailor

@@ -7,44 +7,88 @@
 
 set -euo pipefail
 
-command -v gh  &>/dev/null || { echo "Error: gh CLI not installed. See https://cli.github.com" >&2; exit 1; }
-command -v jq  &>/dev/null || { echo "Error: jq not installed. Run: brew install jq" >&2; exit 1; }
+require_dependencies() {
+  command -v gh &>/dev/null || {
+    echo "Error: gh CLI not installed. See https://cli.github.com" >&2
+    exit 1
+  }
+  command -v jq &>/dev/null || {
+    echo "Error: jq not installed. Run: brew install jq" >&2
+    exit 1
+  }
+}
 
-ARG=${1:?"Usage: resolve.sh <PR URL or number>"}
+parse_pr_identity() {
+  local arg="$1"
 
-if [[ "$ARG" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
-  OWNER="${BASH_REMATCH[1]}"
-  REPO="${BASH_REMATCH[2]}"
-  NUMBER="${BASH_REMATCH[3]}"
-elif [[ "$ARG" =~ ^[0-9]+$ ]]; then
-  NAME_WITH_OWNER=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) \
-    || { echo "Error: could not detect repo — run from inside a git repo or provide the full PR URL." >&2; exit 1; }
-  OWNER="${NAME_WITH_OWNER%%/*}"
-  REPO="${NAME_WITH_OWNER##*/}"
-  NUMBER="$ARG"
-else
-  echo "Error: expected a GitHub PR URL or number, got: $ARG" >&2
+  if [[ "$arg" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
+    OWNER="${BASH_REMATCH[1]}"
+    REPO="${BASH_REMATCH[2]}"
+    NUMBER="${BASH_REMATCH[3]}"
+    return
+  fi
+
+  if [[ "$arg" =~ ^[0-9]+$ ]]; then
+    local name_with_owner
+    name_with_owner=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
+      echo "Error: could not detect repo — run from inside a git repo or provide the full PR URL." >&2
+      exit 1
+    }
+    OWNER="${name_with_owner%%/*}"
+    REPO="${name_with_owner##*/}"
+    NUMBER="$arg"
+    return
+  fi
+
+  echo "Error: expected a GitHub PR URL or number, got: $arg" >&2
   exit 1
-fi
+}
 
-META=$(gh pr view "$NUMBER" --repo "$OWNER/$REPO" --json headRefName,headRefOid)
-BRANCH=$(printf '%s' "$META" | jq -r .headRefName)
-HEAD_SHA=$(printf '%s' "$META" | jq -r .headRefOid)
+latest_session_file() {
+  local dir="$1"
+  local files
 
-SLUG=$(printf '%s' "$BRANCH" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
-DIR="reviews/${OWNER}/${REPO}/${SLUG}"
+  [[ -d "$dir" ]] || return 0
 
-SESSION_PATH=""
-if [[ -d "$DIR" ]]; then
-  LATEST=$(ls "$DIR"/*.md 2>/dev/null | sort -V | tail -1 || true)
-  [[ -n "$LATEST" ]] && SESSION_PATH="$LATEST"
-fi
+  shopt -s nullglob
+  files=("$dir"/*.md)
+  shopt -u nullglob
+  [[ ${#files[@]} -gt 0 ]] || return 0
 
-jq -n \
-  --arg owner        "$OWNER" \
-  --arg repo         "$REPO" \
-  --arg number       "$NUMBER" \
-  --arg head_sha     "$HEAD_SHA" \
-  --arg branch       "$BRANCH" \
-  --arg session_path "$SESSION_PATH" \
-  '{owner:$owner, repo:$repo, number:$number, head_sha:$head_sha, branch:$branch, session_path:$session_path}'
+  printf '%s\n' "${files[@]}" | sort -V | tail -1
+}
+
+print_output_json() {
+  local head_sha="$1"
+  local branch="$2"
+  local session_path="$3"
+
+  jq -n \
+    --arg owner "$OWNER" \
+    --arg repo "$REPO" \
+    --arg number "$NUMBER" \
+    --arg head_sha "$head_sha" \
+    --arg branch "$branch" \
+    --arg session_path "$session_path" \
+    '{owner:$owner, repo:$repo, number:$number, head_sha:$head_sha, branch:$branch, session_path:$session_path}'
+}
+
+main() {
+  local arg meta branch head_sha slug dir session_path
+  arg=${1:?"Usage: resolve.sh <PR URL or number>"}
+
+  require_dependencies
+  parse_pr_identity "$arg"
+
+  meta=$(gh pr view "$NUMBER" --repo "$OWNER/$REPO" --json headRefName,headRefOid)
+  branch=$(printf '%s' "$meta" | jq -r .headRefName)
+  head_sha=$(printf '%s' "$meta" | jq -r .headRefOid)
+
+  slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
+  dir="reviews/${OWNER}/${REPO}/${slug}"
+  session_path=$(latest_session_file "$dir")
+
+  print_output_json "$head_sha" "$branch" "$session_path"
+}
+
+main "$@"

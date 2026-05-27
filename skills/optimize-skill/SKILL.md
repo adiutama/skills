@@ -17,7 +17,11 @@ Return a shorter, sharper version with equal or better control quality. Keep mea
 ## Input modes
 1. **Plain text**: optimize provided text directly.
 2. **File path**: read file, optimize content.
-3. **Folder path**: default target is `SKILL.md` in that folder. If missing, ask user to choose target file(s).
+3. **Folder path**:
+   - Discover optimizable text files in that folder (recursive), including `SKILL.md`, `references/**/*.md`, `assets/**/*.md`, and other docs/prompts (for example `*.md`, `*.txt`, `*.prompt`).
+   - Exclude non-text or operational files (for example `scripts/**`, binaries, lockfiles, and `*.optimized.md`).
+   - If only one candidate exists, optimize it.
+   - If multiple candidates exist, show the candidate list and ask whether to optimize all or selected files.
 
 ## Optimization rules
 - Preserve intent, constraints, safety gates, and required confirmations.
@@ -41,5 +45,7 @@ Before finalizing, verify:
 
 ## Write-back behavior
 - If input is plain text: return optimized text in chat.
-- If input is a file/folder path: show optimized result first, then ask before writing.
+- If input is a file/folder path: write each optimized result to a temporary file first (for example `<target>.optimized.md`), then ask before overwriting originals.
+- For folder input with multiple files: present per-file results and temporary paths clearly.
+- When a temporary file is created, do not print the optimized prompt again in chat.
 - Never overwrite files without explicit confirmation.

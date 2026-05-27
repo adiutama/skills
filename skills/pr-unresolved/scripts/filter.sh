@@ -18,33 +18,47 @@
 
 set -euo pipefail
 
-command -v jq &>/dev/null || { echo "Error: jq is not installed. Install it from https://jqlang.org or via your package manager (e.g. brew install jq)." >&2; exit 1; }
+require_jq() {
+  command -v jq &>/dev/null || {
+    echo "Error: jq is not installed. Install it from https://jqlang.org or via your package manager (e.g. brew install jq)." >&2
+    exit 1
+  }
+}
 
-jq '
-  def excerpt: split("\n") | map(select(length > 0)) | .[0:4] | join("\n");
+jq_filter_program() {
+  cat <<'EOF'
+def excerpt: split("\n") | map(select(length > 0)) | .[0:4] | join("\n");
 
-  .threads |= [
-    .[] |
-    select(.isResolved == false) |
-    select((.isOutdated == false) or (.line != null)) |
-    . + { anchor_moved: (.isOutdated == true and .line != null) } |
-    .comments.nodes |= map(. + { body_excerpt: (.body | excerpt) })
-  ] |
-  .reviews |= [
-    .[] |
-    select(.state != "APPROVED" and .state != "DISMISSED") |
-    select(
-      .state == "CHANGES_REQUESTED" or
-      ((.author.login // "") | test("\\[bot\\]$|^coderabbitai$") | not)
-    ) |
-    . + { body_excerpt: (.body | excerpt) }
-  ] |
-  .comments |= [
-    .[] |
-    select(
-      ((.user.type // "") != "Bot") and
-      ((.user.login // "") | test("\\[bot\\]$") | not)
-    ) |
-    . + { body_excerpt: (.body | excerpt) }
-  ]
-'
+.threads |= [
+  .[] |
+  select(.isResolved == false) |
+  select((.isOutdated == false) or (.line != null)) |
+  . + { anchor_moved: (.isOutdated == true and .line != null) } |
+  .comments.nodes |= map(. + { body_excerpt: (.body | excerpt) })
+] |
+.reviews |= [
+  .[] |
+  select(.state != "APPROVED" and .state != "DISMISSED") |
+  select(
+    .state == "CHANGES_REQUESTED" or
+    ((.author.login // "") | test("\\[bot\\]$|^coderabbitai$") | not)
+  ) |
+  . + { body_excerpt: (.body | excerpt) }
+] |
+.comments |= [
+  .[] |
+  select(
+    ((.user.type // "") != "Bot") and
+    ((.user.login // "") | test("\\[bot\\]$") | not)
+  ) |
+  . + { body_excerpt: (.body | excerpt) }
+]
+EOF
+}
+
+main() {
+  require_jq
+  jq "$(jq_filter_program)"
+}
+
+main "$@"

@@ -4,25 +4,99 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-${REPO_ROOT}/skills}"
-
-if [[ ! -d "${SOURCE_DIR}" ]]; then
-  echo "Skills directory not found: ${SOURCE_DIR}" >&2
-  exit 1
-fi
-
+DRY_RUN=false
+EXTRA_REMOVE_ARGS=()
 SKILL_NAMES=()
 
-while IFS= read -r skill_dir; do
-  SKILL_NAMES+=("$(basename "${skill_dir}")")
-done < <(for d in "${SOURCE_DIR}"/*; do [[ -f "${d}/SKILL.md" ]] && printf '%s\n' "${d}"; done | sort)
+##
+# unlink.sh
+# Unlink all local skills from global scope for all agents.
+#
+# Usage:
+#   ./scripts/unlink.sh [--dry-run] [extra npx skills remove args...]
+##
 
-if [[ ${#SKILL_NAMES[@]} -eq 0 ]]; then
-  echo "No skills found in ${SOURCE_DIR}" >&2
-  exit 1
-fi
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/unlink.sh [--dry-run] [extra remove args...]
 
-echo "Unlinking skills from: ${SOURCE_DIR}"
-echo "Target: global (all agents)"
-echo "Skills: ${SKILL_NAMES[*]}"
+Examples:
+  ./scripts/unlink.sh
+  ./scripts/unlink.sh --dry-run
+  ./scripts/unlink.sh --agent Cursor
 
-npx skills remove -g --all -y "${SKILL_NAMES[@]}" "$@"
+Environment:
+  SOURCE_DIR  Skills source directory (default: <repo>/skills)
+EOF
+}
+
+parse_args() {
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    usage
+    exit 0
+  fi
+
+  if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=true
+    shift
+  fi
+
+  EXTRA_REMOVE_ARGS=("$@")
+}
+
+ensure_source_dir_exists() {
+  if [[ ! -d "${SOURCE_DIR}" ]]; then
+    echo "Skills directory not found: ${SOURCE_DIR}" >&2
+    exit 1
+  fi
+}
+
+collect_skill_names() {
+  local skill_dir=""
+  while IFS= read -r skill_dir; do
+    SKILL_NAMES+=("$(basename "${skill_dir}")")
+  done < <(
+    for d in "${SOURCE_DIR}"/*; do
+      [[ -f "${d}/SKILL.md" ]] && printf '%s\n' "${d}"
+    done | sort
+  )
+}
+
+ensure_skill_names_exist() {
+  if [[ ${#SKILL_NAMES[@]} -eq 0 ]]; then
+    echo "No skills found in ${SOURCE_DIR}" >&2
+    exit 1
+  fi
+}
+
+run_unlink() {
+  echo "Unlinking skills from: ${SOURCE_DIR}"
+  echo "Target: global (all agents)"
+  echo "Skills: ${SKILL_NAMES[*]}"
+
+  if [[ "${DRY_RUN}" == true ]]; then
+    if [[ ${#EXTRA_REMOVE_ARGS[@]} -gt 0 ]]; then
+      echo "[dry-run] npx skills remove -g --all -y ${SKILL_NAMES[*]} ${EXTRA_REMOVE_ARGS[*]}"
+    else
+      echo "[dry-run] npx skills remove -g --all -y ${SKILL_NAMES[*]}"
+    fi
+    return
+  fi
+
+  if [[ ${#EXTRA_REMOVE_ARGS[@]} -gt 0 ]]; then
+    npx skills remove -g --all -y "${SKILL_NAMES[@]}" "${EXTRA_REMOVE_ARGS[@]}"
+  else
+    npx skills remove -g --all -y "${SKILL_NAMES[@]}"
+  fi
+}
+
+main() {
+  parse_args "$@"
+  ensure_source_dir_exists
+  collect_skill_names
+  ensure_skill_names_exist
+  run_unlink
+}
+
+main "$@"

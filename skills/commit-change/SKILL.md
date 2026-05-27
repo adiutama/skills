@@ -1,39 +1,46 @@
 ---
 name: commit-change
-description: Generate a balanced commit message from edited-file context, then stage and commit with explicit confirmation.
+description: Check staged changes first; otherwise use context-discovered file changes to stage and commit with a generated message.
 compatibility: Requires a git repository and edited-file context in the current session.
 metadata:
-  argument-hint: "[scope-hint]"
+  argument-hint: "[scope-hint] [--skip-stage]"
 allowed-tools: Bash(git:*) Read Write
 ---
 
-Invoked as `/commit-change [scope-hint]`.
+Invoked as `/commit-change [scope-hint] [--skip-stage]`.
 
 ## Operating contract
 
-- Source of truth for changed files: session context (edited/open/recent/user-listed files).
-- Never use CLI to discover changed files (`git status`, broad `git diff`, or similar).
-- Git is for execution; require confirmation for staging only.
+- Changed-file source is session context (edited/open/recent/user-listed files).
+- Never use CLI to discover modified files (no `git status`, no broad working-tree diffs).
+- CLI is allowed only for staged detection, staging execution, and commit execution.
+- Stage by default; skip only when `--skip-stage` is explicit.
 - Ask at most one focused clarification when intent is ambiguous.
 
 ## Workflow
 
-1. Build `target_files` from context. If empty, ask user to provide files and stop.
-2. Read changes from context/tooling for `target_files` and infer intent/impact.
-3. Show exact `target_files` and ask: confirm staging?
-4. Only on explicit yes, run:
-   - `git add -- <target_files...>`
-5. Draft one default commit message (balanced style):
-   - Conventional Commit
-   - Imperative subject, <= 72 chars
-   - Include a concise body focused on why/impact
-6. Scope selection:
-   - Prefer `[scope-hint]` when it clearly matches
-   - Else infer one short scope from dominant area
-   - Omit scope when mixed/unrelated
-7. Present the default message directly. Only generate A/B/C variants if user explicitly asks for alternatives.
-8. After staging is confirmed and the default message is prepared, run commit immediately:
+1. Detect staged files first:
+   - Run `git diff --cached --name-status`.
+   - If staged files exist, skip discovery/staging and continue to step 5.
+2. If step 1 is empty, discover modified files from context only:
+   - Build `target_files` from edited/open/recent/user-listed files.
+   - Classify each file as Create/Update/Delete from context/tooling.
+   - If `target_files` is empty, ask user to provide files and stop.
+3. Reconcile staged vs modified sets:
+   - Compare step 1 and step 2 results as a safety check.
+   - In normal flow here, step 1 is empty and step 2 is non-empty.
+   - If staged files appear mid-flow (race/manual staging), show both sets and ask one focused confirmation before staging.
+4. Stage changes (default):
+   - If `--skip-stage` is present, do not run `git add`.
+   - Otherwise run `git add -- <target_files...>`.
+5. Draft one default commit message:
+   - Conventional Commit format.
+   - Imperative subject, <= 72 chars.
+   - Concise body focused on why/impact.
+   - Scope: prefer `[scope-hint]` if it matches; otherwise infer one short dominant scope; omit when mixed.
+   - Present this default directly; only generate A/B/C variants when explicitly requested.
+6. Commit immediately after message generation:
    - `git commit -m "<subject>"` (no body)
    - `git commit -m "<subject>" -m "<body>"` (with body)
 
-Never auto-stage.
+Do not ask for staging confirmation.
