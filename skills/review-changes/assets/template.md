@@ -11,11 +11,11 @@
 | Head SHA     | `…`                                                 |
 | Scope        | Short note (areas/files changed)                    |
 | Context docs | What you used (`output-contract.md`, `@repo/…`)     |
-| Stance       | Ready / Ready with notes / Not ready                |
+| Stance       | Ready / Not ready                                   |
 
 ## Summary
 
-`N critical · N warning · N nit` - **Stance:** Ready / Ready with notes / Not ready
+`N critical · N warning · N nit` - **Stance:** Ready / Not ready
 
 ## Findings
 

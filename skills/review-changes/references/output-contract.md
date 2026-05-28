@@ -12,8 +12,16 @@ This file defines the output rules for every review-changes session. The workflo
 Use exactly these three. Put the label first in every finding.
 
 - **critical** — blocks push: wrong behavior, security issue, broken contract, data loss risk
-- **warning** — should fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems that will draw PR comments
-- **nit** — optional polish: naming, small structure, non-blocking style
+- **warning** — must fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems that will draw PR comments
+- **nit** — minor issue; still expected to be fixed before push unless explicitly deferred by the author
+
+## Push gate policy
+
+Use a zero-finding standard:
+
+- Any finding (`critical`, `warning`, or `nit`) means the branch is **Not ready**.
+- Severity controls prioritization only (`critical` first), not push eligibility.
+- If no findings are present, mark stance **Ready**.
 
 ## Session file rules
 

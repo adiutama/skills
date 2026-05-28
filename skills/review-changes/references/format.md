@@ -5,8 +5,8 @@
 | Label | When |
 |-------|------|
 | **critical** | Blocks push: wrong behavior, security issue, broken contract, data loss risk |
-| **warning** | Should fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems |
-| **nit** | Optional polish: naming, small structure, non-blocking style |
+| **warning** | Must fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems |
+| **nit** | Minor issue; still expected to be fixed before push unless explicitly deferred |
 
 ## Finding format
 
@@ -45,7 +45,7 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
     | Head SHA     | `<head_sha>`                                             |
     | Scope        | <short note on areas/files changed>                      |
     | Context docs | <files used: format.md, checklist.md, AGENTS.md, …>     |
-    | Stance       | <Ready / Ready with notes / Not ready>                   |
+    | Stance       | <Ready / Not ready>                                       |
 
     ## Summary
 
@@ -89,7 +89,7 @@ Print after saving, then stop:
     Saved: reviews/review-changes/<slug>/<NN>.md
     N critical · N warning · N nit
 
-    Stance: <Ready / Ready with notes / Not ready> — <one-sentence reason>
+    Stance: <Ready / Not ready> — <one-sentence reason>
 
     Findings:
       C1 — <title>  path/to/file:LINE
@@ -100,8 +100,7 @@ Print after saving, then stop:
 
 | Stance | When |
 |--------|------|
-| Ready | No findings, or only nits that are truly cosmetic |
-| Ready with notes | Warnings present, none blocking push |
-| Not ready | Any critical, or a warning severe enough to block push |
+| Ready | Zero findings (`0 critical · 0 warning · 0 nit`) |
+| Not ready | Any finding is present (critical, warning, or nit) |
 
 Always include a one-sentence reason explaining the stance, especially when it may not be obvious from the finding count alone.
