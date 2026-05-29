@@ -1,83 +1,92 @@
 # Review changes output contract
 
-This file defines the output rules for every review-changes session. The workflow is in `SKILL.md`; this file covers what findings look like and how to write them.
+Workflow is in `SKILL.md`. This file defines mandatory review/output guarantees.
 
 ## Your job
 
-1. **Pass 1:** Review the combined diff (committed vs base + uncommitted). Focus on: correctness, security/authz and data handling, API/contracts, operational behavior (errors, retries, limits), tests for changed behavior, consistency with loaded project docs.
-2. **Pass 2+:** First reconcile prior findings against the current state of the working tree. Mark each as fixed, partial, not done, or regressed. Do not re-report resolved items unless the fix is wrong. Then scan only new or touched code for additional issues.
+**Default posture:** skeptical, curious, and ambitious.
+
+1. **Declare scope first:** primary changed files, adjacent impacted files, and explicit out-of-scope files.
+2. **Pass 1:** review combined diff + adjacent scope using deterministic order (`file path asc x lens order`).
+3. **Pass 2+:** reconcile previous findings as `fixed / partial / not done / regressed / missed in prior pass`, then scan only new/touched code.
+4. **Disclose coverage:** report reviewed, partial, and unreviewed scope with reasons.
+5. **Be ambitious:** challenge assumptions and inspect non-obvious cross-system interactions.
 
 ## Severity labels
 
-Use exactly these three. Put the label first in every finding.
+Use exactly:
 
-- **critical** — blocks push: wrong behavior, security issue, broken contract, data loss risk
-- **warning** — must fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems that will draw PR comments
-- **nit** — minor issue; still expected to be fixed before push unless explicitly deferred by the author
+- **critical** — blocks push
+- **warning** — must fix before push
+- **nit** — minor, still expected to be fixed unless deferred
 
 ## Push gate policy
 
-Use a zero-finding standard:
+Zero-finding gate:
 
-- Any finding (`critical`, `warning`, or `nit`) means the branch is **Not ready**.
-- Severity controls prioritization only (`critical` first), not push eligibility.
-- If no findings are present, mark stance **Ready**.
+- Any finding (`critical`, `warning`, `nit`) => **Not ready**
+- Severity controls fix priority, not readiness
+- No findings => **Ready**
+
+## Technical taxonomy tags
+
+Use 1-3 tags from this fixed list only:
+
+- `code-smell`
+- `tech-debt`
+- `spaghetti-code`
+- `tight-coupling`
+- `leaky-abstraction`
+- `api-inconsistency`
+- `cohesion-gap`
+- `clarity-debt`
+- `test-debt`
+
+## Review lenses (fixed order)
+
+1. correctness
+2. security
+3. contract
+4. operations
+5. cohesion
+6. clarity
+7. tests
+8. docs
 
 ## Session file rules
 
-Follow the skeleton in `assets/template.md`. Do not leave instructional or placeholder-only content in the saved file.
+Use `assets/template.md` skeleton and `references/format.md` finding/output format.
 
-### Title and meta
+- H1: `# Review changes - <branch>` only
+- Pass must match session filename (`01`, `02`, ...)
+- Keep only real findings
+- Remove empty sections or use `- None.`
+- Pass 01: no Prior pass/Reconciliation
+- Pass 02+: include Prior pass and Reconciliation
+- In reconciliation, use `missed in prior pass` when a new issue is inside previously covered scope
 
-- H1 is `# Review changes - <branch>` only (real git branch name). Do not put file paths in the title.
-- Set the Pass meta cell to match the session file number (`01`, `02`, ...).
+## Required coverage sections
 
-### Strip and tailor
+Every saved session must include:
 
-- Remove the sample W1 finding from `template.md` when saving. Keep only real findings.
-- Remove Tests or Out of scope sections if there is nothing meaningful, or use a single `- None.` line.
-- Pass 01: do not include Prior pass or Reconciliation sections.
+- `## Scope coverage`
+  - primary scope reviewed
+  - adjacent scope reviewed
+  - out of scope
+  - lens coverage summary per reviewed file
+- `## Coverage notes`
+  - partial/shallow areas and why
+  - confidence limits
+  - exact next-run scope when incomplete
 
-### Pass 02+ additions
-
-After Summary, before Findings, insert:
-
-```markdown
-## Prior pass
-
-- **Carried open:** ...
-- **Fixed this pass:** ...
-- **Dropped / obsolete:** ...
-
-## Reconciliation
-
-For each open ID from the previous file: fixed / partial / not done / worse (one line each).
-```
-
-### Finding shape
-
-Number findings C1, W1, N1, ... (letter = severity). Each finding:
-
-```
-### <ID> - short title
-
-| Field    | Value                    |
-|----------|--------------------------|
-| Severity | critical / warning / nit |
-| Location | `path/to/file:LINE`      |
-| Fixed    | ❌                       |
-
-Brief explanation (2-4 sentences max).
-
-**Suggestion:**
-
-One concrete action item.
-```
-
-Location uses exact line number or `START-END` range. No repo prefix needed — local paths are sufficient.
-
-`Fixed` is `❌` by default. Mark it `✅` manually once you have addressed the finding in your working tree, or it will be reconciled automatically in the next pass.
+Include `Coverage confidence` (`High`, `Medium`, `Low`) in Meta and printed summary.
 
 ## Concision
 
-Prefer short sentences. Every finding must include where (path + exact line number or range) and what to change, unless it is purely informational.
+Keep findings short and actionable.
+
+Every finding must include:
+- exact location (`path:line` or range)
+- what is wrong
+- system-level impact
+- one concrete action

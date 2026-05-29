@@ -1,34 +1,40 @@
 # Format
 
+**Default posture:** skeptical, curious, and ambitious.
+
 ## Severity
 
 | Label | When |
 |-------|------|
-| **critical** | Blocks push: wrong behavior, security issue, broken contract, data loss risk |
-| **warning** | Must fix before pushing: edge-case bugs, missing tests for new logic, meaningful consistency or maintainability problems |
-| **nit** | Minor issue; still expected to be fixed before push unless explicitly deferred |
+| **critical** | Blocks push: wrong behavior, security issue, broken contract, data-loss risk |
+| **warning** | Must fix before push: edge-case bug, missing tests for changed behavior, meaningful consistency/maintainability issue |
+| **nit** | Minor issue; still expected to be fixed unless explicitly deferred |
 
 ## Finding format
 
-Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
+Number by severity: `C1, C2...` · `W1, W2...` · `N1, N2...`
 
-    ### <ID> — short title
+    ### <ID> - short title
 
-    | Field    | Value                    |
-    |----------|--------------------------|
-    | Severity | critical / warning / nit |
-    | Location | `path/to/file:LINE`      |
-    | Fixed    | ❌                       |
+    | Field    | Value                                                                              |
+    |----------|------------------------------------------------------------------------------------|
+    | Severity | critical / warning / nit                                                           |
+    | Tags     | 1-3 from taxonomy                                                                  |
+    | Location | `path/to/file:LINE` or `path/to/file:START-END`                                   |
+    | Lens     | correctness / security / contract / operations / cohesion / clarity / tests / docs |
+    | Fixed    | ❌                                                                                 |
 
-    Brief explanation (2–4 sentences max).
+    Brief explanation (2-4 sentences max).
+    Impact: one sentence at system level.
 
     **Suggestion:**
 
     One concrete action item.
 
-- **Location:** exact line number or `START-END` range. No repo prefix needed — local paths are sufficient.
-- **Fixed:** `❌` by default. Mark `✅` once addressed; the next pass reconciles automatically.
-- Every finding must include where (path + exact line) and what to change.
+Rules:
+- Include exact location and explicit action.
+- `Fixed` is `❌` by default; mark `✅` when addressed.
+- Taxonomy is fixed: `code-smell`, `tech-debt`, `spaghetti-code`, `tight-coupling`, `leaky-abstraction`, `api-inconsistency`, `cohesion-gap`, `clarity-debt`, `test-debt`.
 
 ## Session file template
 
@@ -36,20 +42,35 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
 
     ## Meta
 
-    | Field        | Value                                                    |
-    |--------------|----------------------------------------------------------|
-    | Pass         | `<NN>`                                                   |
-    | Date         | <YYYY-MM-DD>                                             |
-    | Branch       | `<branch>`                                               |
-    | Base         | `<base>`                                                 |
-    | Head SHA     | `<head_sha>`                                             |
-    | Scope        | <short note on areas/files changed>                      |
-    | Context docs | <files used: format.md, checklist.md, AGENTS.md, …>     |
-    | Stance       | <Ready / Not ready>                                       |
+    | Field               | Value                                                |
+    |---------------------|------------------------------------------------------|
+    | Pass                | `<NN>`                                               |
+    | Date                | `<YYYY-MM-DD>`                                       |
+    | Branch              | `<branch>`                                           |
+    | Base                | `<base>`                                             |
+    | Head SHA            | `<head_sha>`                                         |
+    | Scope               | `<short note on changed areas/files>`                |
+    | Context docs        | `<files used: format.md, checklist.md, ...>`         |
+    | Stance              | `<Ready / Not ready>`                                |
+    | Coverage confidence | `<High / Medium / Low>`                              |
 
     ## Summary
 
     `N critical · N warning · N nit` — **Stance:** <stance>
+    - **Posture:** skeptical, curious, and ambitious.
+
+    ## Scope coverage
+
+    - **Primary scope reviewed:** `...`
+    - **Adjacent scope reviewed:** `...`
+    - **Out of scope:** `...` (or `None`)
+    - **Lens coverage:** `path/to/file` -> correctness=high, security=high, contract=medium, operations=high, cohesion=medium, clarity=high, tests=medium, docs=n/a
+
+    ## Coverage notes
+
+    - Partial/shallow areas and why.
+    - Confidence limits and missing context.
+    - Exact next-run target if not fully covered.
 
     ## Findings
 
@@ -57,30 +78,30 @@ Number by severity letter: `C1, C2…` · `W1, W2…` · `N1, N2…`
 
     ## Tests
 
-    - Ran: …
-    - Gaps: …
+    - Ran: ...
+    - Gaps: ...
 
     ## Out of scope
 
-    - …
+    - ...
 
-**Rules:**
-- H1 must be `# Review changes - <branch>` (real branch name, no file paths).
-- Pass cell must match the session file number (`01`, `02`, …).
-- Keep only real findings; no placeholder text.
-- Remove Tests or Out of scope if empty, or replace with `- None.`
-- **Pass 01:** omit Prior pass and Reconciliation sections.
-- **Pass 02+:** insert after Summary, before Findings:
+Rules:
+- H1 must be `# Review changes - <branch>`.
+- Pass value must match file number (`01`, `02`, ...).
+- Keep only real findings (no placeholders).
+- Remove empty sections or replace with `- None.`.
+- Pass 01: omit Prior pass and Reconciliation.
+- Pass 02+: include, after Coverage notes and before Findings:
 
       ## Prior pass
 
-      - **Carried open:** …
-      - **Fixed this pass:** …
-      - **Dropped / obsolete:** …
+      - **Carried open:** ...
+      - **Fixed this pass:** ...
+      - **Dropped / obsolete:** ...
 
       ## Reconciliation
 
-      For each open finding ID from the previous session: fixed / partial / not done / worse (one line each).
+      For each open ID from previous session: fixed / partial / not done / worse / missed in prior pass (one line each).
 
 ## Output summary
 
@@ -90,6 +111,10 @@ Print after saving, then stop:
     N critical · N warning · N nit
 
     Stance: <Ready / Not ready> — <one-sentence reason>
+    Coverage confidence: <High / Medium / Low>
+    Reviewed scope: <short list>
+    Unreviewed scope: <short list or None>
+    Next suggested scope: <exact files/lenses for next run, or None>
 
     Findings:
       C1 — <title>  path/to/file:LINE
@@ -100,7 +125,7 @@ Print after saving, then stop:
 
 | Stance | When |
 |--------|------|
-| Ready | Zero findings (`0 critical · 0 warning · 0 nit`) |
-| Not ready | Any finding is present (critical, warning, or nit) |
+| Ready | `0 critical · 0 warning · 0 nit` |
+| Not ready | Any finding exists |
 
-Always include a one-sentence reason explaining the stance, especially when it may not be obvious from the finding count alone.
+Always include one sentence explaining the stance.

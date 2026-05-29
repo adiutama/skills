@@ -4,37 +4,77 @@
 
 Apply a strict pre-push standard:
 
-- Any finding means the branch is **not ready**.
-- Severity is for fix order only (`critical` first), not for deciding whether to push.
-- Use `nit` sparingly; if reported, it is still expected to be fixed before push unless explicitly deferred by the author.
+- **Default posture:** skeptical, curious, and ambitious.
+- Any finding means **Not ready**.
+- Severity sets fix order only (`critical` first), not push eligibility.
+- Use `nit` sparingly; if reported, fix before push unless explicitly deferred.
+- Be ambitious: do not stop at surface checks; hunt hidden coupling and second-order risks.
+
+## Determinism and coverage contract
+
+- Lock scope before analysis and keep it stable during the pass.
+- Deterministic order: files lexicographic, lenses fixed order below.
+- Review by `file x lens` matrix; never skip silently.
+- Mark non-applicable lens as `n/a`.
+- If full coverage is not possible, list unreviewed scope with reason and next-run target.
+- If a later pass finds an issue inside previously covered scope, reconcile as `missed in prior pass`.
+
+## Scope declaration (before findings)
+
+Define and sort these sets:
+
+- **Primary scope:** files in combined diff.
+- **Adjacent scope:** direct callers/callees and shared contracts/types/schemas/config/docs affected by changes.
+- **Out of scope:** intentionally excluded areas.
+
+## Review lenses and matrix
+
+Use this order:
+
+1. Correctness and logic
+2. Security and authz
+3. Contracts and API compatibility
+4. Operational behavior
+5. System cohesion
+6. Beauty and clarity
+7. Tests and verification
+8. Conventions and docs alignment
+
+For each in-scope file, apply every lens (or `n/a`) and record confidence (`high`, `medium`, `low`).
 
 ## Critical-risk gate (run first)
 
-Before Pass 01, do a blocker sweep. If any item fails, report immediately as `critical`:
+Before Pass 01, sweep for blockers. Any failure is `critical`:
 
-- **Auth on every entrypoint** — every read/write/delete path to protected data must enforce authn/authz; no CRUD asymmetry
-- **Tenant / org data scope** — queries and mutations must be scoped to the caller's tenant/org; no cross-tenant leakage path
-- **Fail-closed behavior** — auth/client-init/dependency failures must not bypass checks or silently continue with unsafe defaults
-- **Destructive action safety** — delete/disable/toggle actions must validate target identity and handle partial failure without corrupting state
-- **Secret / sensitive data exposure** — no tokens, credentials, internal errors, or sensitive fields leaked to logs, responses, or UI
+- **Auth on every entrypoint** — no CRUD auth asymmetry.
+- **Tenant/org data scope** — no cross-tenant leakage.
+- **Fail-closed behavior** — failures cannot bypass safeguards.
+- **Destructive action safety** — verify targets and handle partial failure safely.
+- **Sensitive data exposure** — no secrets/internal sensitive fields leaked.
 
 ## Pass 01
 
-Review the combined diff (committed vs base + uncommitted). Focus on:
+Review combined diff (committed vs base + optional uncommitted), then adjacent scope.
 
-- **Correctness and logic errors** — wrong behavior, off-by-one, unhandled branches
-- **Security / authz** — injection, missing authz checks, sensitive data exposure
-- **API / contract breakage** — changed signatures, removed fields, broken callers
-- **Operational behavior** — missing error handling, retry storms, unguarded limits
-- **Accessibility** — icon-only buttons must have `aria-label`; interactive controls must not be hover-only (keyboard/touch users need `group-focus-within` or always-visible visibility); form controls should have programmatic label associations
-- **Auth consistency** — check that every operation touching protected data (reads AND mutations) enforces the same auth check; look for CRUD asymmetry where mutations are guarded but reads are not (or vice versa)
-- **Typed error contracts** — functions that declare a typed return shape such as `{ success: boolean; error?: string }` must wrap their entire body in try/catch so callers always receive the declared shape; a throwing auth or client-init call must not escape
-- **Input normalization** — user-provided strings used for deduplication, comparison, or storage should be trimmed and case-normalized consistently before use
-- **Error vs empty state** — when a data-fetching hook can fail, verify the render path exposes an error state distinct from the empty/loading state; `data ?? []` on a failed query should not silently render as "no results"
-- **Maintainability / code smells** — duplicate logic, overly large functions/components, deep nesting, dead code, and hidden coupling that can mask defects
-- **Tests** — missing tests for changed logic, tests that don't cover the happy path
-- **Conventions** — inconsistencies with project style visible in the loaded docs
+Focus on:
+
+- Correctness and branch handling
+- Security/authz and sensitive data handling
+- API/contract compatibility
+- Operational safety (errors, retries, limits)
+- Accessibility
+- Auth consistency across reads and mutations
+- Typed error contracts (declared return shape must not leak throws)
+- Input normalization
+- Error vs empty-state rendering
+- Maintainability/code smells (duplication, deep nesting, dead code, hidden coupling, leaky abstractions, spaghetti-code flow)
+- System cohesion (domain language, boundaries, invariants)
+- Beauty and clarity (naming, control flow simplicity, composability)
+- Tests for changed behavior
+- Conventions from loaded docs
 
 ## Pass 02+
 
-Reconcile prior findings against the current working tree first — mark each as fixed / partial / not done / regressed. Do not re-report resolved items unless the fix introduced a new problem. Then scan only new or touched code for additional issues.
+Reconcile prior findings first: `fixed / partial / not done / regressed / missed in prior pass`.
+
+Do not re-report resolved items unless the fix introduces a new issue. Then scan only new/touched code.
