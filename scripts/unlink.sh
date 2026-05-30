@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-${REPO_ROOT}/skills}"
+source "${SCRIPT_DIR}/lib/agent-harnesses.sh"
 DRY_RUN=false
 EXTRA_REMOVE_ARGS=()
 SKILL_NAMES=()
@@ -28,6 +29,7 @@ Examples:
 
 Environment:
   SOURCE_DIR  Skills source directory (default: <repo>/skills)
+  SKILLS_AGENTS Optional explicit agent slug list (comma/space-separated)
 EOF
 }
 
@@ -71,24 +73,13 @@ ensure_skill_names_exist() {
 }
 
 run_unlink() {
+  build_agent_args
+
   echo "Unlinking skills from: ${SOURCE_DIR}"
-  echo "Target: global (all agents)"
+  echo "Target: global (${AGENT_SCOPE_DESC})"
   echo "Skills: ${SKILL_NAMES[*]}"
 
-  if [[ "${DRY_RUN}" == true ]]; then
-    if [[ ${#EXTRA_REMOVE_ARGS[@]} -gt 0 ]]; then
-      echo "[dry-run] npx skills remove -g --all -y ${SKILL_NAMES[*]} ${EXTRA_REMOVE_ARGS[*]}"
-    else
-      echo "[dry-run] npx skills remove -g --all -y ${SKILL_NAMES[*]}"
-    fi
-    return
-  fi
-
-  if [[ ${#EXTRA_REMOVE_ARGS[@]} -gt 0 ]]; then
-    npx skills remove -g --all -y "${SKILL_NAMES[@]}" "${EXTRA_REMOVE_ARGS[@]}"
-  else
-    npx skills remove -g --all -y "${SKILL_NAMES[@]}"
-  fi
+  run_skills_remove_global "${DRY_RUN}" "${SKILL_NAMES[@]}" -- "${EXTRA_REMOVE_ARGS[@]}"
 }
 
 main() {

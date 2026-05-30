@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-${REPO_ROOT}/skills}"
+source "${SCRIPT_DIR}/lib/agent-harnesses.sh"
 DRY_RUN=false
 EXTRA_ADD_ARGS=()
 
@@ -27,6 +28,7 @@ Examples:
 
 Environment:
   SOURCE_DIR  Skills source directory (default: <repo>/skills)
+  SKILLS_AGENTS Optional explicit agent slug list (comma/space-separated)
 EOF
 }
 
@@ -52,23 +54,12 @@ ensure_source_dir_exists() {
 }
 
 run_link() {
+  build_agent_args
+
   echo "Linking skills from: ${SOURCE_DIR}"
-  echo "Target: global (all agents)"
+  echo "Target: global (${AGENT_SCOPE_DESC})"
 
-  if [[ "${DRY_RUN}" == true ]]; then
-    if [[ ${#EXTRA_ADD_ARGS[@]} -gt 0 ]]; then
-      echo "[dry-run] npx skills add \"${SOURCE_DIR}\" -g --all -y ${EXTRA_ADD_ARGS[*]}"
-    else
-      echo "[dry-run] npx skills add \"${SOURCE_DIR}\" -g --all -y"
-    fi
-    return
-  fi
-
-  if [[ ${#EXTRA_ADD_ARGS[@]} -gt 0 ]]; then
-    npx skills add "${SOURCE_DIR}" -g --all -y "${EXTRA_ADD_ARGS[@]}"
-  else
-    npx skills add "${SOURCE_DIR}" -g --all -y
-  fi
+  run_skills_add_all "${SOURCE_DIR}" "${DRY_RUN}" "${EXTRA_ADD_ARGS[@]}"
 }
 
 main() {

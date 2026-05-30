@@ -26,6 +26,8 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 │       ├── references/
 │       └── scripts/    # optional, skill-internal helpers
 ├── scripts/
+│   ├── lib/            # shared script helpers
+│   ├── cleanup.sh      # preview/remove unused agent config dirs
 │   ├── link.sh         # link all repo skills globally via npx skills
 │   ├── unlink.sh       # unlink all repo skills globally via npx skills
 │   └── sync.sh         # reconcile local skills with global installation
@@ -35,7 +37,7 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 
 ## Usage
 
-Link all skills globally (all detected agents):
+Link all skills globally (auto-detected local harnesses):
 
 ```bash
 ./scripts/link.sh
@@ -74,19 +76,30 @@ Preview actions without changing anything:
 Optional overrides:
 
 - `SOURCE_DIR=/absolute/path/to/skills ./scripts/link.sh`
+- Default auto-targets are detected by intersecting:
+  - agents supported by your local `skills` CLI (`Valid agents` list), and
+  - binaries found on PATH (for example via `which <agent-cli>`)
+  - when `skills` is not on PATH, the scripts fall back to common agents (`cursor`, `claude-code`, `codex`, `opencode`)
+- `SKILLS_AGENTS="cursor claude-code codex" ./scripts/link.sh` to force an explicit agent list
+- `SKILLS_BIN_CLAUDE_CODE=/custom/path/claude ./scripts/link.sh` to override a specific binary path
 - Run `./scripts/link.sh --help`, `./scripts/unlink.sh --help`, or `./scripts/sync.sh --help` for full options.
 
-## Commit helper script
+## Cleanup unused agent config dirs
 
-Generate a commit message from staged changes, then commit after confirmation:
+Preview unused config directories:
 
 ```bash
-./scripts/commit.sh
+./scripts/cleanup.sh
 ```
 
-Common options:
+Apply deletion:
 
-- `./scripts/commit.sh --all` stage everything first (`git add -A`)
-- `./scripts/commit.sh --dry-run` preview message only
-- `./scripts/commit.sh --yes` commit without prompt
-- `./scripts/commit.sh --model <model>` choose model explicitly
+```bash
+./scripts/cleanup.sh --apply
+```
+
+Skip confirmation:
+
+```bash
+./scripts/cleanup.sh --apply --yes
+```
