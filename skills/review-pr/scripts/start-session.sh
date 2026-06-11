@@ -70,7 +70,7 @@ allocate_session_path() {
   local slug dir n
 
   slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
-  dir="reviews/${OWNER}/${REPO}/${slug}"
+  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/review-pr"
   mkdir -p "$dir"
 
   n=1

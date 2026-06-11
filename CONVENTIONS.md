@@ -64,6 +64,22 @@ Keep per-skill specifics inside that skill package:
 - Keep runtime guidance in `references/` and skill-scoped templates/examples in `assets/`.
 - Use explicit file paths in instructions when ambiguity is possible.
 
+## Artifact storage
+
+Skills that produce persistent output files (review sessions, reports, etc.) must write to:
+
+```text
+~/.agents/artifacts/<owner>/<repo>/<branch-slug>/<skill-name>/
+```
+
+- `<owner>/<repo>` — derived from `git remote get-url origin`; use `_local/_local` when no remote exists.
+- `<branch-slug>` — branch name with `/` and non-alphanumeric chars replaced by `-`; detached HEAD uses `detached-<short-sha>`.
+- `<skill-name>` — matches the skill's `name:` frontmatter field.
+
+**Rationale:** keeps the workspace clean, makes artifacts discoverable by other agents working on the same branch, and provides a single consistent location regardless of which project directory the skill was invoked from.
+
+Skills must not write persistent artifacts into the workspace or the skill repository itself.
+
 ## See also
 
 - [SKILL template](docs/templates/SKILL.template.md)

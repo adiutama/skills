@@ -1,6 +1,6 @@
 ---
 name: review-changes
-description: Review local git changes before pushing. Catches problems early so the PR process is smoother. Saves a persistent session file under reviews/review-changes/. Use when you want pre-push feedback on uncommitted or unpushed changes across standard and virtual-branch workflows.
+description: Review local git changes before pushing. Catches problems early so the PR process is smoother. Saves a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-changes/. Use when you want pre-push feedback on uncommitted or unpushed changes across standard and virtual-branch workflows.
 compatibility: Requires a git repository.
 metadata:
   argument-hint: "[target-branch-or-commit-sha] (optional; defaults to HEAD)"
@@ -22,12 +22,13 @@ Review surface = committed diff + optional uncommitted diff. If empty, print:
 `Nothing to review — no relevant changes in <COMMITTED_RANGE> and no uncommitted modifications.`
 Then stop.
 ## Step 2 - Determine session path
+Derive `OWNER` and `REPO` from the git remote: `git remote get-url origin`, parse `<owner>/<repo>` from the URL (handles both HTTPS and SSH forms). If no remote exists, use `_local` for both.
 Slugify `BRANCH` by replacing `/` and non-alphanumeric chars with `-`.
 - Example: `feat/add-login` -> `feat-add-login`
 - Detached HEAD -> `detached-<sha>`
-Session dir: `reviews/review-changes/<slug>/`
+Session dir: `~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-changes/`
 Pass numbering: none => `01.md`, otherwise next (`02.md`, ...).
-Set `SESSION_PATH = reviews/review-changes/<slug>/<NN>.md` and `PASS = NN`.
+Set `SESSION_PATH = ~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-changes/<NN>.md` and `PASS = NN`.
 ## Step 3 - Load context (parallel)
 - `<SKILL_DIR>/references/checklist.md`
 - `<SKILL_DIR>/references/format.md`

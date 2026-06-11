@@ -2,7 +2,7 @@
 # Resolve PR identity and locate the latest review session file.
 # Usage: resolve.sh <PR URL or number>
 # Output: JSON { owner, repo, number, head_sha, branch, session_path }
-#   session_path — highest-numbered NN.md under reviews/<owner>/<repo>/<slug>/
+#   session_path — highest-numbered NN.md under ~/.agents/artifacts/<owner>/<repo>/<slug>/review-pr/
 #                  or empty string if no session file exists yet.
 
 set -euo pipefail
@@ -85,7 +85,7 @@ main() {
   head_sha=$(printf '%s' "$meta" | jq -r .headRefOid)
 
   slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
-  dir="reviews/${OWNER}/${REPO}/${slug}"
+  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/review-pr"
   session_path=$(latest_session_file "$dir")
 
   print_output_json "$head_sha" "$branch" "$session_path"
