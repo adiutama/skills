@@ -253,7 +253,7 @@ link_current_locals() {
   fi
 
   echo "Linking current local skills..."
-  run_skills_add_all "${SOURCE_DIR}" "${DRY_RUN}" "${EXTRA_ADD_ARGS[@]}"
+  run_skills_add_all "${SOURCE_DIR}" "${DRY_RUN}" "${EXTRA_ADD_ARGS[@]+"${EXTRA_ADD_ARGS[@]}"}"
 }
 
 main() {

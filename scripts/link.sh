@@ -59,7 +59,7 @@ run_link() {
   echo "Linking skills from: ${SOURCE_DIR}"
   echo "Target: global (${AGENT_SCOPE_DESC})"
 
-  run_skills_add_all "${SOURCE_DIR}" "${DRY_RUN}" "${EXTRA_ADD_ARGS[@]}"
+  run_skills_add_all "${SOURCE_DIR}" "${DRY_RUN}" "${EXTRA_ADD_ARGS[@]+"${EXTRA_ADD_ARGS[@]}"}"
 }
 
 main() {
