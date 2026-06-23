@@ -1,6 +1,7 @@
 ---
 name: review-changes
 description: Review local git changes before pushing. Catches problems early so the PR process is smoother. Saves a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-changes/. Use when you want pre-push feedback on uncommitted or unpushed changes across standard and virtual-branch workflows.
+disable-model-invocation: true
 compatibility: Requires a git repository.
 metadata:
   argument-hint: "[target-branch-or-commit-sha] (optional; defaults to HEAD)"

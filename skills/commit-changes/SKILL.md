@@ -1,6 +1,7 @@
 ---
 name: commit-changes
 description: Check staged changes first; otherwise use context-discovered file changes to stage and commit with a generated message.
+disable-model-invocation: true
 compatibility: Requires a git repository and edited-file context in the current session.
 metadata:
   argument-hint: "[scope-hint] [--skip-stage]"

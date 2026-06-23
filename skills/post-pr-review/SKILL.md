@@ -1,6 +1,7 @@
 ---
 name: post-pr-review
 description: Post findings from a saved review session as inline GitHub PR comments. Use after /review-pr to publish findings and submit an approve/request-changes review.
+disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
   argument-hint: "<pr-url or pr-number> [optional instructions]"

@@ -1,6 +1,7 @@
 ---
 name: pickup-handoff
 description: Load a handoff file from a provided path, send a short kickoff, and wait for confirmation before starting.
+disable-model-invocation: true
 argument-hint: "Path to handoff .md file"
 ---
 

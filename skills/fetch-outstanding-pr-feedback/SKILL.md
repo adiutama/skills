@@ -1,6 +1,7 @@
 ---
 name: fetch-outstanding-pr-feedback
 description: Fetch unresolved review threads and pending change requests for a GitHub PR. Use when the user asks for outstanding PR feedback.
+disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
   argument-hint: "<PR URL or PR Number>"

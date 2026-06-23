@@ -1,6 +1,7 @@
 ---
 name: review-pr
 description: Review a GitHub PR and save a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-pr/. Use before merge; does not post comments (use /post-pr-review).
+disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
   argument-hint: "<PR URL or PR Number>"
