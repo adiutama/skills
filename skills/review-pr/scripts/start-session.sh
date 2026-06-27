@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/artifact-root.sh"
+
 require_dependencies() {
   command -v gh &>/dev/null || {
     echo "Error: gh CLI not installed. See https://cli.github.com" >&2
@@ -70,7 +72,7 @@ allocate_session_path() {
   local slug dir n
 
   slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
-  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/review-pr"
+  dir=$(artifact_skill_path "$OWNER" "$REPO" "$slug" "review-pr")
   mkdir -p "$dir"
 
   n=1

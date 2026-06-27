@@ -7,6 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
 
 branch_slug() {
   local branch sha
@@ -106,15 +107,32 @@ main() {
 
   resolve_owner_repo
   SLUG=$(branch_slug)
-  BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${SLUG}/handle-on-call"
 
-  local session_dir=""
+  local session_dir="" root base candidate
   if [[ -n "$arg" ]]; then
     local id="${arg#incident-}"
-    session_dir="${BASE}/incident-${id}"
-    [[ -d "$session_dir" ]] || session_dir="${BASE}/${arg}"
-  elif [[ -d "$BASE" ]]; then
-    session_dir=$(find "$BASE" -mindepth 1 -maxdepth 1 -type d -name 'incident-*' 2>/dev/null | sort -r | head -1)
+    while IFS= read -r root; do
+      [[ -n "$root" ]] || continue
+      for candidate in \
+        "${root}/${OWNER}/${REPO}/${SLUG}/handle-on-call/incident-${id}" \
+        "${root}/${OWNER}/${REPO}/${SLUG}/handle-on-call/${arg}"; do
+        if [[ -d "$candidate" ]]; then
+          session_dir="$candidate"
+          break 2
+        fi
+      done
+    done < <(artifact_search_roots)
+  else
+    while IFS= read -r root; do
+      [[ -n "$root" ]] || continue
+      base="${root}/${OWNER}/${REPO}/${SLUG}/handle-on-call"
+      [[ -d "$base" ]] || continue
+      candidate=$(find "$base" -mindepth 1 -maxdepth 1 -type d -name 'incident-*' 2>/dev/null | sort -r | head -1)
+      if [[ -n "$candidate" ]]; then
+        session_dir="$candidate"
+        break
+      fi
+    done < <(artifact_search_roots)
   fi
 
   if [[ -z "$session_dir" || ! -f "${session_dir}/meta.md" ]]; then

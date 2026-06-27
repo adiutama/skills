@@ -131,19 +131,35 @@ Keep per-skill specifics inside that skill package:
 
 ## Artifact storage
 
-Skills that produce persistent output files (review sessions, reports, etc.) must write to:
+Skills that produce persistent output files (review sessions, reports, etc.) use:
 
 ```text
-~/.agents/artifacts/<owner>/<repo>/<branch-slug>/<skill-name>/
+<write-root>/<owner>/<repo>/<branch-slug>/<skill-name>/
 ```
 
-- `<owner>/<repo>` — derived from `git remote get-url origin`; use `_local/_local` when no remote exists.
-- `<branch-slug>` — branch name with `/` and non-alphanumeric chars replaced by `-`; detached HEAD uses `detached-<short-sha>`.
-- `<skill-name>` — matches the skill's `name:` frontmatter field.
+Where `<write-root>` is chosen automatically:
 
-**Rationale:** keeps the workspace clean, makes artifacts discoverable by other agents working on the same branch, and provides a single consistent location regardless of which project directory the skill was invoked from.
+| Condition | Write root |
+|-----------|------------|
+| `.agents/artifacts` or `.agents/` is **gitignored** | `<git-root>/.agents/artifacts/` |
+| Not gitignored (or not in a git repo) | `~/.agents/artifacts/` |
 
-Skills must not write persistent artifacts into the workspace or the skill repository itself.
+- `<git-root>` — `git rev-parse --show-toplevel`
+- `<owner>/<repo>` — derived from `git remote get-url origin`; use `_local/_local` when no remote exists
+- `<branch-slug>` — branch name sanitized; detached HEAD → `detached-<short-sha>`
+- `<skill-name>` — matches the skill's `name:` frontmatter field
+
+**Why gitignore-gated:** project-local artifacts are convenient when ignored; global avoids accidental commits when they are not.
+
+**Read / resume:** search local first, then global (migration + override).
+
+**Override:** `AGENTS_ARTIFACTS_SCOPE=local|global` forces one root.
+
+**Check:** `./scripts/check-artifact-root.sh` (or `--json`).
+
+Skills must not write persistent artifacts into the skill package itself (`skills/<skill-name>/`). Copy `docs/assets/artifact-root.sh` into `scripts/lib/` when shell helpers need path resolution.
+
+Recommend adding `.agents/` to the project `.gitignore` so sessions stay beside the repo.
 
 ## See also
 

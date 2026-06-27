@@ -17,7 +17,7 @@ Blast radius — <branch> (pass <NN>)
 Change: fix | feature | rewire · Intent: <one line>
 N critical · N warning · N note
 Verdict: <safe to commit | address first | known risk — user confirmed>
-Saved: ~/.agents/artifacts/<owner>/<repo>/<slug>/scan-blast-radius/<NN>.md
+Saved: .agents/artifacts/<owner>/<repo>/<slug>/scan-blast-radius/<NN>.md
 Next: user decides — commit, widen review, or fix findings first
 ```
 

@@ -7,6 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
 
 branch_slug() {
   local branch sha
@@ -102,7 +103,7 @@ main() {
   resolve_owner_repo
   SLUG=$(branch_slug)
   INCIDENT_ID=$(incident_slug)
-  BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${SLUG}/handle-on-call"
+  BASE=$(artifact_skill_path "$OWNER" "$REPO" "$SLUG" "handle-on-call")
   SESSION_DIR="${BASE}/incident-${INCIDENT_ID}"
   mkdir -p "$SESSION_DIR"
 

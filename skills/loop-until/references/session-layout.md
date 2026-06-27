@@ -5,8 +5,10 @@ One session directory per run. Timestamps sort lexically (`sort -r` = newest fir
 ## Path
 
 ```text
-~/.agents/artifacts/<owner>/<repo>/<branch-slug>/loop-until/sessions/<session-id>/
+<git-root>/.agents/artifacts/<owner>/<repo>/<branch-slug>/loop-until/sessions/<session-id>/
 ```
+
+Fallback when not in a git repo: `~/.agents/artifacts/.../loop-until/sessions/<session-id>/`
 
 - `<owner>/<repo>` — `git remote get-url origin`; else `_local/_local`
 - `<branch-slug>` — sanitized branch; detached → `detached-<short-sha>`

@@ -1,6 +1,6 @@
 ---
 name: review-diff
-description: Skeptical pre-push review—shippable before the PR exists. Session under ~/.agents/artifacts/.../review-diff/.
+description: Skeptical pre-push review—shippable before the PR exists. Session under .agents/artifacts/.../review-diff/ (project-local; global fallback).
 disable-model-invocation: true
 compatibility: Requires a git repository.
 metadata:
@@ -22,7 +22,7 @@ Empty surface → nothing-to-review message; stop.
 
 ## Step 2 — Session path
 
-Remote → `OWNER`/`REPO` (else `_local`). Slugify branch. Dir: `~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-diff/`. Next pass `NN.md` → `SESSION_PATH`, `PASS`. Legacy `review-workspace/`, `review-changes/` — full path or migrate.
+Remote → `OWNER`/`REPO` (else `_local`). Slugify branch. Dir: `.agents/artifacts/<OWNER>/<REPO>/<slug>/review-diff/` (under git root; else `~/.agents/artifacts/...`). Next pass `NN.md` → `SESSION_PATH`, `PASS`. Legacy `review-workspace/`, `review-changes/` — full path or migrate.
 
 ## Step 3 — Context (parallel)
 

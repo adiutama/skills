@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: Triage PR feedback until clear—fetch, select, fix, push, notify humans, refresh. Session under ~/.agents/artifacts/.../address-pr-feedback/. --fetch-only for verify-only.
+description: Triage PR feedback until clear—fetch, select, fix, push, notify humans, refresh. Session under .agents/artifacts/.../address-pr-feedback/ (project-local; global fallback). --fetch-only for verify-only.
 disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:

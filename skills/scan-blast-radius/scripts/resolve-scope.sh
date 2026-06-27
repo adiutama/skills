@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
+
 ref_exists() {
   git rev-parse --verify --quiet "$1^{commit}" >/dev/null 2>&1
 }
@@ -59,26 +62,12 @@ branch_slug() {
 }
 
 allocate_session_path() {
-  local slug dir legacy_dir base f candidate n
+  local slug dir n
   slug=$(branch_slug)
-  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/scan-blast-radius"
-  legacy_dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/check-blast-radius"
+  dir=$(artifact_skill_path "$OWNER" "$REPO" "$slug" "scan-blast-radius")
   mkdir -p "$dir"
 
-  n=0
-  for base in "$dir" "$legacy_dir"; do
-    [[ -d "$base" ]] || continue
-    shopt -s nullglob
-    for f in "$base"/*.md; do
-      candidate="${f##*/}"
-      candidate="${candidate%.md}"
-      if [[ "$candidate" =~ ^[0-9]+$ ]] && (( 10#candidate > n )); then
-        n=$((10#candidate))
-      fi
-    done
-    shopt -u nullglob
-  done
-  n=$((n + 1))
+  n=$(artifact_next_pass_number "$OWNER" "$REPO" "$slug" "scan-blast-radius" "check-blast-radius")
 
   SESSION_DIR="$dir"
   SESSION_PATH="$dir/$(printf '%02d' "$n").md"

@@ -1,6 +1,6 @@
 ---
 name: handle-on-call
-description: On-call from Slack paste—ack thread, triage, confirm, fix or skip, push, close loop. Session under ~/.agents/artifacts/.../handle-on-call/. Posts via Slack MCP.
+description: On-call from Slack paste—ack thread, triage, confirm, fix or skip, push, close loop. Session under .agents/artifacts/.../handle-on-call/ (project-local; global fallback). Posts via Slack MCP.
 disable-model-invocation: true
 compatibility: Slack MCP enabled on the agent; jq; git for code fixes.
 metadata:

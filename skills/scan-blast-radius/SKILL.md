@@ -1,6 +1,6 @@
 ---
 name: scan-blast-radius
-description: Blast-radius before commit—rings, glue, parallel, verdict. One edit; trace what else breaks. Session under ~/.agents/artifacts/.../scan-blast-radius/.
+description: Blast-radius before commit—rings, glue, parallel, verdict. One edit; trace what else breaks. Session under .agents/artifacts/.../scan-blast-radius/ (project-local; global fallback).
 disable-model-invocation: true
 compatibility: Requires a git repository.
 metadata:

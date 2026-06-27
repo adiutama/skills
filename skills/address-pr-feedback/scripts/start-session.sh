@@ -12,6 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
 
 require_dependencies() {
   command -v gh &>/dev/null || {
@@ -115,7 +116,7 @@ main() {
   fetch_pr_meta
 
   SLUG=$(branch_slug "$PR_BRANCH")
-  BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${SLUG}/address-pr-feedback"
+  BASE=$(artifact_skill_path "$OWNER" "$REPO" "$SLUG" "address-pr-feedback")
   SESSION_DIR="${BASE}/pr-${NUMBER}"
   mkdir -p "$SESSION_DIR"
 

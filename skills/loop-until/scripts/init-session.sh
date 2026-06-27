@@ -7,6 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
 
 slug="${1:-}"
 slug=$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-32)
@@ -55,7 +56,7 @@ BRANCH_SLUG=$(branch_slug)
 SESSION_ID=$(session_id)
 CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${BRANCH_SLUG}/loop-until/sessions"
+BASE="$(artifact_skill_path "$OWNER" "$REPO" "$BRANCH_SLUG" "loop-until")/sessions"
 SESSION_DIR="${BASE}/${SESSION_ID}"
 
 if [[ -e "$SESSION_DIR" ]]; then

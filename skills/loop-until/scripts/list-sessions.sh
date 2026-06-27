@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
+
 LIMIT="${1:-5}"
 
 resolve_owner_repo() {
@@ -50,36 +53,46 @@ read_meta_field() {
 
 resolve_owner_repo
 BRANCH_SLUG=$(branch_slug)
-BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${BRANCH_SLUG}/loop-until/sessions"
-
-if [[ ! -d "$BASE" ]]; then
-  jq -n '[]'
-  exit 0
-fi
 
 entries=()
+seen=$'\n'
 count=0
-while IFS= read -r id; do
-  [[ -z "$id" ]] && continue
-  dir="${BASE}/${id}"
-  meta="${dir}/meta.md"
-  [[ -f "$meta" ]] || continue
 
-  status=$(read_meta_field "$meta" status)
-  goal=$(read_meta_field "$meta" goal)
-  created=$(read_meta_field "$meta" created)
+collect_sessions() {
+  local base="$1" id dir meta status goal created
+  base="$1"
+  [[ -d "$base" ]] || return
 
-  entries+=("$(jq -n \
-    --arg session_id "$id" \
-    --arg session_dir "$dir" \
-    --arg status "$status" \
-    --arg goal "$goal" \
-    --arg created "$created" \
-    '{session_id: $session_id, session_dir: $session_dir, status: $status, goal: $goal, created: $created}')")
+  while IFS= read -r id; do
+    [[ -z "$id" ]] && continue
+    [[ "$seen" == *$'\n'"${id}"$'\n'* ]] && continue
+    dir="${base}/${id}"
+    meta="${dir}/meta.md"
+    [[ -f "$meta" ]] || continue
 
-  count=$((count + 1))
+    seen+="${id}"$'\n'
+    status=$(read_meta_field "$meta" status)
+    goal=$(read_meta_field "$meta" goal)
+    created=$(read_meta_field "$meta" created)
+
+    entries+=("$(jq -n \
+      --arg session_id "$id" \
+      --arg session_dir "$dir" \
+      --arg status "$status" \
+      --arg goal "$goal" \
+      --arg created "$created" \
+      '{session_id: $session_id, session_dir: $session_dir, status: $status, goal: $goal, created: $created}')")
+
+    count=$((count + 1))
+    [[ "$count" -ge "$LIMIT" ]] && return
+  done < <(ls -1 "$base" 2>/dev/null | sort -r)
+}
+
+while IFS= read -r root; do
+  [[ -n "$root" ]] || continue
+  collect_sessions "${root}/${OWNER}/${REPO}/${BRANCH_SLUG}/loop-until/sessions"
   [[ "$count" -ge "$LIMIT" ]] && break
-done < <(ls -1 "$BASE" 2>/dev/null | sort -r)
+done < <(artifact_search_roots)
 
 if [[ ${#entries[@]} -eq 0 ]]; then
   jq -n '[]'

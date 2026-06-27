@@ -4,7 +4,7 @@ Where to find review session files and what they contain. Adapted from the commo
 
 ## Lookup order (`resolve.sh`)
 
-For PR branch slug `<slug>` under `~/.agents/artifacts/<owner>/<repo>/<slug>/`:
+For PR branch slug `<slug>` under `.agents/artifacts/<owner>/<repo>/<slug>/` (project-local; search `~/.agents/artifacts/...` as fallback):
 
 1. **`submit-pr-review/`** — this skill's namespace (preferred for new sessions)
 2. **`post-pr-review/`** — legacy rename (same layout)

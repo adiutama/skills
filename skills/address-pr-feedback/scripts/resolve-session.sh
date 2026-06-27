@@ -7,6 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "${SCRIPT_DIR}/lib/artifact-root.sh"
 
 branch_slug() {
   local branch sha
@@ -110,9 +111,9 @@ main() {
 
   resolve_owner_repo
   SLUG=$(branch_slug)
-  BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${SLUG}/address-pr-feedback"
 
   local session_dir=""
+  local root base
   if [[ -n "$arg" ]]; then
     local number=""
     if [[ "$arg" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
@@ -123,10 +124,26 @@ main() {
       number="$arg"
     fi
     if [[ -n "$number" ]]; then
-      session_dir="${BASE}/pr-${number}"
+      while IFS= read -r root; do
+        [[ -n "$root" ]] || continue
+        candidate="${root}/${OWNER}/${REPO}/${SLUG}/address-pr-feedback/pr-${number}"
+        if [[ -d "$candidate" ]]; then
+          session_dir="$candidate"
+          break
+        fi
+      done < <(artifact_search_roots)
     fi
-  elif [[ -d "$BASE" ]]; then
-    session_dir=$(find "$BASE" -mindepth 1 -maxdepth 1 -type d -name 'pr-*' 2>/dev/null | sort -r | head -1)
+  else
+    while IFS= read -r root; do
+      [[ -n "$root" ]] || continue
+      base="${root}/${OWNER}/${REPO}/${SLUG}/address-pr-feedback"
+      [[ -d "$base" ]] || continue
+      candidate=$(find "$base" -mindepth 1 -maxdepth 1 -type d -name 'pr-*' 2>/dev/null | sort -r | head -1)
+      if [[ -n "$candidate" ]]; then
+        session_dir="$candidate"
+        break
+      fi
+    done < <(artifact_search_roots)
   fi
 
   if [[ -z "$session_dir" || ! -f "${session_dir}/findings.json" ]]; then
