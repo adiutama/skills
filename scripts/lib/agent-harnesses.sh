@@ -269,10 +269,14 @@ run_skills_remove_global() {
   fi
   extra_args=("$@")
 
+  if [[ ${#names[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  cmd+=("${names[@]}")
   if [[ ${#AGENT_ARGS[@]} -gt 0 ]]; then
     cmd+=("${AGENT_ARGS[@]}")
   fi
-  cmd+=("${names[@]}")
   if [[ ${#extra_args[@]} -gt 0 ]]; then
     cmd+=("${extra_args[@]}")
   fi
