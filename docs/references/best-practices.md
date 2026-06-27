@@ -11,7 +11,7 @@
 
 - Use `verb-object[-qualifier]` in kebab-case.
 - Keep directory name and `name:` in frontmatter identical.
-- Prefer command-like names (for example: `/review-pr`, `/post-pr-review`).
+- Prefer command-like names (for example: `/review-pr`, `/submit-pr-review`).
 
 ## SKILL.md authoring
 
@@ -23,6 +23,8 @@
 ## Building new skills
 
 Treat every new skill as **standalone**. Preconfigured modularity is not available—no routers, chains, or skill-to-skill handoffs in prose.
+
+**Voice and leading words are required**, not a follow-up polish pass—see [Voice and compression](#voice-and-compression).
 
 ### Self-contained by default
 
@@ -107,7 +109,7 @@ Before finalizing, ask:
 
 All yes and shorter → **distilled**. Any no → **hollow**. A promise broke in a later pass → **oblivion** (revert to the last good draft).
 
-Reference: `skills/optimize-skill/SKILL.md`, `skills/optimize-skill/references/voice.md`.
+Reference: `skills/refine-skill/SKILL.md`, `skills/refine-skill/references/voice.md`.
 
 ## Token efficiency
 

@@ -11,7 +11,7 @@ This document reflects the current repository style (as implemented in existing 
 
 ## Voice and leading words
 
-Skills in this repo aim for **beautiful, powerful, lean**: shared meaning in few tokens, not stripped wording.
+Skills in this repo aim for **beautiful, powerful, lean**: shared meaning in few tokens, not stripped wording. **Required for every skill**—not optional polish after structure or independence.
 
 **Voice** is deliberate human prose that earns its place—opening lines, gates, boundaries, judgment the agent cannot infer. Cut **ornament** and **mere exposition**; keep lines that change behavior or trust.
 
@@ -29,7 +29,7 @@ Skills in this repo aim for **beautiful, powerful, lean**: shared meaning in few
 
 **Before shipping**, run the distilled test: still know what to do, what must never happen, and still sound like someone who trusts you? All yes and shorter → **distilled**. Any no → **hollow**.
 
-See [best practices — Voice and compression](docs/references/best-practices.md#voice-and-compression) and `skills/optimize-skill/` for examples.
+See [best practices — Voice and compression](docs/references/best-practices.md#voice-and-compression) and `skills/refine-skill/` for examples.
 
 ## Skill independence
 
@@ -52,7 +52,7 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 
 - Skill names use `verb-object[-qualifier]` in kebab-case.
 - Skill directory name and `name:` in frontmatter must match.
-- Command form should read naturally: `/review-pr`, `/post-pr-review`, `/refactor-safely`.
+- Command form should read naturally: `/review-pr`, `/submit-pr-review`, `/refactor-safely`.
 
 ### Choosing the name
 
@@ -150,4 +150,4 @@ Skills must not write persistent artifacts into the workspace or the skill repos
 - [SKILL template](docs/templates/SKILL.template.md)
 - [Best practices](docs/references/best-practices.md)
 - [Author checklist](docs/references/author-checklist.md)
-- [Optimize skill](../skills/optimize-skill/SKILL.md) — distillation workflow and voice examples
+- [Refine skill](../skills/refine-skill/SKILL.md) — distillation workflow and voice examples

@@ -1,15 +1,15 @@
 ---
-name: optimize-skill
-description: Distill skill docs and prompts—prose lean, logic in scripts. Continue, complete, or oblivion when promises break. Use for paths or text to tighten or refine.
+name: refine-skill
+description: Refine skill docs and prompts—prose lean, logic in scripts. Continue, complete, or oblivion when promises break. Use for paths or text to tighten or distill.
 disable-model-invocation: true
 metadata:
   argument-hint: "[folder-path|file-path|plain-text]"
 allowed-tools: Read Write Glob rg Bash
 ---
 
-Invoked as `/optimize-skill [folder-path|file-path|plain-text]`.
+Invoked as `/refine-skill [folder-path|file-path|plain-text]`.
 
-# Optimize Skill
+# Refine Skill
 
 *Between human and machine, the finest instructions need little—not from stinginess, but from understanding already shared.*
 
@@ -55,7 +55,7 @@ Oblivion is not failure. It is refusing to ship a corpse dressed as poetry.
 
 ## Output
 
-1. **Optimized text** — full rewrite (per target).
+1. **Refined text** — full rewrite (per target).
 2. **Scripts** (if any) — path, what left prose, how to invoke.
 3. **What changed** — 3–6 bullets.
 4. **Journey** — `Continue` \| `Complete` \| `Oblivion` — one line why.

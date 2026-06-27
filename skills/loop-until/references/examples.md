@@ -50,4 +50,4 @@ Exit verify: run fetch-only list command for that PR; parent checks JSON `total_
 
 > Loop until latest blast-radius session verdict is `safe to commit`.
 
-Verify by reading saved session under `.../check-blast-radius/`; use `--quick` when user scoped to glue + direct rings only.
+Verify by reading saved session under `.../scan-blast-radius/`; use `--quick` when user scoped to glue + direct rings only.

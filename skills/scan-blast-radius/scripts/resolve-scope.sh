@@ -3,7 +3,7 @@
 # Usage: resolve-scope.sh [target-branch-or-commit-sha]
 # Output: KEY=VALUE lines (resolve-range fields plus session + changed files).
 #
-# Additional keys vs review-workspace resolve-range.sh:
+# Additional keys vs review-diff resolve-range.sh:
 # - SESSION_DIR, SESSION_PATH, PASS
 # - CHANGED_FILES (|:| separated relative paths, sorted unique)
 # - OWNER, REPO
@@ -59,13 +59,26 @@ branch_slug() {
 }
 
 allocate_session_path() {
-  local slug dir n
+  local slug dir legacy_dir base f candidate n
   slug=$(branch_slug)
-  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/check-blast-radius"
+  dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/scan-blast-radius"
+  legacy_dir="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}/check-blast-radius"
   mkdir -p "$dir"
 
-  n=1
-  while [[ -f "$dir/$(printf '%02d' "$n").md" ]]; do ((n++)); done
+  n=0
+  for base in "$dir" "$legacy_dir"; do
+    [[ -d "$base" ]] || continue
+    shopt -s nullglob
+    for f in "$base"/*.md; do
+      candidate="${f##*/}"
+      candidate="${candidate%.md}"
+      if [[ "$candidate" =~ ^[0-9]+$ ]] && (( 10#candidate > n )); then
+        n=$((10#candidate))
+      fi
+    done
+    shopt -u nullglob
+  done
+  n=$((n + 1))
 
   SESSION_DIR="$dir"
   SESSION_PATH="$dir/$(printf '%02d' "$n").md"

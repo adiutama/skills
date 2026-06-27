@@ -1,9 +1,6 @@
 ---
 name: loop-until
-description: >-
-  Exit-driven subagent loop — like /loop, but until a condition is met. Session
-  handoff docs span iterations and conversations. Say "resume" to continue on this
-  branch (with confirmation). Not for timed /loop schedules.
+description: Until-driven loop—handoff, subagents, verify. Parent holds the clause; workers hold the work. Resume with confirmation; not for timers.
 disable-model-invocation: true
 compatibility: Requires git for artifact paths; jq and bash for session scripts.
 metadata:
@@ -11,104 +8,80 @@ metadata:
 allowed-tools: Task Read Write Bash
 ---
 
-Invoked as **`/loop-until <condition>`** in natural language — e.g. “lint is clean in src/”, or **`resume`** (works in a new conversation).
+Invoked as **`/loop-until <condition>`** — e.g. “lint is clean in src/”, or **`resume`** (new chat OK).
 
-Parent orchestrates only. Work runs in **subagents**. Continuity lives in **session artifacts** ([session-layout.md](references/session-layout.md)), not parent context.
+*Parent keeps the **until** and the ledger; subagents keep the sweat. **Handoff** lives in **session** files—not in a bloated parent window.*
+
+Layout: [session-layout.md](references/session-layout.md).
 
 ## Step 1 — Parse intent
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| Until (exit) | yes* | *from session when resuming |
+| Until | yes* | *from session when resuming |
 | Goal | yes* | *skip when resuming |
 | Instructions | no | defaults to goal |
 | Max | no | default `10` |
 | Mode | no | `auto` or `human-gate` |
-| Recon | no | iteration 0 read-only map before fixes |
+| Recon | no | iter 0 read-only map |
 
 ### Resume
 
-Triggers: `resume`, `/loop-until resume`, `continue`, `resume <hint>` (no new until-clause).
+`resume`, `/loop-until resume`, `continue`, `resume <hint>` — no new until-clause.
 
 ```bash
 bash <SKILL_DIR>/scripts/resolve-resume.sh [hint]
 ```
 
-1. No sessions → stop.
-2. Show one recommendation: session id, goal, until/exit, status, iteration count, path.
-3. **Wait for yes / pick / cancel** — never auto-loop.
-4. **yes** → load `master.md` + `meta.md`; Step 3 from `iteration_count + 1`.
-5. **pick** → up to 5 candidates; confirm again.
-6. Resume + new goal → new session unless user says otherwise.
+No sessions → stop. Recommend one (id, goal, until, status, iter, path). **Wait yes / pick / cancel**—never auto-loop. **yes** → `master.md` + `meta.md`; Step 3 from `iteration_count + 1`. **pick** → ≤5 candidates; confirm again. New goal on resume → new session unless user says otherwise.
 
-Named session: `list-sessions.sh 5` → match id/slug/goal; same confirm block.
+### Until gate
 
-### New loop — until gate
+Vague **until** → ask once; do not start. [exit-examples.md](references/exit-examples.md).
 
-Vague until (`when done`, `until good`) → ask once; do not start. See [exit-examples.md](references/exit-examples.md).
+### Confirm (first iteration)
 
-### Confirm before first iteration
-
-≤5 lines: until/exit, goal, max, mode, recon, **session id + path**, new vs resume. Risky goals (prod, mass delete, auth) → explicit confirmation.
+≤5 lines: until, goal, max, mode, recon, session id + path, new vs resume. Risky goals → explicit confirm.
 
 ## Step 2 — Session
 
-**New:** `bash <SKILL_DIR>/scripts/init-session.sh [kebab-slug]` → fill `meta.md` + `master.md` ([master-template.md](references/master-template.md)).
-
-**Resume:** see Step 1.
+**New:** `bash <SKILL_DIR>/scripts/init-session.sh [kebab-slug]` → `meta.md` + `master.md` ([master-template.md](references/master-template.md)). **Resume:** Step 1.
 
 ## Step 2b — Recon (optional)
 
-When user wants a map first, or scope is unfamiliar: `explore` + `readonly: true`, [recon-template.md](references/recon-template.md) → validate → merge → iteration 1 from `Recommended next`. Skip for narrow scope (single file, single command exit).
+Unfamiliar scope or user asks map: `explore` readonly, [recon-template.md](references/recon-template.md) → validate → merge → iter 1 from `Recommended next`. Skip for narrow scope.
 
-## Step 3 — Iteration loop
+## Step 3 — Iteration
 
 For `i` from start to `max`:
 
 1. `compact-master.sh <session_dir>/master.md 150`
-2. Write `handoff.md` ([handoff-template.md](references/handoff-template.md))
-3. Launch one subagent (`run_in_background: false`) — see subagent table below
-4. Prompt: [worker-template.md](references/worker-template.md)
+2. `handoff.md` ([handoff-template.md](references/handoff-template.md))
+3. One subagent (`run_in_background: false`) — table below
+4. [worker-template.md](references/worker-template.md)
 5. `validate-report.sh <session_dir>/report.md` — invalid → retry once; stop
-6. Merge into `master.md`: log row, Attempts, Decisions; `meta.md` → `active`; archive → `reports/<NN>.md`
-7. Exit check:
-   - `done` → [verify](references/exit-examples.md#verification). Pass → `meta.md` `done`; finish. Fail → next iteration.
-   - `blocked` → `meta.md` `blocked`; stop.
-   - `continue` → stall check; else loop.
-   - `i == max` → `meta.md` `max-reached`; stop.
+6. Merge `master.md`; `meta.md` → `active`; archive → `reports/<NN>.md`
+7. Exit: `done` → **verify** ([exit-examples.md](references/exit-examples.md#verification)); pass → `done` / fail → next · `blocked` → stop · `continue` → **stall** check · `i == max` → `max-reached`
 
-**Human-gate:** after merge, stop until user replies (continue, redirect, ship-it).
-
-**Stall:** same blocker/`Recommended next` twice, or two `continue` with no file changes + same evidence → `blocked`.
-
-**Parent tokens:** read validated report + `master.md` (merge); write `handoff.md`. No workspace re-reads except exit verify.
+**Human-gate:** stop after merge until user replies. **Stall:** same blocker twice or two empty **continue** → `blocked`. **Parent tokens:** report + merge only; write `handoff`; no re-reads except **verify**.
 
 ## Step 4 — Finish
 
-≤25 lines. Always include session id and path. End with: *Continue later: `resume` or `resume <slug>`*
+≤25 lines; session id + path. End: *Continue later: `resume` or `resume <slug>`*
 
-```markdown
-## Loop until: <condition>
-**Session:** `<id>` · **Path:** `~/.agents/artifacts/.../loop-until/sessions/...`
-| # | Status | Summary |
-**Outcome:** done | blocked | max reached | stalled
-**Until met:** yes/no — one line
-**Next:** if blocked, stalled, or max reached
-```
-
-## Subagent selection
+## Subagents
 
 | Situation | Type |
 |-----------|------|
-| Recon (iter 0) | `explore`, `readonly: true` |
-| Edits, fixes | `generalPurpose` |
-| Read-only audit | `explore`, `readonly: true` |
-| Tests, lint, CLI | `shell` |
+| Recon (0) | `explore`, `readonly: true` |
+| Edits | `generalPurpose` |
+| Audit | `explore`, `readonly: true` |
+| CLI/tests | `shell` |
 
 ## Anti-patterns
 
-Auto-resume · shared mutable state across sessions · child edits `master.md` · new loop without until-clause · parent does iteration work · auto-loop in human-gate · timed polling (use interval-based loop instead)
+Auto-resume · shared mutable state · child edits `master.md` · until-less start · parent does worker work · auto-loop in human-gate · timed polling
 
 ## References
 
-[session-layout.md](references/session-layout.md) · [worker-template.md](references/worker-template.md) · [recon-template.md](references/recon-template.md) · [exit-examples.md](references/exit-examples.md) · [examples.md](references/examples.md)
+[worker-template.md](references/worker-template.md) · [recon-template.md](references/recon-template.md) · [exit-examples.md](references/exit-examples.md) · [examples.md](references/examples.md)

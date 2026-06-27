@@ -6,8 +6,9 @@ Where to find review session files and what they contain. Adapted from the commo
 
 For PR branch slug `<slug>` under `~/.agents/artifacts/<owner>/<repo>/<slug>/`:
 
-1. **`post-pr-review/`** — this skill's namespace (preferred for new sessions)
-2. **`review-pr/`** — legacy namespace (same `NN.md` layout; still scanned for backward compatibility)
+1. **`submit-pr-review/`** — this skill's namespace (preferred for new sessions)
+2. **`post-pr-review/`** — legacy rename (same layout)
+3. **`review-pr/`** — legacy review namespace (same `NN.md` layout)
 
 Highest-numbered `*.md` in the first directory that exists and has files wins.
 
@@ -43,4 +44,4 @@ Session header includes `OWNER`, `REPO`, `NUMBER`, `HEAD_SHA` — `resolve.sh` f
 
 ## Empty session
 
-No `*.md` in either directory → stop with "no session file found"; user must provide a saved review pass or re-run a local review workflow that writes `NN.md` artifacts.
+No `*.md` in any directory → stop with "no session file found"; user must provide a saved review pass or re-run a local review workflow that writes `NN.md` artifacts.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Discover optimizable text targets under a skill folder.
+# Discover refinable text targets under a skill folder.
 # Usage: discover-targets.sh <folder>
 # Output: one path per line, relative to <folder>, sorted
 

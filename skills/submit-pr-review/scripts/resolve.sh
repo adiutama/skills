@@ -2,7 +2,7 @@
 # Resolve PR identity and locate the latest review session file.
 # Usage: resolve.sh <PR URL or number>
 # Output: JSON { owner, repo, number, head_sha, branch, session_path }
-#   session_path — highest-numbered NN.md under post-pr-review/, then legacy review-pr/
+#   session_path — highest-numbered NN.md under submit-pr-review/, then legacy post-pr-review/, review-pr/
 #                  (see references/session-sources.md), or empty if none exist.
 
 set -euo pipefail
@@ -86,7 +86,10 @@ main() {
 
   slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
   base="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${slug}"
-  session_path=$(latest_session_file "${base}/post-pr-review")
+  session_path=$(latest_session_file "${base}/submit-pr-review")
+  if [[ -z "$session_path" ]]; then
+    session_path=$(latest_session_file "${base}/post-pr-review")
+  fi
   if [[ -z "$session_path" ]]; then
     session_path=$(latest_session_file "${base}/review-pr")
   fi
