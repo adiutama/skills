@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List iterate-task sessions for the current repo + branch, newest first.
+# List loop-until sessions for the current repo + branch, newest first.
 # Usage: list-sessions.sh [limit]
 # Output: JSON array [{ session_id, session_dir, status, goal, created }]
 
@@ -50,7 +50,7 @@ read_meta_field() {
 
 resolve_owner_repo
 BRANCH_SLUG=$(branch_slug)
-BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${BRANCH_SLUG}/iterate-task/sessions"
+BASE="${HOME}/.agents/artifacts/${OWNER}/${REPO}/${BRANCH_SLUG}/loop-until/sessions"
 
 if [[ ! -d "$BASE" ]]; then
   jq -n '[]'

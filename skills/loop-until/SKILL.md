@@ -1,17 +1,17 @@
 ---
-name: iterate-task
+name: loop-until
 description: >-
-  Goal-directed subagent loop until exit criteria are met. Timestamped session
-  artifacts span iterations and conversations. Say "resume" to continue on this
+  Exit-driven subagent loop — like /loop, but until a condition is met. Session
+  handoff docs span iterations and conversations. Say "resume" to continue on this
   branch (with confirmation). Not for timed /loop schedules.
 disable-model-invocation: true
 compatibility: Requires git for artifact paths; jq and bash for session scripts.
 metadata:
-  argument-hint: natural-language goal; or "resume" / "resume <hint>" to continue
+  argument-hint: "<until-condition> in natural language; or "resume" / "resume <hint>"
 allowed-tools: Task Read Write Bash
 ---
 
-Invoked in **natural language** — goal + exit, or **`resume`** (works in a new conversation).
+Invoked as **`/loop-until <condition>`** in natural language — e.g. “lint is clean in src/”, or **`resume`** (works in a new conversation).
 
 Parent orchestrates only. Work runs in **subagents**. Continuity lives in **session artifacts** ([session-layout.md](references/session-layout.md)), not parent context.
 
@@ -19,23 +19,23 @@ Parent orchestrates only. Work runs in **subagents**. Continuity lives in **sess
 
 | Field | Required | Notes |
 |-------|----------|-------|
+| Until (exit) | yes* | *from session when resuming |
 | Goal | yes* | *skip when resuming |
 | Instructions | no | defaults to goal |
-| Exit | yes* | *from session when resuming |
 | Max | no | default `10` |
 | Mode | no | `auto` or `human-gate` |
 | Recon | no | iteration 0 read-only map before fixes |
 
 ### Resume
 
-Triggers: `resume`, `/iterate-task resume`, `continue`, `resume <hint>` (no new goal).
+Triggers: `resume`, `/loop-until resume`, `continue`, `resume <hint>` (no new until-clause).
 
 ```bash
 bash <SKILL_DIR>/scripts/resolve-resume.sh [hint]
 ```
 
 1. No sessions → stop.
-2. Show one recommendation: session id, goal, exit, status, iteration count, path.
+2. Show one recommendation: session id, goal, until/exit, status, iteration count, path.
 3. **Wait for yes / pick / cancel** — never auto-loop.
 4. **yes** → load `master.md` + `meta.md`; Step 3 from `iteration_count + 1`.
 5. **pick** → up to 5 candidates; confirm again.
@@ -43,13 +43,13 @@ bash <SKILL_DIR>/scripts/resolve-resume.sh [hint]
 
 Named session: `list-sessions.sh 5` → match id/slug/goal; same confirm block.
 
-### New task — exit gate
+### New loop — until gate
 
-Vague exit (`when done`, `until good`) → ask once; do not start. See [exit-examples.md](references/exit-examples.md).
+Vague until (`when done`, `until good`) → ask once; do not start. See [exit-examples.md](references/exit-examples.md).
 
 ### Confirm before first iteration
 
-≤5 lines: goal, exit, max, mode, recon, **session id + path**, new vs resume. Risky goals (prod, mass delete, auth) → explicit confirmation.
+≤5 lines: until/exit, goal, max, mode, recon, **session id + path**, new vs resume. Risky goals (prod, mass delete, auth) → explicit confirmation.
 
 ## Step 2 — Session
 
@@ -88,11 +88,11 @@ For `i` from start to `max`:
 ≤25 lines. Always include session id and path. End with: *Continue later: `resume` or `resume <slug>`*
 
 ```markdown
-## Iterate: <goal>
-**Session:** `<id>` · **Path:** `~/.agents/artifacts/.../`
+## Loop until: <condition>
+**Session:** `<id>` · **Path:** `~/.agents/artifacts/.../loop-until/sessions/...`
 | # | Status | Summary |
 **Outcome:** done | blocked | max reached | stalled
-**Exit met:** yes/no — one line
+**Until met:** yes/no — one line
 **Next:** if blocked, stalled, or max reached
 ```
 
@@ -107,7 +107,7 @@ For `i` from start to `max`:
 
 ## Anti-patterns
 
-Auto-resume · shared mutable state across sessions · child edits `master.md` · new task without exit · parent does iteration work · auto-loop in human-gate · timed polling (use `/loop`)
+Auto-resume · shared mutable state across sessions · child edits `master.md` · new loop without until-clause · parent does iteration work · auto-loop in human-gate · timed polling (use `/loop`)
 
 ## References
 

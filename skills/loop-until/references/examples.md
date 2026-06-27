@@ -1,8 +1,8 @@
 # Examples
 
-## 1 — Objective exit
+## 1 — Objective until
 
-> Fix ESLint in `src/` until `npm run lint` is clean. No public API changes. Max 8.
+> /loop-until lint is clean in `src/` — no public API changes, max 8.
 
 Init → confirm → loop → verify lint on each `done`.
 
@@ -34,8 +34,8 @@ Each `done` → run review-changes + `npm test` before accepting.
 
 Same blocker iters 4–5 → `blocked`; user unsticks; `resume` later.
 
-## 7 — Vague exit
+## 7 — Vague until
 
-> Iterate on auth until solid.
+> /loop-until auth is solid.
 
-Do not start; ask for objective exit or human gate.
+Do not start; ask for concrete until-clause or human gate.
