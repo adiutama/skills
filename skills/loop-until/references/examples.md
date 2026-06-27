@@ -47,3 +47,9 @@ Do not start; ask for concrete until-clause or human gate.
 Built-in: fetch → triage IDs → address → refresh until clear. Session at `.../address-pr-feedback/pr-42/`.
 
 For `/loop-until` instead: exit `/address-pr-feedback 42 --fetch-only` empty; parent triages each iteration.
+
+## 9 — Pre-commit blast radius
+
+> /check-blast-radius feature --quick
+
+Before `/commit-changes`: glue + direct rings only. Full pass omits `--quick`.

@@ -20,6 +20,7 @@ Parent runs cited skill — never re-implements in-thread. Record command in `ma
 | Exit cites | Verify |
 |------------|--------|
 | `/review-workspace` clean | 0 unresolved findings |
+| `/check-blast-radius` safe | latest session verdict is `safe to commit` |
 | `/review-pr` complete | session exists; criteria met |
 | `/refactor-safely` on X | scope matched; tests if stated |
 | `/address-pr-feedback` empty | 0 pending threads (`total_count == 0`; use `--fetch-only`) |

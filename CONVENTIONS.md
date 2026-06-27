@@ -15,6 +15,30 @@ This document reflects the current repository style (as implemented in existing 
 - Skill directory name and `name:` in frontmatter must match.
 - Command form should read naturally: `/review-pr`, `/post-pr-review`, `/refactor-safely`.
 
+### Choosing the name
+
+- **Object** — name the artifact, target, or outcome (`pr`, `handoff`, `changes`). Avoid generic objects (`task`, `thing`, `item`).
+- **Qualifier** — carry the non-obvious constraint (`safely`, `outstanding`, `until-exit`).
+- **Disambiguate** — if a built-in or sibling skill shares the base (`/loop`), the name must signal the difference in the command.
+- **Invocation test** — `/name` should suggest *what* and *how it stops*; if not, rename or add a qualifier.
+
+### Primitive extension names
+
+When a skill extends a familiar primitive, name the delta:
+
+| Pattern | Example | Reads as |
+|---------|---------|----------|
+| `<primitive>-<stop-word>` | `loop-until` | loop until [user-supplied condition] |
+| `<primitive>-with-<feature>` | `loop-with-handoff` | loop, but with X |
+| `<feature>-<primitive>` | `resumable-loop` | the kind of primitive that is X |
+
+- Base must be widely understood (`loop`, `goal`, `review`).
+- Delta names one non-obvious property (stop rule, persistence, safety).
+- Avoid generic deltas (`task`, `process`, `thing`).
+
+Bad: `iterate-task` (generic object, verb overlaps many workflows).  
+Good: `loop-until` (extends `/loop` with conditional stop), `refactor-safely` (action + constraint).
+
 ## Repository and package layout
 
 ```text
@@ -60,7 +84,7 @@ Keep per-skill specifics inside that skill package:
 
 - Command skills should start with `Invoked as ...`, then procedural `Step N` sections.
 - Always-on behavior skills may use protocol-style sections (`Goal`, `Protocol`, `Rules`).
-- Minimal numbered workflow format is also valid for simple skills (title + `1..N` steps), as used by `pickup-handoff`.
+- Minimal numbered workflow format is also valid for simple skills (title + `1..N` steps) when steps are short and linear.
 - Keep runtime guidance in `references/` and skill-scoped templates/examples in `assets/`.
 - Use explicit file paths in instructions when ambiguity is possible.
 

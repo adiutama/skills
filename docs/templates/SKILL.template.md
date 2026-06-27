@@ -42,16 +42,16 @@ Invoked as `/verb-object [args]`. If missing or invalid, ask once and stop.
 
 ```markdown
 ---
-name: pickup-handoff
-description: Load a handoff file from a provided path, send a short kickoff, and wait for confirmation before starting.
-argument-hint: "Path to handoff .md file"
+name: verb-object
+description: What this skill does and when to use it.
+argument-hint: "<required-arg>"
 ---
 
-# Pickup handoff
+# Verb object
 
-1. Use the argument as the handoff file path.
-2. Read the file.
+1. Parse and validate the argument.
+2. Read required inputs.
 3. Send a short kickoff (2-4 lines).
 4. Ask for confirmation.
-5. Start only after confirmation.
+5. Execute only after confirmation.
 ```
