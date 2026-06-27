@@ -26,9 +26,9 @@ Iter 0 `explore` recon → merge → iters 1–6 fixes.
 
 ## 5 — Cross-skill exit
 
-> Loop until `/review-changes` clean and tests pass.
+> Loop until `/review-workspace` clean and tests pass.
 
-Each `done` → run review-changes + `npm test` before accepting.
+Each `done` → run review-workspace + `npm test` before accepting.
 
 ## 6 — Stall
 

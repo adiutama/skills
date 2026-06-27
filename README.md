@@ -7,7 +7,7 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 | Skill | Description |
 |---|---|
 | [commit-changes](skills/commit-changes/SKILL.md) | Check staged changes first; otherwise use context-discovered file changes to stage and commit with a generated message. |
-| [review-changes](skills/review-changes/SKILL.md) | Review local git changes before pushing. Catches problems early so the PR process is smoother. |
+| [review-workspace](skills/review-workspace/SKILL.md) | Review local git changes before pushing. Catches problems early so the PR process is smoother. |
 | [review-pr](skills/review-pr/SKILL.md) | Review a GitHub PR and save a persistent session file. Does not post anything — use `post-pr-review` to publish findings. |
 | [post-pr-review](skills/post-pr-review/SKILL.md) | Post findings from a saved review session as inline GitHub PR comments. Use after `review-pr`. |
 | [fetch-outstanding-pr-feedback](skills/fetch-outstanding-pr-feedback/SKILL.md) | Fetch all unresolved review threads and pending change requests from a GitHub PR. |

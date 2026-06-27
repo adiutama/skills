@@ -107,7 +107,7 @@ Rules:
 
 Print after saving, then stop:
 
-    Saved: ~/.agents/artifacts/<owner>/<repo>/<slug>/review-changes/<NN>.md
+    Saved: ~/.agents/artifacts/<owner>/<repo>/<slug>/review-workspace/<NN>.md
     N critical · N warning · N nit
 
     Stance: <Ready / Not ready> — <one-sentence reason>

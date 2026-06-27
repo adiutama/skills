@@ -1,6 +1,6 @@
 ---
-name: review-changes
-description: Review local git changes before pushing. Catches problems early so the PR process is smoother. Saves a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-changes/. Use when you want pre-push feedback on uncommitted or unpushed changes across standard and virtual-branch workflows.
+name: review-workspace
+description: Review local git changes before pushing. Catches problems early so the PR process is smoother. Saves a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch-slug>/review-workspace/. Use when you want pre-push feedback on uncommitted or unpushed changes across standard and virtual-branch workflows.
 disable-model-invocation: true
 compatibility: Requires a git repository.
 metadata:
@@ -8,7 +8,7 @@ metadata:
 allowed-tools: Bash(git:* bash:*) Read Write
 ---
 
-Invoked as `/review-changes [target-branch-or-commit-sha]`.
+Invoked as `/review-workspace [target-branch-or-commit-sha]`.
 ## Step 1 - Gather git state
 `TARGET` = arg 1 (optional), default `HEAD`.
 Run once: `bash <SKILL_DIR>/scripts/resolve-range.sh "<TARGET>"`.
@@ -27,9 +27,11 @@ Derive `OWNER` and `REPO` from the git remote: `git remote get-url origin`, pars
 Slugify `BRANCH` by replacing `/` and non-alphanumeric chars with `-`.
 - Example: `feat/add-login` -> `feat-add-login`
 - Detached HEAD -> `detached-<sha>`
-Session dir: `~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-changes/`
+Session dir: `~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-workspace/`
 Pass numbering: none => `01.md`, otherwise next (`02.md`, ...).
-Set `SESSION_PATH = ~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-changes/<NN>.md` and `PASS = NN`.
+Set `SESSION_PATH = ~/.agents/artifacts/<OWNER>/<REPO>/<slug>/review-workspace/<NN>.md` and `PASS = NN`.
+
+Sessions created before the rename may live under `.../review-changes/`. Resume by full session path or migrate the folder to `review-workspace/`.
 ## Step 3 - Load context (parallel)
 - `<SKILL_DIR>/references/checklist.md`
 - `<SKILL_DIR>/references/format.md`

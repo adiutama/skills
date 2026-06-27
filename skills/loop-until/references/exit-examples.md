@@ -19,7 +19,7 @@ Parent runs cited skill — never re-implements in-thread. Record command in `ma
 
 | Exit cites | Verify |
 |------------|--------|
-| `/review-changes` clean | 0 unresolved findings |
+| `/review-workspace` clean | 0 unresolved findings |
 | `/review-pr` complete | session exists; criteria met |
 | `/refactor-safely` on X | scope matched; tests if stated |
 | `/fetch-outstanding-pr-feedback` empty | 0 pending threads |

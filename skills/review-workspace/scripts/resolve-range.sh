@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Resolve review-changes git context in one call.
+# Resolve review-workspace git context in one call.
 # Usage: resolve-range.sh [target-branch-or-commit-sha]
 # Output: KEY=VALUE lines for BRANCH, TARGET_SHA, PR_BASE, RANGE_BASE, and related fields.
 #
