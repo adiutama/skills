@@ -8,7 +8,7 @@
 | **address first** | Fix or verify warnings before commit |
 | **known risk** | User explicitly accepts remaining warnings |
 
-Do not commit from this skill. Next step: user runs `/commit-changes` when verdict allows.
+Do not commit from this skill. User commits only when verdict allows.
 
 ## Chat summary (print after saving)
 
@@ -18,7 +18,7 @@ Change: fix | feature | rewire · Intent: <one line>
 N critical · N warning · N note
 Verdict: <safe to commit | address first | known risk — user confirmed>
 Saved: ~/.agents/artifacts/<owner>/<repo>/<slug>/check-blast-radius/<NN>.md
-Next: /commit-changes · or /review-workspace before push
+Next: user decides — commit, widen review, or fix findings first
 ```
 
 ## Session file skeleton

@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub PR and save a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-pr/. Use before merge; does not post comments (use /post-pr-review).
+description: Review a GitHub PR and save a persistent session file under ~/.agents/artifacts/<owner>/<repo>/<branch>/review-pr/. Use before merge; saves findings locally—does not post to GitHub.
 disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
@@ -39,5 +39,3 @@ Deduplicate against `comments_file`: if same issue appears on same file within +
 ## Step 4 — Print summary
 
 Print summary using `format.md`, then stop.
-
-If `<SKILL_DIR>/../post-pr-review/SKILL.md` exists, mention `/post-pr-review` for publishing findings.

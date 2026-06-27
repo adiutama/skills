@@ -66,7 +66,7 @@ One-line summary.
 ```
 
 - `Location`: `repo/...` + exact line or `START-END`.
-- `Posted`: `❌` default, `✅` once posted via `/pr-post`.
+- `Posted`: `❌` default, `✅` once posted to GitHub.
 
 ### GitHub comment shape (reference)
 

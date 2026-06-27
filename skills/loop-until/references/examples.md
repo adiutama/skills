@@ -24,11 +24,11 @@ Prior chat blocked at iter 3. User: `resume` → `resolve-resume.sh` → confirm
 
 Iter 0 `explore` recon → merge → iters 1–6 fixes.
 
-## 5 — Cross-skill exit
+## 5 — Composite verify
 
-> Loop until `/review-workspace` clean and tests pass.
+> Loop until workspace review session shows 0 unresolved findings and `npm test` exits 0.
 
-Each `done` → run review-workspace + `npm test` before accepting.
+Each `done` → read saved session artifact + run `npm test` before accepting.
 
 ## 6 — Stall
 
@@ -40,16 +40,14 @@ Same blocker iters 4–5 → `blocked`; user unsticks; `resume` later.
 
 Do not start; ask for concrete until-clause or human gate.
 
-## 8 — PR feedback (prefer built-in workflow)
+## 8 — PR feedback fetch-only exit
 
-> /address-pr-feedback 42
+> Loop until PR #42 has zero pending review threads.
 
-Built-in: fetch → triage IDs → address → refresh until clear. Session at `.../address-pr-feedback/pr-42/`.
-
-For `/loop-until` instead: exit `/address-pr-feedback 42 --fetch-only` empty; parent triages each iteration.
+Exit verify: run fetch-only list command for that PR; parent checks JSON `total_count == 0` each iteration.
 
 ## 9 — Pre-commit blast radius
 
-> /check-blast-radius feature --quick
+> Loop until latest blast-radius session verdict is `safe to commit`.
 
-Before `/commit-changes`: glue + direct rings only. Full pass omits `--quick`.
+Verify by reading saved session under `.../check-blast-radius/`; use `--quick` when user scoped to glue + direct rings only.

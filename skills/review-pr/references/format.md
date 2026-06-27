@@ -35,8 +35,8 @@ Session block:
 - `Location` must use `repo/...` plus exact line or `START-END`.
 - `Posted` values:
   - `❌` not posted
-  - `✅` posted via `/pr-post`
-  - `✅ dup` already present in existing PR comments; `/pr-post` skips it
+  - `✅` posted to GitHub
+  - `✅ dup` already present in existing PR comments; posting step skips it
 
 GitHub inline comment shape:
 - **critical:** one-line summary, `*Risk:*`, `*Suggestion:*`

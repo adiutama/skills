@@ -12,19 +12,8 @@ When exit is undefined, offer 2–3 fits; let user pick or combine.
 | File / artifact | `docs/plan.md complete` |
 | Metric | `bundle ≤ 250kb` |
 | Git | `no unstaged changes except X` |
-
-## Cross-skill
-
-Parent runs cited skill — never re-implements in-thread. Record command in `master.md` → Decisions.
-
-| Exit cites | Verify |
-|------------|--------|
-| `/review-workspace` clean | 0 unresolved findings |
-| `/check-blast-radius` safe | latest session verdict is `safe to commit` |
-| `/review-pr` complete | session exists; criteria met |
-| `/refactor-safely` on X | scope matched; tests if stated |
-| `/address-pr-feedback` empty | 0 pending threads (`total_count == 0`; use `--fetch-only`) |
-| `/address-pr-feedback <pr>` workflow | user confirmed done or `total_count == 0` |
+| Saved session verdict | artifact file shows `safe to commit` or `0 pending threads` |
+| Fetch-only empty | command exits 0 with `total_count == 0` in JSON output |
 
 ## Bounded effort
 
@@ -59,7 +48,8 @@ After child `status: done`, parent verifies when possible:
 | typecheck | `npm run typecheck` / `tsc --noEmit` |
 | build | `npm run build` |
 | file exists | `test -f <path>` |
-| zero findings | re-run cited audit |
-| cross-skill | table above |
+| zero findings | re-run the cited audit command or re-read the session artifact |
+| session verdict | read artifact path recorded in `master.md` → Decisions |
+| fetch-only empty | re-run fetch-only; confirm `total_count == 0` |
 
-Verify fail → next iteration (≤5 lines in handoff). Do not set `meta.md` `done` until verify passes.
+Record verify commands in `master.md` → Decisions. Verify fail → next iteration (≤5 lines in handoff). Do not set `meta.md` `done` until verify passes.

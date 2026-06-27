@@ -1,6 +1,6 @@
 ---
 name: check-blast-radius
-description: Check blast radius of local changes before commit — fixes, features, glue, and rewiring. Widens attention from the focused edit to coupling, missed wiring, and parallel breakages. Saves a session under ~/.agents/artifacts/<owner>/<repo>/<branch-slug>/check-blast-radius/. Use before /commit-changes; use /review-workspace before push.
+description: Pre-commit blast-radius scan — fixes, features, glue, rewiring. Widens from the focused edit to coupling, missed wiring, and parallel breakages. Saves a session under ~/.agents/artifacts/<owner>/<repo>/<branch-slug>/check-blast-radius/.
 disable-model-invocation: true
 compatibility: Requires a git repository.
 metadata:
@@ -10,7 +10,7 @@ allowed-tools: Bash(git:* bash:*) Read Write rg Glob
 
 Invoked as `/check-blast-radius [fix|feature|rewire] [--quick] [target-branch-or-commit-sha]`.
 
-Pre-commit **impact scan** — not a code-quality review. Run after focused work; run `/commit-changes` only when verdict allows.
+Pre-commit **impact scan** — not a code-quality review. Run after focused work; commit only when verdict allows.
 
 ## Step 1 — Parse intent
 
@@ -72,14 +72,12 @@ Save to `SESSION_PATH`. Assign impact IDs `I1, I2…`.
 | Warning+ | **address first** — list checks; do not commit |
 | User accepts risk | **known risk** — only after explicit confirmation |
 
-Print chat summary per `format.md`. Mention `/commit-changes` and `/review-workspace`.
+Print chat summary per `format.md`. Do not stage or commit — user decides next steps.
 
-Do not stage or commit.
+## Posture
 
-## vs review-workspace
-
-| | check-blast-radius | review-workspace |
-|--|-------------------|------------------|
+| | This skill (blast radius) | Typical pre-push code review |
+|--|---------------------------|------------------------------|
 | When | Before commit | Before push |
 | Question | What else breaks / wasn't wired? | Is the diff shippable? |
-| Posture | Integration / impact | Skeptical review |
+| Focus | Integration / impact | Skeptical review |

@@ -72,11 +72,11 @@ bash <SKILL_DIR>/scripts/resolve-session.sh [pr-number]
 
 Legacy sessions may live under `.../fetch-outstanding-pr-feedback/pr-<N>/`. Migrate or use full path to resume.
 
-## Fetch-only (verify / loop-until)
+## Fetch-only (verify)
 
 `--fetch-only` or `--list`: run through **present** only. Exit code semantics via counts in JSON:
 
 - `total_count == 0` → merge-ready
 - else → list findings, no triage
 
-Used by `/loop-until` exit: `/address-pr-feedback` empty (`--fetch-only`).
+External orchestrators may use this mode as an exit verify: re-run until `total_count == 0`.

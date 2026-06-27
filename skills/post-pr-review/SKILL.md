@@ -1,6 +1,6 @@
 ---
 name: post-pr-review
-description: Post findings from a saved review session as inline GitHub PR comments. Use after /review-pr to publish findings and submit an approve/request-changes review.
+description: Post findings from a saved PR review session as inline GitHub PR comments. Resolves session artifacts on disk; submits approve or request-changes review via gh.
 disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
@@ -20,11 +20,12 @@ Split input into:
 
 Check in order and stop at first match:
 
-1. **Current session**: if `/review-pr` already ran, reuse `OWNER`, `REPO`, `NUMBER`, `HEAD_SHA`, `SESSION_PATH`.
-2. **Argument**: run `bash <SKILL_DIR>/scripts/resolve.sh <PR_IDENTITY>`, parse JSON to `owner`, `repo`, `number`, `head_sha`, `session_path`.
-3. **Ask**: ask once, "Please provide a PR URL or number.", then stop.
+1. **Argument**: run `bash <SKILL_DIR>/scripts/resolve.sh <PR_IDENTITY>`, parse JSON to `owner`, `repo`, `number`, `head_sha`, `session_path`.
+2. **Ask**: ask once, "Please provide a PR URL or number.", then stop.
 
 If `session_path` is empty, report no session file found and stop. Otherwise read it fully.
+
+Session lookup order and file format: [session-sources.md](references/session-sources.md).
 
 ## Step 3 — Determine event and personal message
 

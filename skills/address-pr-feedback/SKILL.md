@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: Address unresolved PR review feedback — triage which items to fix and loop until clear. Saves session artifacts under ~/.agents/artifacts/<owner>/<repo>/<branch-slug>/address-pr-feedback/. Use --fetch-only to list only (e.g. loop-until verify).
+description: Triage and address unresolved PR review feedback until clear. Saves session artifacts under ~/.agents/artifacts/<owner>/<repo>/<branch-slug>/address-pr-feedback/. Use --fetch-only to list pending threads only (for external verify loops).
 disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:

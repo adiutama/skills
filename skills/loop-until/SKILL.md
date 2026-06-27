@@ -107,7 +107,7 @@ For `i` from start to `max`:
 
 ## Anti-patterns
 
-Auto-resume · shared mutable state across sessions · child edits `master.md` · new loop without until-clause · parent does iteration work · auto-loop in human-gate · timed polling (use `/loop`)
+Auto-resume · shared mutable state across sessions · child edits `master.md` · new loop without until-clause · parent does iteration work · auto-loop in human-gate · timed polling (use interval-based loop instead)
 
 ## References
 
