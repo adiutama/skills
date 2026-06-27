@@ -39,3 +39,11 @@ Same blocker iters 4–5 → `blocked`; user unsticks; `resume` later.
 > /loop-until auth is solid.
 
 Do not start; ask for concrete until-clause or human gate.
+
+## 8 — PR feedback (prefer built-in workflow)
+
+> /address-pr-feedback 42
+
+Built-in: fetch → triage IDs → address → refresh until clear. Session at `.../address-pr-feedback/pr-42/`.
+
+For `/loop-until` instead: exit `/address-pr-feedback 42 --fetch-only` empty; parent triages each iteration.

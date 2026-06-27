@@ -46,6 +46,8 @@ W1 — <title>  path/to/file:LINE
 N1 — <title>  path/to/file:LINE
 ```
 
+Save the full formatted report (header through index) to `report_path` from the session JSON.
+
 ## Severity scale
 
 Assign IDs: `C1, C2…` critical · `W1, W2…` warning · `N1, N2…` nit

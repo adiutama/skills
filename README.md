@@ -10,7 +10,7 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 | [review-workspace](skills/review-workspace/SKILL.md) | Review local git changes before pushing. Catches problems early so the PR process is smoother. |
 | [review-pr](skills/review-pr/SKILL.md) | Review a GitHub PR and save a persistent session file. Does not post anything — use `post-pr-review` to publish findings. |
 | [post-pr-review](skills/post-pr-review/SKILL.md) | Post findings from a saved review session as inline GitHub PR comments. Use after `review-pr`. |
-| [fetch-outstanding-pr-feedback](skills/fetch-outstanding-pr-feedback/SKILL.md) | Fetch all unresolved review threads and pending change requests from a GitHub PR. |
+| [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address unresolved PR feedback — triage items to fix and loop until clear. Use `--fetch-only` to list only. |
 | [refactor-safely](skills/refactor-safely/SKILL.md) | Refactor code in any language with a beauty-first, safety-first style while preserving behavior. |
 | [optimize-skill](skills/optimize-skill/SKILL.md) | Optimize prompts or skill docs for token efficiency while preserving intent, constraints, and capability. |
 | [reconcile-context](skills/reconcile-context/SKILL.md) | Reconcile working context with live file state on every edit task. |

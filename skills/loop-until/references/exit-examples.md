@@ -22,7 +22,8 @@ Parent runs cited skill — never re-implements in-thread. Record command in `ma
 | `/review-workspace` clean | 0 unresolved findings |
 | `/review-pr` complete | session exists; criteria met |
 | `/refactor-safely` on X | scope matched; tests if stated |
-| `/fetch-outstanding-pr-feedback` empty | 0 pending threads |
+| `/address-pr-feedback` empty | 0 pending threads (`total_count == 0`; use `--fetch-only`) |
+| `/address-pr-feedback <pr>` workflow | user confirmed done or `total_count == 0` |
 
 ## Bounded effort
 
