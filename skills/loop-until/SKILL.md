@@ -7,7 +7,7 @@ description: >-
 disable-model-invocation: true
 compatibility: Requires git for artifact paths; jq and bash for session scripts.
 metadata:
-  argument-hint: "<until-condition> in natural language; or "resume" / "resume <hint>"
+  argument-hint: '<until-condition> in natural language; or "resume" / "resume <hint>"'
 allowed-tools: Task Read Write Bash
 ---
 
