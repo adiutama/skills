@@ -1,16 +1,16 @@
 ---
 name: address-pr-feedback
-description: Triage PR feedback until clear—fetch, select, fix, refresh. Session under ~/.agents/artifacts/.../address-pr-feedback/. --fetch-only for verify-only.
+description: Triage PR feedback until clear—fetch, select, fix, push, notify humans, refresh. Session under ~/.agents/artifacts/.../address-pr-feedback/. --fetch-only for verify-only.
 disable-model-invocation: true
 compatibility: Requires gh CLI authenticated to GitHub, and jq.
 metadata:
   argument-hint: "<PR URL or number> [--fetch-only] | resume [pr-number]"
-allowed-tools: Bash(gh:*) Read Write
+allowed-tools: Bash(gh:* git:* bash:*) Read Write
 ---
 
 Invoked as `/address-pr-feedback <PR URL or number> [--fetch-only]` or `/address-pr-feedback resume [pr-number]`.
 
-*Every thread earns **triage**—fix, defer, stale. Stop when **clear**, not when tired.*
+*Every thread earns **triage**—fix, push, notify humans, defer, stale. Stop when **clear**, not when tired.*
 
 Default: **until-clear** ([workflow.md](references/workflow.md)). `--fetch-only` → present only.
 
@@ -42,11 +42,23 @@ Skip if `--fetch-only` or unconfirmed resume. Ask once: IDs / all / none ([workf
 
 Each **pending** ID: read → minimal fix → summarize; OK before **addressed** unless batch approved.
 
-## Step 6 — Refresh
+## Step 6 — Push
+
+Skip if `--fetch-only` or no file changes from the address pass.
+
+Commit addressed fixes and `git push` the PR branch per [push.md](references/push.md). Stop on push failure — do not notify until remote has the commit.
+
+## Step 7 — Notify
+
+Skip if `--fetch-only`, nothing **addressed**, no human feedback in the batch (all bot-sourced or bot-only PR), or push failed.
+
+For each **addressed** **human** finding: draft reply (what changed, where) → user confirms batch → post per [notify.md](references/notify.md). No human items → skip straight to refresh. Bots re-check alone.
+
+## Step 8 — Refresh
 
 Re-fetch same PR; reconcile [workflow.md#refresh-reconciliation](references/workflow.md#refresh-reconciliation). Print pending + `total_count`.
 
-## Step 7 — Loop or stop
+## Step 9 — Loop or stop
 
 | When | Then |
 |------|------|

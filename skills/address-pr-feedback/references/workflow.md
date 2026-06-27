@@ -5,7 +5,7 @@ Default mode after fetch. Fetch-only stops before triage (`--fetch-only`).
 ## Round loop
 
 ```text
-fetch → present → triage → address → refresh → continue?
+fetch → present → triage → address → push → notify → refresh → continue?
 ```
 
 | Phase | Action |
@@ -14,6 +14,8 @@ fetch → present → triage → address → refresh → continue?
 | **present** | Classify IDs; write `report.md` per `output.md` |
 | **triage** | User picks IDs (`all`, subset, or `none`). Update `tracker.md` → Selected + Progress rows |
 | **address** | Fix only selected **pending** items; minimal scope per finding |
+| **push** | Commit and push addressed fixes to the PR branch per `push.md` |
+| **notify** | Post replies for **addressed** human findings per `notify.md`; skip if none |
 | **refresh** | Re-run `start-session.sh` (same PR). Reconcile tracker: drop resolved IDs, mark stale |
 | **continue** | Pending selected → address. New unresolved → ask triage. `total_count == 0` → done |
 
@@ -37,6 +39,20 @@ Record choice in `tracker.md` under **Selected this workflow** and add Progress 
 - After edits: summarize per ID what changed.
 - Do not mark **addressed** until user confirms or refresh shows item gone.
 
+## Push rules
+
+- Run after address batch confirmed; before notify.
+- Skip when there are no file changes to commit.
+- Push must succeed before notify when fixes were committed.
+
+## Notify rules
+
+- Run after push (or after address when push skipped — no local changes).
+- **Human reviewers only** — use `is_bot` / `reviewer` from `findings.json`. Never notify bots.
+- **No human feedback in the batch** (all addressed items bot-sourced, or bot-only PR) → skip notify; go to refresh.
+- One concise reply per addressed human finding; record `notified` in tracker Notes.
+- User may skip notify for a batch explicitly; otherwise treat notify as required when human items were addressed.
+
 ## Refresh reconciliation
 
 Compare fresh `findings.json` IDs to tracker:
@@ -56,6 +72,8 @@ Stop when:
 
 1. `total_count == 0` — print merge-ready message, or
 2. User says done / none — print remaining IDs and session path for `resume`.
+
+Human **addressed** items should be **pushed** then **notified** before calling the PR merge-ready. Bot-only or no-human batches skip notify.
 
 ## Resume
 

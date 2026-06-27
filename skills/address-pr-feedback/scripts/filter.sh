@@ -28,30 +28,50 @@ require_jq() {
 jq_filter_program() {
   cat <<'EOF'
 def excerpt: split("\n") | map(select(length > 0)) | .[0:4] | join("\n");
+def is_bot_login: . // "" | test("\\[bot\\]$|^coderabbitai$");
 
 .threads |= [
   .[] |
   select(.isResolved == false) |
   select((.isOutdated == false) or (.line != null)) |
-  . + { anchor_moved: (.isOutdated == true and .line != null) } |
-  .comments.nodes |= map(. + { body_excerpt: (.body | excerpt) })
+  .comments.nodes |= map(. + { body_excerpt: (.body | excerpt) }) |
+  (.comments.nodes | first) as $first |
+  (.comments.nodes | last) as $last |
+  . + {
+    anchor_moved: (.isOutdated == true and .line != null),
+    reviewer: ($first.author.login // ""),
+    is_bot: (($first.author.login // "") | is_bot_login),
+    reply_kind: "thread",
+    reply_to_id: ($last.databaseId // null)
+  }
 ] |
 .reviews |= [
   .[] |
   select(.state != "APPROVED" and .state != "DISMISSED") |
   select(
     .state == "CHANGES_REQUESTED" or
-    ((.author.login // "") | test("\\[bot\\]$|^coderabbitai$") | not)
+    ((.author.login // "") | is_bot_login | not)
   ) |
-  . + { body_excerpt: (.body | excerpt) }
+  . + {
+    body_excerpt: (.body | excerpt),
+    reviewer: (.author.login // ""),
+    is_bot: ((.author.login // "") | is_bot_login),
+    reply_kind: "review"
+  }
 ] |
 .comments |= [
   .[] |
   select(
     ((.user.type // "") != "Bot") and
-    ((.user.login // "") | test("\\[bot\\]$") | not)
+    ((.user.login // "") | is_bot_login | not)
   ) |
-  . + { body_excerpt: (.body | excerpt) }
+  . + {
+    body_excerpt: (.body | excerpt),
+    reviewer: (.user.login // ""),
+    is_bot: false,
+    reply_kind: "issue_comment",
+    reply_to_id: .id
+  }
 ]
 EOF
 }

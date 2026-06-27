@@ -8,11 +8,11 @@
 
 | ID | Status | Notes |
 |----|--------|-------|
-| | pending / addressed / skipped / stale | |
+| | pending / addressed / skipped / stale | notified, fix summary |
 
 Status meanings:
 - **pending** — selected, not fixed yet
-- **addressed** — fix landed; awaiting refresh confirmation
+- **addressed** — fix landed; push then notify human reviewer (skip notify if bot-only)
 - **skipped** — user deferred this round
 - **stale** — no longer in fresh fetch (resolved on GitHub or dropped)
 

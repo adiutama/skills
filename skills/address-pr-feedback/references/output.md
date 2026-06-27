@@ -20,6 +20,7 @@ One block per finding:
 | Severity | critical / warning / nit |
 | Location | `path/to/file:LINE`      |
 | Reviewer | @handle                  |
+| Notify   | thread / review / issue_comment / skip (bot) |
 
 **Comment** (paste `body_excerpt` verbatim — do not rephrase, reformat, or modify):
 

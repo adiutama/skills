@@ -68,6 +68,7 @@ fetch_review_threads() {
               line
               comments(first: 50) {
                 nodes {
+                  databaseId
                   author { login }
                   body
                   url
