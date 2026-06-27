@@ -35,6 +35,9 @@ Invoked as `/verb-object [args]`. If missing or invalid, ask once and stop.
 
 - Keep instructions concise and executable.
 - Keep behavior deterministic and fail-fast.
+- Prefer **voice** on the spine (gates, trust, judgment) and **leading words** for repeated concepts—see [CONVENTIONS.md](../../CONVENTIONS.md#voice-and-leading-words).
+- **Standalone:** this skill must complete its job without invoking or assuming other skills—see [CONVENTIONS.md](../../CONVENTIONS.md#skill-independence).
+- **Duplicate shared concepts** from other skills into this package; do not link to their files at runtime.
 
 ---
 

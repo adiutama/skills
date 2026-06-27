@@ -4,10 +4,49 @@ This document reflects the current repository style (as implemented in existing 
 
 ## Core principles
 
-- Optimize for execution clarity first, stylistic purity second.
+- Optimize for execution clarity first; **voice** and **leading words** are how skills stay compact without losing power.
 - Keep commands explicit, deterministic, and easy to run.
-- Prefer concise instructions that still preserve safety constraints.
+- Prefer **distilled** instructions—lean and alive—not hollow cuts or spec voice.
 - Treat existing successful patterns as valid templates.
+
+## Voice and leading words
+
+Skills in this repo aim for **beautiful, powerful, lean**: shared meaning in few tokens, not stripped wording.
+
+**Voice** is deliberate human prose that earns its place—opening lines, gates, boundaries, judgment the agent cannot infer. Cut **ornament** and **mere exposition**; keep lines that change behavior or trust.
+
+**Leading words** are compact pretrained concepts the agent thinks with (e.g. _distill_, _oblivion_, _tight_, _red_). They collapse repeated meaning into one token:
+
+- Front-load them in the **description** (invocation).
+- Repeat them in the body as tokens, not re-explained sentences (execution).
+- Prefer existing words that recruit model priors; coining costs definition tokens.
+
+| Layer | Job | Cut when |
+|-------|-----|----------|
+| Voice | Trust, gates, intent, completion criteria | Pretty but behavior-neutral |
+| Leading word | Anchor a whole region of behavior | Weak no-op (_be thorough_) |
+| Script / reference | Repeatable mechanics | Judgment belongs in prose |
+
+**Before shipping**, run the distilled test: still know what to do, what must never happen, and still sound like someone who trusts you? All yes and shorter → **distilled**. Any no → **hollow**.
+
+See [best practices — Voice and compression](docs/references/best-practices.md#voice-and-compression) and `skills/optimize-skill/` for examples.
+
+## Skill independence
+
+**Each skill is an individual.** In today's setup, preconfigured modularity (router skills, skill chains, one skill invoking another) is not an option. A skill must run complete on its own.
+
+When building or refactoring a skill:
+
+- **Self-contained package** — everything the run needs lives under `skills/<skill-name>/`: workflow in `SKILL.md`, detail in `references/`, mechanics in `scripts/`, templates in `assets/`.
+- **No skill-to-skill dependency** — do not instruct the agent to invoke, load, or assume another skill (`/other-skill`, "use the review-pr skill", model-invoked reach clauses).
+- **No borrowed runtime** — do not point at another skill's `references/` or `scripts/`. If this skill needs a concept, format, gate, or checklist that exists elsewhere, **duplicate it** into this package (`references/`, `assets/`, or inline in `SKILL.md`) and adapt only what this skill needs.
+- **Duplicate until modularity** — shared concepts stay copied per skill for now. Do not wait for cross-skill imports, routers, or shared skill libraries; when the setup supports modularity, deduplication can happen then—not before.
+- **One job, one skill** — if a workflow only works as a chain of skills, merge or split until each command stands alone; the human chooses the sequence, not the skill text.
+- **Default user-invoked** — prefer `disable-model-invocation: true` for new skills unless agent auto-discovery is explicitly required.
+
+Repo-level `docs/` and `CONVENTIONS.md` are **author guidance**, not runtime dependencies. If a skill needs a format, gate, or checklist to execute, copy or link **within its own package** (`<SKILL_DIR>/references/...`), not "see docs/" or another skill.
+
+See [best practices — Building new skills](docs/references/best-practices.md#building-new-skills).
 
 ## Naming convention
 
@@ -61,11 +100,13 @@ Good: `loop-until` (extends `/loop` with conditional stop), `refactor-safely` (a
 
 ## Global docs
 
-Use `docs/` when content is cross-skill or long-lived project guidance:
+Use `docs/` for **author-level** guidance—conventions, shared templates while drafting, onboarding—not as a runtime substitute for in-skill content.
 
-- Shared review templates, output schemas, and reusable checklists.
+- Shared review templates, output schemas, and reusable checklists while authoring.
 - Shared terminology, conventions, and examples used by multiple skills.
-- Onboarding/reference material that should not be duplicated per skill.
+- Onboarding/reference material.
+
+At **runtime**, each skill still owns what it needs inside its package. Do not make execution depend on another skill or on `docs/` unless the user explicitly asks for a shared-doc pattern.
 
 Keep per-skill specifics inside that skill package:
 
@@ -109,3 +150,4 @@ Skills must not write persistent artifacts into the workspace or the skill repos
 - [SKILL template](docs/templates/SKILL.template.md)
 - [Best practices](docs/references/best-practices.md)
 - [Author checklist](docs/references/author-checklist.md)
+- [Optimize skill](../skills/optimize-skill/SKILL.md) — distillation workflow and voice examples
