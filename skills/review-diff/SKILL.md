@@ -22,7 +22,9 @@ Empty surface → nothing-to-review message; stop.
 
 ## Step 2 — Session path
 
-Remote → `OWNER`/`REPO` (else `_local`). Slugify branch. Dir: `.agents/artifacts/<OWNER>/<REPO>/<slug>/review-diff/` (under git root; else `~/.agents/artifacts/...`). Next pass `NN.md` → `SESSION_PATH`, `PASS`. Legacy `review-workspace/`, `review-changes/` — full path or migrate.
+Run `bash <SKILL_DIR>/scripts/artifacts.sh allocate review-diff [branch]` (optional branch; default current HEAD). Parse KEY=VALUE output: `OWNER`, `REPO`, `BRANCH`, `BRANCH_SLUG`, `SESSION_DIR`, `SESSION_PATH`, `PASS`, `WRITE_ROOT`, `WRITE_SCOPE`.
+
+Write root is **gitignore-gated**: when `<git-root>/.agents/artifacts` (or `.agents`) is ignored, artifacts stay project-local (`WRITE_SCOPE=local`); otherwise writes use `~/.agents/artifacts` (`WRITE_SCOPE=global`). Override with `AGENTS_ARTIFACTS_SCOPE=local|global`.
 
 ## Step 3 — Context (parallel)
 

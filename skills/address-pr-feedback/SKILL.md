@@ -67,6 +67,6 @@ Re-fetch same PR; reconcile [workflow.md#refresh-reconciliation](references/work
 | New unresolved | Step 4 |
 | User done | Stop + `resume` hint |
 
-Full turns end with session path. Legacy: `.../fetch-outstanding-pr-feedback/` — migrate or full path.
+Full turns end with session path.
 
 Missing `gh`/`jq` or auth → offer install/login; ask first.

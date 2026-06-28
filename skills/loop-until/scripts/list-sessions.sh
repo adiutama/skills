@@ -6,37 +6,10 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source "${SCRIPT_DIR}/lib/artifact-root.sh"
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
 
 LIMIT="${1:-5}"
-
-resolve_owner_repo() {
-  local url
-  url=$(git remote get-url origin 2>/dev/null || true)
-  if [[ -z "$url" ]]; then
-    OWNER="_local"
-    REPO="_local"
-    return
-  fi
-  if [[ "$url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]%.git}"
-    return
-  fi
-  OWNER="_local"
-  REPO="_local"
-}
-
-branch_slug() {
-  local branch sha
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-  if [[ "$branch" == "HEAD" ]]; then
-    sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
-    printf 'detached-%s' "$sha"
-    return
-  fi
-  printf '%s' "$branch" | sed -E 's/[^a-zA-Z0-9]+/-/g; s/^-+|-+$//g'
-}
 
 read_meta_field() {
   local file="$1" key="$2"
@@ -51,8 +24,8 @@ read_meta_field() {
   ' "$file" 2>/dev/null || true
 }
 
-resolve_owner_repo
-BRANCH_SLUG=$(branch_slug)
+artifact_git_owner_repo
+BRANCH_SLUG=$(artifact_branch_slug)
 
 entries=()
 seen=$'\n'
@@ -61,7 +34,7 @@ count=0
 collect_sessions() {
   local base="$1" id dir meta status goal created
   base="$1"
-  [[ -d "$base" ]] || return
+  [[ -d "$base" ]] || return 0
 
   while IFS= read -r id; do
     [[ -z "$id" ]] && continue

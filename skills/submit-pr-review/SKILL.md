@@ -18,7 +18,7 @@ PR identity (URL or number) + optional instructions. No identity → instruction
 
 ## Step 2 — Resolve
 
-1. `bash <SKILL_DIR>/scripts/resolve.sh <PR_IDENTITY>` → `owner`, `repo`, `number`, `head_sha`, `session_path`.
+1. `bash <SKILL_DIR>/scripts/resolve-session.sh <PR_IDENTITY>` → `owner`, `repo`, `number`, `head_sha`, `session_path`.
 2. Else ask once for PR URL/number; stop.
 
 Empty `session_path` → no session; stop. Else read fully. Lookup: [session-sources.md](references/session-sources.md).
@@ -31,7 +31,7 @@ Empty `session_path` → no session; stop. Else read fully. Lookup: [session-sou
 4. Submit:
 
 ```bash
-bash <SKILL_DIR>/scripts/post.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT> <<'EOF'
+bash <SKILL_DIR>/scripts/submit-review.sh <OWNER> <REPO> <NUMBER> <HEAD_SHA> <EVENT> <<'EOF'
 { "body": "<composed>", "comments": [{ "path": "<file>", "line": <N>, "body": "<paste>" }] }
 EOF
 ```

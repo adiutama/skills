@@ -88,8 +88,6 @@ bash <SKILL_DIR>/scripts/resolve-session.sh [pr-number]
 3. **Wait for confirm** — continue triage, address pending, or refresh-only.
 4. Never auto-start address without confirmation.
 
-Legacy sessions may live under `.../fetch-outstanding-pr-feedback/pr-<N>/`. Migrate or use full path to resume.
-
 ## Fetch-only (verify)
 
 `--fetch-only` or `--list`: run through **present** only. Exit code semantics via counts in JSON:

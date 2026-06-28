@@ -7,35 +7,8 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source "${SCRIPT_DIR}/lib/artifact-root.sh"
-
-branch_slug() {
-  local branch sha
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-  if [[ "$branch" == "HEAD" ]]; then
-    sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
-    printf 'detached-%s' "$sha"
-    return
-  fi
-  printf '%s' "$branch" | sed -E 's/[^a-zA-Z0-9]+/-/g; s/^-+|-+$//g'
-}
-
-resolve_owner_repo() {
-  local url
-  url=$(git remote get-url origin 2>/dev/null || true)
-  if [[ -z "$url" ]]; then
-    OWNER="_local"
-    REPO="_local"
-    return
-  fi
-  if [[ "$url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]%.git}"
-    return
-  fi
-  OWNER="_local"
-  REPO="_local"
-}
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
 
 read_meta_field() {
   local file="$1" key="$2"
@@ -109,8 +82,8 @@ main() {
   local arg="${1:-}"
   command -v jq &>/dev/null || { echo "Error: jq not installed." >&2; exit 1; }
 
-  resolve_owner_repo
-  SLUG=$(branch_slug)
+  artifact_git_owner_repo
+  SLUG=$(artifact_branch_slug)
 
   local session_dir=""
   local root base

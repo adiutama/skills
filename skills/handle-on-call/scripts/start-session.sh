@@ -7,35 +7,8 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-source "${SCRIPT_DIR}/lib/artifact-root.sh"
-
-branch_slug() {
-  local branch sha
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-  if [[ "$branch" == "HEAD" ]]; then
-    sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
-    printf 'detached-%s' "$sha"
-    return
-  fi
-  printf '%s' "$branch" | sed -E 's/[^a-zA-Z0-9]+/-/g; s/^-+|-+$//g'
-}
-
-resolve_owner_repo() {
-  local url
-  url=$(git remote get-url origin 2>/dev/null || true)
-  if [[ -z "$url" ]]; then
-    OWNER="_local"
-    REPO="_local"
-    return
-  fi
-  if [[ "$url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]%.git}"
-    return
-  fi
-  OWNER="_local"
-  REPO="_local"
-}
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
 
 incident_slug() {
   date -u +%Y%m%d-%H%M%S
@@ -100,8 +73,8 @@ main() {
   THREAD_TS=$(jq -r '.thread_ts' <<<"$parsed")
   message_text=$(jq -r '.message_text' <<<"$parsed")
 
-  resolve_owner_repo
-  SLUG=$(branch_slug)
+  artifact_git_owner_repo
+  SLUG=$(artifact_branch_slug)
   INCIDENT_ID=$(incident_slug)
   BASE=$(artifact_skill_path "$OWNER" "$REPO" "$SLUG" "handle-on-call")
   SESSION_DIR="${BASE}/incident-${INCIDENT_ID}"

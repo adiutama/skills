@@ -8,7 +8,7 @@ One session directory per run. Timestamps sort lexically (`sort -r` = newest fir
 <git-root>/.agents/artifacts/<owner>/<repo>/<branch-slug>/loop-until/sessions/<session-id>/
 ```
 
-Fallback when not in a git repo: `~/.agents/artifacts/.../loop-until/sessions/<session-id>/`
+Fallback when not in a git repo, or when `<git-root>/.agents/artifacts` is **not** gitignored (writes use global root): `~/.agents/artifacts/.../loop-until/sessions/<session-id>/`
 
 - `<owner>/<repo>` — `git remote get-url origin`; else `_local/_local`
 - `<branch-slug>` — sanitized branch; detached → `detached-<short-sha>`
@@ -55,7 +55,3 @@ Pick order: newest `active` → `blocked`/`max-reached` → newest.
 | `compact-master.sh <master.md> [max]` | size budget |
 
 `init-session.sh` returns JSON with `session_dir`; parent fills `meta.md` + `master.md`.
-
-## Legacy path
-
-Sessions created before the rename may live under `.../iterate-task/sessions/`. Resume by full session path or migrate the folder to `loop-until/sessions/`.

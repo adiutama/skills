@@ -6,44 +6,11 @@
 
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/artifact-root.sh"
-
-require_dependencies() {
-  command -v gh &>/dev/null || {
-    echo "Error: gh CLI not installed. See https://cli.github.com" >&2
-    exit 1
-  }
-  command -v jq &>/dev/null || {
-    echo "Error: jq not installed. Run: brew install jq" >&2
-    exit 1
-  }
-}
-
-parse_pr_identity() {
-  local arg="$1"
-
-  if [[ "$arg" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]}"
-    NUMBER="${BASH_REMATCH[3]}"
-    return
-  fi
-
-  if [[ "$arg" =~ ^[0-9]+$ ]]; then
-    local name_with_owner
-    name_with_owner=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
-      echo "Error: could not detect repo — run from inside a git repo or provide the full PR URL." >&2
-      exit 1
-    }
-    OWNER="${name_with_owner%%/*}"
-    REPO="${name_with_owner##*/}"
-    NUMBER="$arg"
-    return
-  fi
-
-  echo "Error: expected a GitHub PR URL or number, got: $arg" >&2
-  exit 1
-}
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
+# shellcheck source=pr-identity.sh
+source "${SCRIPT_DIR}/pr-identity.sh"
 
 fetch_artifacts() {
   local meta_file="$1"
@@ -71,7 +38,7 @@ allocate_session_path() {
   local branch="$1"
   local slug dir n
 
-  slug=$(printf '%s' "$branch" | tr -cs 'a-zA-Z0-9' '-' | sed 's/^-//;s/-$//')
+  slug=$(artifact_branch_slug "$branch")
   dir=$(artifact_skill_path "$OWNER" "$REPO" "$slug" "review-pr")
   mkdir -p "$dir"
 
@@ -116,7 +83,7 @@ main() {
   local arg meta_file diff_file comments_file meta branch
   arg=${1:?"Usage: start-session.sh <PR URL or number>"}
 
-  require_dependencies
+  require_gh_jq
   parse_pr_identity "$arg"
 
   meta_file=$(mktemp /tmp/pr-meta.XXXXXX)

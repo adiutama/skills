@@ -12,48 +12,13 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-source "${SCRIPT_DIR}/lib/artifact-root.sh"
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
+# shellcheck source=pr-identity.sh
+source "${SCRIPT_DIR}/pr-identity.sh"
 
 require_dependencies() {
-  command -v gh &>/dev/null || {
-    echo "Error: gh CLI not installed. See https://cli.github.com" >&2
-    exit 1
-  }
-  command -v jq &>/dev/null || {
-    echo "Error: jq not installed. Run: brew install jq" >&2
-    exit 1
-  }
-}
-
-parse_pr_identity() {
-  local arg="$1"
-
-  if [[ "$arg" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]}"
-    NUMBER="${BASH_REMATCH[3]}"
-    return
-  fi
-
-  if [[ "$arg" =~ ^[0-9]+$ ]]; then
-    local name_with_owner
-    name_with_owner=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
-      echo "Error: could not detect repo — run from inside a git repo or provide the full PR URL." >&2
-      exit 1
-    }
-    OWNER="${name_with_owner%%/*}"
-    REPO="${name_with_owner##*/}"
-    NUMBER="$arg"
-    return
-  fi
-
-  echo "Error: expected a GitHub PR URL or number, got: $arg" >&2
-  exit 1
-}
-
-branch_slug() {
-  local branch="$1"
-  printf '%s' "$branch" | sed -E 's/[^a-zA-Z0-9]+/-/g; s/^-+|-+$//g'
+  require_gh_jq
 }
 
 fetch_pr_meta() {
@@ -115,7 +80,7 @@ main() {
   parse_pr_identity "$arg"
   fetch_pr_meta
 
-  SLUG=$(branch_slug "$PR_BRANCH")
+  SLUG=$(artifact_branch_slug "$PR_BRANCH")
   BASE=$(artifact_skill_path "$OWNER" "$REPO" "$SLUG" "address-pr-feedback")
   SESSION_DIR="${BASE}/pr-${NUMBER}"
   mkdir -p "$SESSION_DIR"

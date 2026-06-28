@@ -7,38 +7,11 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SKILL_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
-source "${SCRIPT_DIR}/lib/artifact-root.sh"
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
 
 slug="${1:-}"
 slug=$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-32)
-
-resolve_owner_repo() {
-  local url
-  url=$(git remote get-url origin 2>/dev/null || true)
-  if [[ -z "$url" ]]; then
-    OWNER="_local"
-    REPO="_local"
-    return
-  fi
-  if [[ "$url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]%.git}"
-    return
-  fi
-  OWNER="_local"
-  REPO="_local"
-}
-
-branch_slug() {
-  local branch sha
-  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
-  if [[ "$branch" == "HEAD" ]]; then
-    sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
-    printf 'detached-%s' "$sha"
-    return
-  fi
-  printf '%s' "$branch" | sed -E 's/[^a-zA-Z0-9]+/-/g; s/^-+|-+$//g'
-}
 
 session_id() {
   local ts id
@@ -51,8 +24,8 @@ session_id() {
   printf '%s' "$id"
 }
 
-resolve_owner_repo
-BRANCH_SLUG=$(branch_slug)
+artifact_git_owner_repo
+BRANCH_SLUG=$(artifact_branch_slug)
 SESSION_ID=$(session_id)
 CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

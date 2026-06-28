@@ -26,7 +26,7 @@ Invoked as `/scan-blast-radius [fix|feature|rewire] [--quick] [target-branch-or-
 bash <SKILL_DIR>/scripts/resolve-scope.sh "[target]"
 ```
 
-→ `COMMITTED_RANGE`, `INCLUDE_UNCOMMITTED`, `CHANGED_FILES`, `SESSION_PATH`, `PASS`, `PR_BASE`, `BRANCH`. Prior passes: legacy `check-blast-radius/`.
+→ `COMMITTED_RANGE`, `INCLUDE_UNCOMMITTED`, `CHANGED_FILES`, `SESSION_PATH`, `PASS`, `PR_BASE`, `BRANCH`.
 
 Empty changes → print nothing-to-check; stop. Parallel: `git diff <COMMITTED_RANGE>`, `git status --short`, optional `git diff HEAD`.
 

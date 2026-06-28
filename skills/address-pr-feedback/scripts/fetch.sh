@@ -7,42 +7,9 @@
 
 set -euo pipefail
 
-require_dependencies() {
-  command -v gh &>/dev/null || {
-    echo "Error: gh is not installed. Install it from https://cli.github.com and run 'gh auth login'." >&2
-    exit 1
-  }
-  command -v jq &>/dev/null || {
-    echo "Error: jq is not installed. Install it from https://jqlang.org or via your package manager (e.g. brew install jq)." >&2
-    exit 1
-  }
-}
-
-parse_pr_identity() {
-  local arg="$1"
-
-  if [[ "$arg" =~ ^https://github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]}"
-    NUMBER="${BASH_REMATCH[3]}"
-    return
-  fi
-
-  if [[ "$arg" =~ ^[0-9]+$ ]]; then
-    local name_with_owner
-    name_with_owner=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) || {
-      echo "Error: could not detect repo — run from inside a git repo or provide the full PR URL." >&2
-      exit 1
-    }
-    OWNER="${name_with_owner%%/*}"
-    REPO="${name_with_owner##*/}"
-    NUMBER="$arg"
-    return
-  fi
-
-  echo "Error: expected a GitHub PR URL or PR number, got: $arg" >&2
-  exit 1
-}
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=pr-identity.sh
+source "${SCRIPT_DIR}/pr-identity.sh"
 
 fetch_review_threads() {
   local threads cursor after response page_threads has_next
@@ -132,7 +99,7 @@ main() {
   local arg
   arg=${1:?"Usage: fetch.sh <PR URL or number>"}
 
-  require_dependencies
+  require_gh_jq
   parse_pr_identity "$arg"
 
   fetch_review_threads

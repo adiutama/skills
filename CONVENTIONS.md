@@ -129,37 +129,71 @@ Keep per-skill specifics inside that skill package:
 - Keep runtime guidance in `references/` and skill-scoped templates/examples in `assets/`.
 - Use explicit file paths in instructions when ambiguity is possible.
 
+## Script templates
+
+Shared shell helpers live in `docs/assets/` as **templates only** — copy into skill packages; never run from `docs/`.
+
+### Naming pattern
+
+| Pattern | Role | Examples |
+|---------|------|----------|
+| `<name>.sh` (source-only) | Sourced by other scripts — not invoked from `SKILL.md` | `pr-identity.sh` |
+| `resolve-<target>.sh` | One-shot resolve → KEY=VALUE or JSON | `resolve-range.sh`, `resolve-scope.sh`, `resolve-session.sh` |
+| `<verb>-session.sh` | Session lifecycle | `start-session.sh`, `init-session.sh`, `list-sessions.sh` |
+| `<verb>-<object>.sh` | Other skill actions | `submit-review.sh`, `mark-posted.sh` |
+| `artifacts.sh` | Artifact paths (source + CLI) | `artifacts.sh check`, `artifacts.sh allocate` |
+
+### Templates
+
+| Template | Copy to | Skills |
+|----------|---------|--------|
+| `artifacts.sh` | `scripts/artifacts.sh` | Any skill with persistent artifact output |
+| `pr-identity.sh` | `scripts/pr-identity.sh` | Skills that parse a GitHub PR URL or number (source-only) |
+| `resolve-range.sh` | `scripts/resolve-range.sh` | Pre-push review skills; source base for `scan-blast-radius/scripts/resolve-scope.sh` |
+| `resolve-session.sh` | `scripts/resolve-session.sh` | `submit-pr-review` — set `SESSION_SOURCE_SKILL`; skill copy also falls back to `review-pr` sessions |
+| `submit-review.sh` | `scripts/submit-review.sh` | Skills that submit GitHub PR reviews via `gh api` |
+| `mark-posted.sh` | `scripts/mark-posted.sh` | Skills that flip finding `Posted` markers in session markdown |
+
+When updating a template, copy into each skill package that uses it.
+
 ## Artifact storage
 
-Skills that produce persistent output files (review sessions, reports, etc.) use:
+Skills that produce persistent output files copy `docs/assets/artifacts.sh` into their package:
 
 ```text
-<write-root>/<owner>/<repo>/<branch-slug>/<skill-name>/
+docs/assets/artifacts.sh   # template only — do not run or source from docs/
+        ↓ copy
+skills/<skill-name>/scripts/artifacts.sh
 ```
 
-Where `<write-root>` is chosen automatically:
+**Write root** (gitignore-gated):
 
 | Condition | Write root |
 |-----------|------------|
 | `.agents/artifacts` or `.agents/` is **gitignored** | `<git-root>/.agents/artifacts/` |
 | Not gitignored (or not in a git repo) | `~/.agents/artifacts/` |
 
-- `<git-root>` — `git rev-parse --show-toplevel`
-- `<owner>/<repo>` — derived from `git remote get-url origin`; use `_local/_local` when no remote exists
-- `<branch-slug>` — branch name sanitized; detached HEAD → `detached-<short-sha>`
-- `<skill-name>` — matches the skill's `name:` frontmatter field
+Path suffix: `<write-root>/<owner>/<repo>/<branch-slug>/<skill-name>/`
 
-**Why gitignore-gated:** project-local artifacts are convenient when ignored; global avoids accidental commits when they are not.
+**From skill shell scripts** — source the local copy:
 
-**Read / resume:** search local first, then global (migration + override).
+```bash
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=artifacts.sh
+source "${SCRIPT_DIR}/artifacts.sh"
+```
 
-**Override:** `AGENTS_ARTIFACTS_SCOPE=local|global` forces one root.
+**From SKILL.md / agents** — call the skill-local CLI:
 
-**Check:** `./scripts/check-artifact-root.sh` (or `--json`).
+```bash
+bash <SKILL_DIR>/scripts/artifacts.sh allocate <skill-name> [branch]
+```
 
-Skills must not write persistent artifacts into the skill package itself (`skills/<skill-name>/`). Copy `docs/assets/artifact-root.sh` into `scripts/lib/` when shell helpers need path resolution.
+**Check:** `bash <SKILL_DIR>/scripts/artifacts.sh check [--json]`
 
-Recommend adding `.agents/` to the project `.gitignore` so sessions stay beside the repo.
+**Override:** `AGENTS_ARTIFACTS_SCOPE=local|global`.
+
+Skills must not write persistent artifacts into the skill package itself. Recommend `.agents/` in project `.gitignore`.
 
 ## See also
 
