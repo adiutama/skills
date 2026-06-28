@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a new loop-until session directory with artifact skeleton.
+# Create a new work-until session directory with artifact skeleton.
 # Usage: init-session.sh [slug]
 # Output: JSON { session_id, session_dir, owner, repo, branch_slug, created }
 
@@ -29,7 +29,7 @@ BRANCH_SLUG=$(artifact_branch_slug)
 SESSION_ID=$(session_id)
 CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-BASE="$(artifact_skill_path "$OWNER" "$REPO" "$BRANCH_SLUG" "loop-until")/sessions"
+BASE="$(artifact_skill_path "$OWNER" "$REPO" "$BRANCH_SLUG" "work-until")/sessions"
 SESSION_DIR="${BASE}/${SESSION_ID}"
 
 if [[ -e "$SESSION_DIR" ]]; then

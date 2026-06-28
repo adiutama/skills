@@ -1,6 +1,6 @@
 ---
-name: loop-until
-description: Until-driven loop—handoff, subagents, verify. Parent holds the clause; workers hold the work. Resume with confirmation; not for timers.
+name: work-until
+description: Work until a condition holds—handoff, subagents, verify. Parent holds the clause; workers hold the work. Resume with confirmation; not for timed schedules.
 disable-model-invocation: true
 compatibility: Requires git for artifact paths; jq and bash for session scripts.
 metadata:
@@ -8,7 +8,7 @@ metadata:
 allowed-tools: Task Read Write Bash
 ---
 
-Invoked as **`/loop-until <condition>`** — e.g. “lint is clean in src/”, or **`resume`** (new chat OK).
+Invoked as **`/work-until <condition>`** — e.g. “lint is clean in src/”, or **`resume`** (new chat OK).
 
 *Parent keeps the **until** and the ledger; subagents keep the sweat. **Handoff** lives in **session** files—not in a bloated parent window.*
 
@@ -27,13 +27,13 @@ Layout: [session-layout.md](references/session-layout.md).
 
 ### Resume
 
-`resume`, `/loop-until resume`, `continue`, `resume <hint>` — no new until-clause.
+`resume`, `/work-until resume`, `continue`, `resume <hint>` — no new until-clause.
 
 ```bash
 bash <SKILL_DIR>/scripts/resolve-resume.sh [hint]
 ```
 
-No sessions → stop. Recommend one (id, goal, until, status, iter, path). **Wait yes / pick / cancel**—never auto-loop. **yes** → `master.md` + `meta.md`; Step 3 from `iteration_count + 1`. **pick** → ≤5 candidates; confirm again. New goal on resume → new session unless user says otherwise.
+No sessions → stop. Recommend one (id, goal, until, status, iter, path). **Wait yes / pick / cancel**—never auto-continue. **yes** → `master.md` + `meta.md`; Step 3 from `iteration_count + 1`. **pick** → ≤5 candidates; confirm again. New goal on resume → new session unless user says otherwise.
 
 ### Until gate
 
@@ -80,7 +80,7 @@ For `i` from start to `max`:
 
 ## Anti-patterns
 
-Auto-resume · shared mutable state · child edits `master.md` · until-less start · parent does worker work · auto-loop in human-gate · timed polling
+Auto-resume · shared mutable state · child edits `master.md` · until-less start · parent does worker work · auto-continue in human-gate · timed polling
 
 ## References
 

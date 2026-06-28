@@ -92,7 +92,7 @@ A **summon name** is what you'd actually say when pausing to think—not a capab
 
 **When not to use a summon name:**
 
-- Deterministic pipelines (`review-pr`, `submit-pr-review`, `loop-until`).
+- Deterministic pipelines (`review-pr`, `submit-pr-review`, `work-until`).
 - Skills another person must scan in a catalog without reading the body.
 - Anything where `/name` alone should auto-start work without a question.
 
@@ -104,7 +104,7 @@ When a skill extends a familiar primitive, name the delta:
 
 | Pattern | Example | Reads as |
 |---------|---------|----------|
-| `<primitive>-<stop-word>` | `loop-until` | loop until [user-supplied condition] |
+| `<primitive>-<stop-word>` | `work-until` | work until [user-supplied condition] |
 | `<primitive>-with-<feature>` | `loop-with-handoff` | loop, but with X |
 | `<feature>-<primitive>` | `resumable-loop` | the kind of primitive that is X |
 
@@ -113,7 +113,7 @@ When a skill extends a familiar primitive, name the delta:
 - Avoid generic deltas (`task`, `process`, `thing`).
 
 Bad: `iterate-task` (generic object, verb overlaps many workflows).  
-Good: `loop-until` (extends `/loop` with conditional stop), `refactor-safely` (action + constraint).
+Good: `work-until` (work until [condition]; not timed `/loop`), `refactor-safely` (action + constraint).
 
 ## Repository and package layout
 

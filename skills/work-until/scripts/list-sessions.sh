@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# List loop-until sessions for the current repo + branch, newest first.
+# List work-until sessions for the current repo + branch, newest first.
 # Usage: list-sessions.sh [limit]
 # Output: JSON array [{ session_id, session_dir, status, goal, created }]
 
@@ -63,7 +63,7 @@ collect_sessions() {
 
 while IFS= read -r root; do
   [[ -n "$root" ]] || continue
-  collect_sessions "${root}/${OWNER}/${REPO}/${BRANCH_SLUG}/loop-until/sessions"
+  collect_sessions "${root}/${OWNER}/${REPO}/${BRANCH_SLUG}/work-until/sessions"
   [[ "$count" -ge "$LIMIT" ]] && break
 done < <(artifact_search_roots)
 

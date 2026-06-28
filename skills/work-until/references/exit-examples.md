@@ -31,7 +31,7 @@ Pair caps with what each pass tries to achieve.
 | Per round | `stop when I reply "ship it"` |
 | Summary approval | `exit when I confirm done` |
 
-Stop after each iteration — do not auto-loop.
+Stop after each iteration — do not auto-continue.
 
 ## Composite
 
