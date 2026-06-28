@@ -2,13 +2,14 @@
 
 Use this checklist before finalizing a skill.
 
-- [ ] Name follows `verb-object[-qualifier]` and matches folder name.
+- [ ] Name follows `verb-object[-qualifier]` and matches folder name — **or** qualifies as a [summon name](../../CONVENTIONS.md#summon-names-exception) (gates + compensating fields met).
 - [ ] `description` states both what the skill does and when to use it.
 - [ ] Frontmatter includes required fields (`name`, `description`).
 - [ ] `compatibility` is included when runtime dependencies matter.
 - [ ] `metadata.argument-hint` is present for argument-driven skills.
 - [ ] `allowed-tools` is accurate and minimal.
 - [ ] Invocation line is explicit (for command-driven skills).
+- [ ] **Summon names only:** bare `/name` asks once and stops; examples use conversational questions; `Voice` section or equivalent separates chat tone from artifact structure.
 - [ ] Workflow is ordered, testable, and fail-fast on invalid input.
 - [ ] Output schema is deterministic and unambiguous.
 - [ ] Reference paths are clear and consistent.

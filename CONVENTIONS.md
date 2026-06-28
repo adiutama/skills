@@ -50,7 +50,8 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 
 ## Naming convention
 
-- Skill names use `verb-object[-qualifier]` in kebab-case.
+**Default:** skill names use `verb-object[-qualifier]` in kebab-case.
+
 - Skill directory name and `name:` in frontmatter must match.
 - Command form should read naturally: `/review-pr`, `/submit-pr-review`, `/refactor-safely`.
 
@@ -60,6 +61,42 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 - **Qualifier** — carry the non-obvious constraint (`safely`, `outstanding`, `until-exit`).
 - **Disambiguate** — if a built-in or sibling skill shares the base (`/loop`), the name must signal the difference in the command.
 - **Invocation test** — `/name` should suggest *what* and *how it stops*; if not, rename or add a qualifier.
+
+### Summon names (exception)
+
+A **summon name** is what you'd actually say when pausing to think—not a capability label. Example: `/hmmm should we use OAuth or magic link?`
+
+**Default stays `verb-object`.** Use a summon name only when all of the following hold:
+
+| Gate | Rule |
+|------|------|
+| **Fuzzy job** | No single crisp artifact or tool action (explore, compare, decide—not "post review", "run lint"). |
+| **User-invoked** | `disable-model-invocation: true` — you type the command; description is not the primary discovery path. |
+| **Natural tail** | Invocation is `/name <your question>` in conversational language; bare `/name` → ask once, then stop. |
+| **Done is defined** | Skill body states when the session ends (e.g. recommendation written, status `done`). |
+| **Durable or bounded** | Session on disk with resume, or an explicit single-shot stop—never an unbounded chat loop. |
+
+**Name rules (still apply):**
+
+- Lowercase kebab-case in `name:` and folder (`hmmm`, not `Hmmm` or `hmmm 😂`).
+- No emoji or punctuation in `name:` — voice lives in prose and examples.
+- One real word or a short fixed phrase you already use; not a synonym for an existing pipeline skill.
+- **One summon name per cognitive mode** — don't spawn `/ugh`, `/hmm`, `/think` for the same job.
+
+**Required compensating fields** (summon names carry less meaning in the command—put it here):
+
+- **`description`** — third person; full **what** + **when**; include trigger terms (`hmmm`, `question`, `think through`).
+- **`metadata.argument-hint`** — conversational tail, e.g. `'<your question>'` or `'resume'`.
+- **`Invoked as`** — 2–3 example questions, not spec-style problem statements.
+- **`Voice` or equivalent** — chat stays human; artifacts on disk stay structured.
+
+**When not to use a summon name:**
+
+- Deterministic pipelines (`review-pr`, `submit-pr-review`, `loop-until`).
+- Skills another person must scan in a catalog without reading the body.
+- Anything where `/name` alone should auto-start work without a question.
+
+**Reference:** `skills/hmmm/` — summon + durable session + delegated discovery.
 
 ### Primitive extension names
 
@@ -124,6 +161,7 @@ Keep per-skill specifics inside that skill package:
 ## Body and reference baseline
 
 - Command skills should start with `Invoked as ...`, then procedural `Step N` sections.
+- **Summon-name skills** — `Invoked as` must show `/name <question>` examples; bare `/name` asks once and stops (see [Summon names](#summon-names-exception)).
 - Always-on behavior skills may use protocol-style sections (`Goal`, `Protocol`, `Rules`).
 - Minimal numbered workflow format is also valid for simple skills (title + `1..N` steps) when steps are short and linear.
 - Keep runtime guidance in `references/` and skill-scoped templates/examples in `assets/`.
