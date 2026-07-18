@@ -60,6 +60,14 @@ The activation remains part of the current conversation. Do not require `/orches
 
 Before context-heavy work, write `handoffs/<id>.md` from [handoff-template.md](references/handoff-template.md). Give the worker only the relevant context, scope, authority, acceptance criteria, and verification.
 
+Make the handoff **sufficient, lean, and autonomous**:
+
+- Include known requirements, relevant decisions, exact starting points, constraints, and available evidence. Do not make the worker rediscover facts the parent already knows.
+- Exclude unrelated history, raw conversation, speculative detail, and instructions that do not change the outcome.
+- Name the observable result and boundaries; let the worker choose efficient mechanics inside them.
+- Request only tool calls and verification proportional to the task. Avoid broad searches, repeated reads, redundant checks, or ceremony without a decision they inform.
+- Anticipate the worker's likely blockers. Resolve them in the handoff when the parent already has the answer; otherwise grant safe authority or identify the uncertainty explicitly.
+
 One writer owns an overlapping edit area at a time. Workers must refresh target files before writing and must not edit `vision.md`, `state.md`, or `log.md`.
 
 Ask workers to return:
@@ -71,6 +79,23 @@ Ask workers to return:
 - risks, blockers, and suggested next action.
 
 Afterward, inspect the evidence. Synthesize conclusions rather than copying raw traces into the parent conversation or ledger.
+
+### Reconcile conversation while workers run
+
+The parent mediates both directions. Workers receive a snapshot through their handoff; they do not automatically see the continuing parent-user conversation. Send them only requirement changes that affect their work, and invite progress or clarification messages when useful.
+
+**A worker result is evidence from its delegation snapshot—not a command and not automatically current truth.** The parent owns the evolving truth and decides when and how the result enters the conversation.
+
+Keep talking with the user while delegated work proceeds. Treat new information as a **requirement delta**, not an automatic interruption:
+
+1. Capture the delta in `state.md` immediately, including when it arrived and which active work it may affect.
+2. Classify it: **unrelated**, **follow-up**, **changes acceptance**, or **invalidates active work**.
+3. Unrelated or follow-up → let the worker finish; schedule it at the next useful boundary.
+4. Changes acceptance → send the worker a concise update if it can still adapt without restarting; otherwise let it return evidence and re-scope afterward.
+5. Invalidates active work or creates material risk → interrupt or redirect promptly. Prefer a clean boundary, but do not preserve sunk cost at the expense of correctness or safety.
+6. Tell the user how the delta is being handled. Never silently defer or reinterpret it.
+
+When a worker update arrives, choose timing by consequence: weave relevant progress into the next natural response; hold minor news until the current thread lands; surface blockers, invalid assumptions, or material risk immediately. When the worker returns, compare its result against the **latest** requirements before integrating it. Reuse still-valid evidence, discard stale conclusions, and create the next handoff from current truth.
 
 ## Step 4 — Keep continuity
 

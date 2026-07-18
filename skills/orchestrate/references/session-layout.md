@@ -45,6 +45,8 @@ Stable and user-owned. Preserve their language. Revise when direction genuinely 
 
 ## Open questions
 
+## Requirement deltas
+
 ## Risks and blockers
 
 ## Next useful action

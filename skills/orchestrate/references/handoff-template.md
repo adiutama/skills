@@ -8,6 +8,12 @@ What observable result to produce.
 
 Only facts needed for this assignment. Link to source files rather than copying broad history.
 
+## Known starting points
+
+- Relevant decisions and requirements:
+- Exact files, commands, artifacts, or evidence:
+- Known unknowns or likely blockers:
+
 ## Scope and authority
 
 - May read:
@@ -22,6 +28,12 @@ Only facts needed for this assignment. Link to source files rather than copying 
 ## Verification
 
 Commands, checks, or evidence required.
+
+## Efficiency
+
+- Do not rediscover:
+- Skip broad or redundant checks such as:
+- Use judgment freely within:
 
 ## Return contract
 
