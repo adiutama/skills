@@ -44,8 +44,77 @@ function prepareReview(repository, artifactRoot, env = {}) {
   }));
 }
 
+function findContext(root) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      const found = findContext(path);
+      if (found) return found;
+    } else if (entry.name === "context.json" && path.includes(`${join("review-change", "context.json")}`)) {
+      return path;
+    }
+  }
+  return null;
+}
+
 function renderReview(repository, artifactRoot, env = {}) {
+  const contextPath = findContext(artifactRoot);
+  if (contextPath) {
+    const context = JSON.parse(readFileSync(contextPath, "utf8"));
+    if (context.passes.at(-1)?.status === "collected") summarizeReview(repository, artifactRoot, env, contextPath);
+  }
   return JSON.parse(run(publicBin, ["render"], {
+    cwd: repository,
+    env: { ...process.env, ...env, AGENTS_ARTIFACTS_ROOT: artifactRoot },
+  }));
+}
+
+function summaryFor(context) {
+  let summary = existsSync(context.summary.data) ? JSON.parse(readFileSync(context.summary.data, "utf8")) : {
+    version: 1,
+    study: {
+      revision: 1,
+      writtenAtPass: 1,
+      refreshReason: null,
+      oneSentence: "The change adds one observable line.",
+      purpose: "Exercise the review workflow with a small behavior change.",
+      claimedIntent: ["Change the example."],
+      observedBehavior: ["The example gains a line."],
+      before: ["The line is absent."],
+      after: ["The line is present."],
+      flow: [{ step: "Read the example", explanation: "The changed value is consumed.", evidence: ["example.txt:2"] }],
+      components: [{ name: "example.txt", role: "Test fixture", reason: "It contains the changed behavior.", evidence: ["example.txt:2"] }],
+      contracts: [],
+      unknowns: [],
+    },
+    updates: [],
+  };
+  for (const pass of context.passes) {
+    if (summary.updates.some((update) => update.pass === pass.number)) continue;
+    summary.updates.push({
+      pass: pass.number,
+      kind: pass.kind,
+      head: pass.head,
+      summary: pass.kind === "full" ? "Initial change and full reach." : "Delta from the previous reviewed state.",
+      changes: pass.changes,
+      blastRadius: ["direct", "glue", "contract", "parallel", "integration", "operational"].map((ring) => ({
+        ring,
+        status: ring === "direct" ? "checked" : "not_applicable",
+        scope: ring === "direct" ? ["example.txt"] : [],
+        notes: ring === "direct" ? "The changed fixture was inspected." : "This ring does not apply to the fixture.",
+        evidence: ring === "direct" ? ["example.txt:2"] : [],
+      })),
+      reviewTargets: [],
+    });
+  }
+  return summary;
+}
+
+function summarizeReview(repository, artifactRoot, env = {}, contextPath = null) {
+  contextPath ??= findContext(artifactRoot);
+  const context = JSON.parse(readFileSync(contextPath, "utf8"));
+  writeFileSync(context.summary.data, `${JSON.stringify(summaryFor(context), null, 2)}\n`);
+  return JSON.parse(run(publicBin, ["render-summary"], {
     cwd: repository,
     env: { ...process.env, ...env, AGENTS_ARTIFACTS_ROOT: artifactRoot },
   }));
@@ -94,6 +163,7 @@ test("the public bin collects and repeatably renders a review", () => {
     findings: [],
     tests: { run: [], gaps: [] },
   })}\n`);
+  summarizeReview(repository, artifacts, {}, collected.context);
 
   const first = JSON.parse(run(publicBin, ["render"], {
     cwd: repository,
@@ -141,6 +211,7 @@ test("render enforces the verdict from blocking findings", () => {
     tests: { run: [], gaps: [] },
   };
   writeFileSync(collected.review, `${JSON.stringify(review)}\n`);
+  summarizeReview(repository, artifacts, {}, collected.context);
 
   const inconsistentApproval = spawnSync(publicBin, ["render"], { cwd: repository, env, encoding: "utf8" });
   assert.notEqual(inconsistentApproval.status, 0);
@@ -159,13 +230,14 @@ test("collect creates a JSON context and allocates an AI-owned review", () => {
 
   assert.equal(prepared.status, "ready");
   assert.equal(prepared.context.endsWith("/context.json"), true);
-  assert.equal(context.version, 1);
+  assert.equal(context.version, 2);
   assert.equal(context.change.mode, "local");
   assert.equal(context.change.branch, "feature/review");
   assert.equal(context.passes.length, 1);
   assert.equal(context.passes[0].number, 1);
   assert.equal(context.passes[0].kind, "full");
-  assert.equal(context.passes[0].status, "pending");
+  assert.equal(context.passes[0].status, "collected");
+  assert.equal(prepared.summary.endsWith("/summary.json"), true);
   assert.equal(context.output, context.passes[0].review);
   assert.match(readFileSync(context.passes[0].diff, "utf8"), /\+changed/);
   assert.equal(existsSync(context.output), false);
@@ -191,11 +263,14 @@ test("render records AI-authored review JSON", () => {
   const context = JSON.parse(readFileSync(prepared.context, "utf8"));
 
   assert.equal(finished.review, prepared.review);
+  assert.equal(finished.summary.endsWith("/summary.html"), true);
   assert.equal(finished.report.endsWith("/01.report.html"), true);
   assert.equal(finished.pass, 1);
   assert.equal(context.passes[0].status, "complete");
   assert.equal(context.passes[0].report, finished.report);
   assert.equal(existsSync(finished.report), true);
+  assert.equal(existsSync(finished.summary), true);
+  assert.match(readFileSync(finished.summary, "utf8"), /Study the change/);
   assert.match(readFileSync(finished.report, "utf8"), /Terminal handoff/);
   assert.doesNotMatch(readFileSync(finished.report, "utf8"), /<script>alert\('nope'\)<\/script>/);
   assert.deepEqual(JSON.parse(readFileSync(prepared.review, "utf8")), review);
@@ -216,17 +291,20 @@ test("collect appends an incremental pass after a completed review", () => {
   const second = prepareReview(repository, artifacts);
   const context = JSON.parse(readFileSync(second.context, "utf8"));
   const incremental = readFileSync(second.diff, "utf8");
+  const firstWhileSecondPending = readReportData(firstFinished.report);
 
   assert.equal(context.passes.length, 2);
   assert.equal(context.passes[0].status, "complete");
   assert.equal(context.passes[1].number, 2);
   assert.equal(context.passes[1].kind, "incremental");
-  assert.equal(context.passes[1].status, "pending");
+  assert.equal(context.passes[1].status, "collected");
   assert.deepEqual(context.passes[1].changes, { code: true, activity: false });
   assert.equal(second.review.endsWith("/02.review.json"), true);
   assert.match(incremental, /\+later/);
   assert.doesNotMatch(incremental, /\+changed/);
   assert.equal(existsSync(second.review), false);
+  assert.equal(firstWhileSecondPending.historical, true);
+  assert.equal(firstWhileSecondPending.submit, null);
 
   writeFileSync(second.review, `${JSON.stringify({
     summary: "second pass",
@@ -245,12 +323,13 @@ test("collect appends an incremental pass after a completed review", () => {
   const firstReport = readReportData(firstFinished.report);
   const secondReport = readReportData(secondFinished.report);
   const index = readIndexData(secondFinished.index);
+  const summary = readEmbeddedData(secondFinished.summary, "summary-data");
 
   assert.equal(existsSync(secondFinished.index), true);
-  assert.deepEqual(firstReport.navigation, { index: "index.html", previous: null, next: "02.report.html" });
+  assert.deepEqual(firstReport.navigation, { index: "index.html", summary: "summary.html#pass-01", previous: null, next: "02.report.html" });
   assert.equal(firstReport.historical, true);
   assert.equal(firstReport.submit, null);
-  assert.deepEqual(secondReport.navigation, { index: "index.html", previous: "01.report.html", next: null });
+  assert.deepEqual(secondReport.navigation, { index: "index.html", summary: "summary.html#pass-02", previous: "01.report.html", next: null });
   assert.equal(secondReport.historical, false);
   assert.equal(secondReport.display.verdict, "Approve");
   assert.deepEqual(secondReport.carryOvers.W1, {
@@ -261,7 +340,40 @@ test("collect appends an incremental pass after a completed review", () => {
     explanation: "The value is discarded.",
   });
   assert.deepEqual(index.passes.map((pass) => pass.href), ["01.report.html", "02.report.html"]);
+  assert.deepEqual(index.passes.map((pass) => pass.summaryHref), ["summary.html#pass-01", "summary.html#pass-02"]);
   assert.equal(index.latest, "02.report.html");
+  assert.equal(summary.summary.study.revision, 1);
+  assert.equal(summary.summary.updates.length, 2);
+  assert.equal(summary.summary.updates[1].kind, "incremental");
+});
+
+test("summary checkpoint publishes context while findings remain in progress", () => {
+  const { sandbox, repository } = createRepository();
+  const artifacts = join(sandbox, "artifacts");
+  const prepared = prepareReview(repository, artifacts);
+  const summarized = summarizeReview(repository, artifacts, {}, prepared.context);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  const summary = readEmbeddedData(summarized.report, "summary-data");
+  const index = readIndexData(summarized.index);
+
+  assert.equal(summarized.status, "summarized");
+  assert.equal(context.passes[0].status, "summarized");
+  assert.equal(existsSync(summarized.report), true);
+  assert.equal(summary.summary.study.oneSentence, "The change adds one observable line.");
+  assert.equal(summary.change.mode, "local");
+  assert.equal(summary.summary.updates[0].blastRadius.length, 6);
+  assert.equal(index.summary.href, "summary.html");
+  assert.equal(index.passes[0].status, "summarized");
+  assert.equal(index.passes[0].href, null);
+  assert.equal(index.passes[0].summaryHref, "summary.html#pass-01");
+
+  const prematureCollect = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, AGENTS_ARTIFACTS_ROOT: artifacts },
+  });
+  assert.notEqual(prematureCollect.status, 0);
+  assert.match(prematureCollect.stderr, /complete pass 1/i);
 });
 
 test("collect exits early when code and PR activity are unchanged", () => {

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>Review change · summary</title>
+  <style>
+__REVIEW_CHANGE_THEME__
+    .lede { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(260px,.5fr); gap:34px; margin:40px 0 52px; }
+    .lede h2 { margin:0 0 14px; max-width:820px; font:500 clamp(34px,5vw,58px)/1.02 "Iowan Old Style",Baskerville,serif; letter-spacing:-.025em; }
+    .lede p { margin:0; max-width:780px; font:19px/1.55 "Iowan Old Style",Baskerville,serif; }
+    .revision { align-self:start; padding:18px; border-top:4px solid var(--signal); background:var(--panel); }
+    .revision strong { display:block; margin:6px 0; font:500 27px "Iowan Old Style",Baskerville,serif; }
+    .study-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:48px; }
+    .study-card { padding:22px; }
+    .study-card.wide { grid-column:1 / -1; }
+    .study-card h3 { margin:0 0 12px; font:600 25px "Iowan Old Style",Baskerville,serif; }
+    .study-card p,.study-card li { line-height:1.55; }
+    .study-card ul { margin:0; padding-left:20px; }
+    .comparison { display:grid; grid-template-columns:1fr 1fr; gap:1px; padding:1px; background:var(--rule); }
+    .comparison article { padding:22px; background:var(--panel); }
+    .comparison h3 { margin:0 0 12px; font:600 24px "Iowan Old Style",Baskerville,serif; }
+    .flow { display:grid; gap:0; counter-reset:flow; }
+    .flow article { position:relative; padding:18px 20px 18px 72px; border-left:1px solid var(--rule); border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); background:rgba(248,244,235,.72); }
+    .flow article:first-child { border-top:1px solid var(--rule); }
+    .flow article::before { counter-increment:flow; content:counter(flow,decimal-leading-zero); position:absolute; left:20px; top:18px; color:var(--signal); font:700 13px "SFMono-Regular",Consolas,monospace; }
+    .flow h3 { margin:0 0 6px; font:600 21px "Iowan Old Style",Baskerville,serif; }
+    .flow p { margin:0; line-height:1.5; }
+    .evidence { display:block; margin-top:8px; color:var(--muted); font:11px/1.5 "SFMono-Regular",Consolas,monospace; }
+    .updates { display:grid; gap:28px; }
+    .update { scroll-margin-top:24px; padding:24px; }
+    .update-head { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:18px; align-items:start; margin-bottom:22px; }
+    .update-number { font:500 50px/.85 "Iowan Old Style",Baskerville,serif; }
+    .update h3 { margin:0 0 5px; font:600 27px "Iowan Old Style",Baskerville,serif; }
+    .update p { margin:0; color:var(--muted); line-height:1.5; }
+    .rings { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .ring { padding:17px; border:1px solid var(--rule); background:#f4efe5; }
+    .ring-top { display:flex; justify-content:space-between; gap:12px; align-items:start; }
+    .ring h4 { margin:2px 0 10px; font:600 20px "Iowan Old Style",Baskerville,serif; text-transform:capitalize; }
+    .ring p { color:var(--ink); }
+    .scope { margin-top:10px; color:var(--muted); font:11px/1.5 "SFMono-Regular",Consolas,monospace; }
+    .targets { margin-top:18px; padding-top:16px; border-top:1px solid var(--rule); }
+    .targets h4 { margin:0 0 9px; font:700 11px "SFMono-Regular",Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
+    .targets ul { margin:0; padding-left:20px; line-height:1.55; }
+    @media (max-width:760px) { .lede,.study-grid,.comparison,.rings { grid-template-columns:1fr; }.study-card.wide{grid-column:auto}.update-head{grid-template-columns:auto 1fr}.update-head .status-chip{grid-column:2} }
+  </style>
+</head>
+<body>
+  <main>
+    <nav class="site-nav"><div class="cluster"><span class="current">Summary</span><a href="index.html">All passes</a></div><div id="latest-review"></div></nav>
+    <header class="page-header"><div><div class="kicker">Change orientation</div><h1>Study the change</h1><div class="repository" id="repository"></div></div><div class="stamp">READ<br>BEFORE<br>VERDICT</div></header>
+    <dl class="meta" id="meta"></dl>
+    <section class="lede"><div><div class="kicker">In one sentence</div><h2 id="one-sentence"></h2><p id="purpose"></p></div><aside class="revision"><span class="label">Study revision</span><strong id="revision"></strong><span class="repository" id="study-pass"></span></aside></section>
+    <section aria-labelledby="study-heading"><div class="section-head"><h2 id="study-heading">The working model</h2><span class="label">Plain English · evidence bound</span></div><div class="study-grid" id="study-grid"></div></section>
+    <section aria-labelledby="flow-heading"><div class="section-head"><h2 id="flow-heading">How it works</h2><span class="label">Main path</span></div><div class="flow" id="flow"></div></section>
+    <section aria-labelledby="updates-heading" style="margin-top:48px"><div class="section-head"><h2 id="updates-heading">Blast radius</h2><span class="label" id="update-count"></span></div><div class="updates" id="updates"></div></section>
+    <footer>Standalone change summary · study once, trace every delta</footer>
+  </main>
+  <script id="summary-data" type="application/json">__REVIEW_CHANGE_SUMMARY_DATA__</script>
+  <script>
+    const data=JSON.parse(document.getElementById('summary-data').textContent),study=data.summary.study,updates=data.summary.updates;
+    const text=(tag,className,value)=>{const node=document.createElement(tag);if(className)node.className=className;node.textContent=value==null?'':String(value);return node;};
+    const list=(items)=>{const ul=document.createElement('ul');(items||[]).forEach(item=>ul.append(text('li','',item)));return ul;};
+    const evidence=(items)=>text('span','evidence',(items||[]).join(' · '));
+    const card=(title,items,wide=false)=>{const article=document.createElement('article');article.className='study-card panel'+(wide?' wide':'');article.append(text('h3','',title),list(items));return article;};
+    const addMeta=(label,value)=>{const box=document.createElement('div');box.append(text('dt','',label),text('dd','',value));document.getElementById('meta').append(box);};
+    document.getElementById('repository').textContent=data.change.repository+' / '+data.change.branch;
+    document.getElementById('one-sentence').textContent=study.oneSentence;document.getElementById('purpose').textContent=study.purpose;
+    document.getElementById('revision').textContent='Revision '+study.revision;document.getElementById('study-pass').textContent='Written at pass '+String(study.writtenAtPass).padStart(2,'0');
+    addMeta('Mode',data.change.mode);addMeta('Base',data.change.base);addMeta('Current head',String(data.current.head).slice(0,12));addMeta('Updated through','Pass '+String(data.current.number).padStart(2,'0'));
+    if(data.latestReport){const link=document.createElement('a');link.href=data.latestReport;link.textContent='Current review';document.getElementById('latest-review').append(link);}
+    const grid=document.getElementById('study-grid');grid.append(card('Claimed intent',study.claimedIntent),card('Observed behavior',study.observedBehavior));
+    const compare=document.createElement('div');compare.className='comparison study-card wide';const before=document.createElement('article'),after=document.createElement('article');before.append(text('div','kicker','Before'),list(study.before));after.append(text('div','kicker','After'),list(study.after));compare.append(before,after);grid.append(compare,card('Affected contracts',study.contracts),card('Unknowns',study.unknowns));
+    if(study.components.length){const components=document.createElement('article');components.className='study-card panel wide';components.append(text('h3','','Changed components'));study.components.forEach(item=>{const block=document.createElement('div');block.style.marginTop='14px';block.append(text('strong','',item.name),text('p','',item.role+' '+item.reason),evidence(item.evidence));components.append(block);});grid.append(components);}
+    const flow=document.getElementById('flow');study.flow.forEach(item=>{const article=document.createElement('article');article.append(text('h3','',item.step),text('p','',item.explanation),evidence(item.evidence));flow.append(article);});if(!study.flow.length)flow.append(text('div','empty','No single execution path applies to this change.'));
+    document.getElementById('update-count').textContent=updates.length+(updates.length===1?' pass':' passes');
+    const updateList=document.getElementById('updates');updates.slice().reverse().forEach(update=>{const section=document.createElement('article');section.className='update panel';section.id='pass-'+String(update.pass).padStart(2,'0');const head=document.createElement('div');head.className='update-head';const body=document.createElement('div');body.append(text('div','kicker',update.kind+' analysis'),text('h3','','Pass '+String(update.pass).padStart(2,'0')),text('p','',update.summary));head.append(text('div','update-number',String(update.pass).padStart(2,'0')),body,text('span','status-chip complete','Mapped'));section.append(head);const ringGrid=document.createElement('div');ringGrid.className='rings';update.blastRadius.forEach(item=>{const ring=document.createElement('article'),top=document.createElement('div');ring.className='ring';top.className='ring-top';top.append(text('h4','',item.ring),text('span','status-chip '+item.status,item.status.replace('_',' ')));ring.append(top,text('p','',item.notes));if(item.scope.length)ring.append(text('div','scope','Scope · '+item.scope.join(' · ')));if(item.evidence.length)ring.append(evidence(item.evidence));ringGrid.append(ring);});section.append(ringGrid);if(update.reviewTargets.length){const targets=document.createElement('div');targets.className='targets';targets.append(text('h4','','Review targets'),list(update.reviewTargets));section.append(targets);}updateList.append(section);});
+  </script>
+</body>
+</html>

@@ -1,27 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { embeddedJson, renderPage, skillRoot } from "./page.mjs";
 
-const skillRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const templatePath = resolve(skillRoot, "assets", "report.html");
 const entrypoint = resolve(skillRoot, "bin", "review-change");
 const reportTemplate = readFileSync(templatePath, "utf8");
-
-function embeddedJson(value) {
-  return JSON.stringify(value)
-    .replaceAll("&", "\\u0026")
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("\u2028", "\\u2028")
-    .replaceAll("\u2029", "\\u2029");
-}
-
-function replaceOnce(template, marker, value) {
-  const parts = template.split(marker);
-  if (parts.length !== 2) throw new Error(`report template must contain exactly one ${marker}`);
-  return `${parts[0]}${value}${parts[1]}`;
-}
 
 function verdictLabel(value) {
   return value === "reject" ? "Reject" : "Approve";
@@ -76,7 +59,7 @@ function carryOverSources(context, review) {
   return resolved;
 }
 
-export function renderReport({ path, context, pass, review, navigation = { index: "index.html", previous: null, next: null }, historical = false }) {
+export function renderReport({ path, context, pass, review, navigation = { index: "index.html", summary: "summary.html", previous: null, next: null }, historical = false }) {
   const submit = !historical && context.change.mode === "pr" && context.change.pullRequest
     ? { tokens: [entrypoint, "submit"] }
     : null;
@@ -91,13 +74,8 @@ export function renderReport({ path, context, pass, review, navigation = { index
     historical,
     submit,
   };
-  let document = reportTemplate;
-  document = replaceOnce(document, "__REVIEW_CHANGE_PASS__", String(pass.number));
-  document = replaceOnce(document, "__REVIEW_CHANGE_DATA__", embeddedJson(data));
-
-  mkdirSync(dirname(path), { recursive: true });
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, document);
-  renameSync(temporary, path);
-  return path;
+  return renderPage(path, reportTemplate, {
+    __REVIEW_CHANGE_PASS__: String(pass.number),
+    __REVIEW_CHANGE_DATA__: embeddedJson(data),
+  });
 }

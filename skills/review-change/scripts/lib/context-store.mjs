@@ -32,6 +32,10 @@ export function archiveContext(contextPath, context, reason) {
   for (const key of Object.keys(archived.sources ?? {})) {
     archived.sources[key] = relocate(archived.sources[key]);
   }
+  if (archived.summary) {
+    archived.summary.data = relocate(archived.summary.data);
+    archived.summary.report = relocate(archived.summary.report);
+  }
   for (const pass of archived.passes ?? []) {
     pass.diff = relocate(pass.diff);
     pass.activity = relocate(pass.activity);

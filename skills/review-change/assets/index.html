@@ -6,43 +6,44 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>Review change · pass index</title>
   <style>
-    :root { --paper:#eee8dc; --ink:#171714; --muted:#68645c; --rule:#b8ad9a; --signal:#bd3b2b; --panel:#f8f4eb; }
-    * { box-sizing:border-box; }
-    body { margin:0; color:var(--ink); background:var(--paper); font-family:"Avenir Next Condensed","Gill Sans",sans-serif; }
-    body::before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.22; background-image:repeating-linear-gradient(0deg,transparent 0 27px,rgba(23,23,20,.07) 28px); }
-    main { position:relative; width:min(980px,calc(100% - 32px)); margin:auto; padding:64px 0 80px; }
-    .kicker,.repository,.pass-meta,.counts,.verdict { font:11px "SFMono-Regular",Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
-    .kicker { color:var(--signal); font-weight:800; }
-    h1 { max-width:760px; margin:10px 0 12px; font:500 clamp(52px,9vw,96px)/.88 "Iowan Old Style",Baskerville,serif; letter-spacing:-.055em; }
-    .repository { padding-bottom:24px; color:var(--muted); border-bottom:3px solid var(--ink); text-transform:none; }
-    .series { display:grid; gap:14px; margin-top:36px; }
-    .pass { position:relative; display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:22px; align-items:start; padding:22px; color:inherit; background:var(--panel); border:1px solid var(--rule); box-shadow:5px 5px 0 rgba(23,23,20,.08); text-decoration:none; }
-    .pass:hover,.pass:focus-visible { outline:2px solid var(--signal); outline-offset:3px; transform:translateY(-2px); }
+__REVIEW_CHANGE_THEME__
+    main { width:min(980px,calc(100% - 32px)); padding-top:64px; }
+    .page-header h1 { max-width:760px; font-size:clamp(52px,9vw,96px); }
+    .summary-callout { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:24px; align-items:center; margin-top:30px; padding:24px; color:var(--panel); background:var(--ink); box-shadow:7px 7px 0 var(--signal); }
+    .summary-callout h2 { margin:4px 0 7px; font:500 31px "Iowan Old Style",Baskerville,serif; }
+    .summary-callout p { margin:0; color:#c9c7be; line-height:1.5; }
+    .summary-callout a { display:inline-block; padding:11px 14px; border:1px solid var(--signal); color:#fff; background:var(--signal); font:800 11px "SFMono-Regular",Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; text-decoration:none; }
+    .series { display:grid; gap:14px; margin-top:42px; }
+    .pass { position:relative; display:grid; grid-template-columns:92px minmax(0,1fr) auto; gap:20px; align-items:start; padding:22px; }
+    .pass.latest::after { content:"Latest"; position:absolute; top:-1px; right:-1px; padding:5px 8px; color:#fff; background:var(--signal); font:800 10px "SFMono-Regular",Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
     .number { font:500 50px/.85 "Iowan Old Style",Baskerville,serif; }
     .pass h2 { margin:3px 0 8px; font:600 26px/1.1 "Iowan Old Style",Baskerville,serif; }
     .pass p { margin:0; color:var(--muted); line-height:1.45; }
     .pass-meta { display:block; margin-top:12px; color:var(--muted); }
-    .verdict { max-width:190px; padding:8px 10px; color:var(--paper); background:var(--ink); overflow-wrap:anywhere; }
-    .counts { grid-column:2 / -1; display:flex; flex-wrap:wrap; gap:12px; padding-top:13px; border-top:1px solid var(--rule); color:var(--muted); }
-    .latest::after { content:"Latest"; position:absolute; top:-1px; right:-1px; padding:5px 8px; color:#fff; background:var(--signal); font:800 10px "SFMono-Regular",Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
-    footer { margin-top:42px; color:var(--muted); font:11px "SFMono-Regular",Consolas,monospace; text-align:center; }
-    @media (max-width:700px) { .pass{grid-template-columns:72px minmax(0,1fr)}.verdict{grid-column:2;max-width:none}.counts{grid-column:1 / -1} }
+    .verdict-label { max-width:190px; padding:8px 10px; color:var(--paper); background:var(--ink); overflow-wrap:anywhere; }
+    .actions { grid-column:2 / -1; display:flex; flex-wrap:wrap; gap:9px; padding-top:13px; border-top:1px solid var(--rule); }
+    .actions a,.actions span { padding:7px 9px; border:1px solid var(--rule); font:800 10px "SFMono-Regular",Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; text-decoration:none; }
+    .actions a:hover { color:#fff; border-color:var(--signal); background:var(--signal); }
+    .counts { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-left:auto; color:var(--muted); }
+    @media (max-width:700px) { .summary-callout,.pass{grid-template-columns:1fr}.number{font-size:36px}.verdict-label{max-width:none}.actions{grid-column:1}.counts{width:100%;margin-left:0} }
   </style>
 </head>
 <body>
   <main>
-    <div class="kicker">Change review archive</div>
-    <h1>Review passes</h1>
-    <div class="repository" id="repository"></div>
+    <nav class="site-nav"><div class="cluster"><a id="summary-nav" href="summary.html">Summary</a><span class="current">All passes</span></div></nav>
+    <header class="page-header"><div><div class="kicker">Change review archive</div><h1>Review passes</h1><div class="repository" id="repository"></div></div><div class="stamp">REVIEW<br>ON<br>RECORD</div></header>
+    <section class="summary-callout" id="summary-callout"><div><div class="kicker">Read before verdict</div><h2>Change summary</h2><p>Plain-English study and blast-radius history across every pass.</p></div><a href="summary.html">Open summary</a></section>
     <section class="series" id="passes" aria-label="Review passes"></section>
-    <footer>Standalone index · regenerated whenever a pass finishes</footer>
+    <footer>Standalone index · updated at summary and findings checkpoints</footer>
   </main>
   <script id="series-data" type="application/json">__REVIEW_CHANGE_SERIES_DATA__</script>
   <script>
     const data=JSON.parse(document.getElementById('series-data').textContent),list=document.getElementById('passes');
     const text=(tag,className,value)=>{const node=document.createElement(tag);if(className)node.className=className;node.textContent=value==null?'':String(value);return node;};
+    const action=(href,label)=>{if(!href)return text('span','',label);const link=document.createElement('a');link.href=href;link.textContent=label;return link;};
     document.getElementById('repository').textContent=data.change.repository+' / '+data.change.branch;
-    data.passes.forEach(pass=>{const link=document.createElement('a'),number=text('div','number',String(pass.number).padStart(2,'0')),body=document.createElement('div'),verdict=text('div','verdict',pass.verdict),counts=document.createElement('div');link.href=pass.href;link.className='pass'+(pass.href===data.latest?' latest':'');body.append(text('div','kicker',pass.kind+' pass'),text('h2','',pass.summary),text('p','',`${pass.changes&&pass.changes.code?'Code changed':'Code unchanged'} · ${pass.changes&&pass.changes.activity?'PR activity changed':'PR activity unchanged'}`),text('span','pass-meta',`HEAD ${String(pass.head).slice(0,12)} · ${pass.confidence} confidence`));counts.className='counts';counts.append(text('span','',`${pass.findings.total} findings`),text('span','',`${pass.findings.blocking} blocking`),text('span','',`${pass.findings.pending} pending`),text('span','',`${pass.findings.duplicate} duplicate`),text('span','',`${pass.findings.posted} posted`));link.append(number,body,verdict,counts);list.append(link);});
+    if(!data.summary){document.getElementById('summary-callout').hidden=true;document.getElementById('summary-nav').removeAttribute('href');}
+    data.passes.forEach(pass=>{const article=document.createElement('article'),number=text('div','number',String(pass.number).padStart(2,'0')),body=document.createElement('div'),verdict=text('div','verdict-label',pass.verdict),actions=document.createElement('div'),counts=document.createElement('div');article.className='pass panel'+(pass.href===data.latest?' latest':'');body.append(text('div','kicker',pass.kind+' pass'),text('h2','',pass.summary),text('p','',`${pass.changes&&pass.changes.code?'Code changed':'Code unchanged'} · ${pass.changes&&pass.changes.activity?'PR activity changed':'PR activity unchanged'}`),text('span','pass-meta',`HEAD ${String(pass.head).slice(0,12)} · ${pass.confidence} confidence`));actions.className='actions';actions.append(action(pass.summaryHref,'Summary context'),action(pass.href,pass.href?'Open findings':'Findings in progress'));counts.className='counts';if(pass.href)counts.append(text('span','',`${pass.findings.total} findings`),text('span','',`${pass.findings.blocking} blocking`),text('span','',`${pass.findings.pending} pending`));else counts.append(text('span','status-chip reviewing','Reviewing'));actions.append(counts);article.append(number,body,verdict,actions);list.append(article);});
   </script>
 </body>
 </html>

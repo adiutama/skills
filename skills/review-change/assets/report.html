@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <title>Review change · pass __REVIEW_CHANGE_PASS__</title>
   <style>
+__REVIEW_CHANGE_THEME__
     :root { --paper:#eee8dc; --ink:#171714; --muted:#68645c; --rule:#b8ad9a; --signal:#bd3b2b; --amber:#a66b13; --quiet:#6e7866; --panel:#f8f4eb; }
     * { box-sizing:border-box; }
     body { margin:0; color:var(--ink); background:var(--paper); font-family:"Avenir Next Condensed","Gill Sans",sans-serif; }
@@ -80,7 +81,7 @@
 </head>
 <body>
   <main>
-    <nav class="series-nav" aria-label="Review pass navigation"><span id="previous-pass"></span><a id="series-index" href="index.html">All passes</a><span id="next-pass"></span></nav>
+    <nav class="site-nav" aria-label="Review pass navigation"><div class="cluster"><a id="change-summary" href="summary.html">Summary</a><a id="series-index" href="index.html">All passes</a><span class="current">Findings</span></div><div class="cluster"><span id="previous-pass"></span><span id="next-pass"></span></div></nav>
     <header><div><div class="kicker">Change review dossier</div><h1>Pass <span id="pass-number"></span></h1><div class="repository" id="repository"></div></div><div class="stamp">REVIEW<br>ON RECORD</div></header>
     <dl class="meta" id="meta"></dl>
     <section class="verdict"><div class="verdict-mark"><span class="label">Verdict</span><strong id="verdict"></strong></div><div class="summary"><h2 id="summary"></h2><p id="reason"></p></div></section>
@@ -99,7 +100,7 @@
     function command(){if(data.historical)return'Historical pass — open the latest report to prepare a submission.';if(!data.submit)return'No open pull request was detected for this review.';const tokens=data.submit.tokens.concat(Array.from(selected)),message=messageInput.value.trim();if(message&&message!==suggestedMessage.trim())tokens.push('--message',message);return tokens.map(shellQuote).join(' ');}
     function refresh(){document.getElementById('command').textContent=command();document.getElementById('message-state').textContent=messageInput.value===suggestedMessage?'Suggested':'Edited';}
     document.getElementById('pass-number').textContent=String(data.pass.number).padStart(2,'0');
-    document.getElementById('series-index').href=data.navigation&&data.navigation.index||'index.html';addNavigation('previous-pass',data.navigation&&data.navigation.previous,'← Previous pass');addNavigation('next-pass',data.navigation&&data.navigation.next,'Next pass →');
+    document.getElementById('change-summary').href=data.navigation&&data.navigation.summary||'summary.html';document.getElementById('series-index').href=data.navigation&&data.navigation.index||'index.html';addNavigation('previous-pass',data.navigation&&data.navigation.previous,'← Previous pass');addNavigation('next-pass',data.navigation&&data.navigation.next,'Next pass →');
     document.getElementById('repository').textContent=data.change.repository+' / '+data.change.branch;
     addMeta('Mode',data.change.mode);addMeta('Base',data.change.base);addMeta('Head',String(data.pass.head).slice(0,12));addMeta('Confidence',review.coverage&&review.coverage.confidence||'unspecified');
     document.getElementById('verdict').textContent=data.display&&data.display.verdict||'Unspecified';document.getElementById('summary').textContent=review.summary||'Review complete';document.getElementById('reason').textContent=review.verdict&&review.verdict.reason||'';document.getElementById('submission-event').textContent=event();document.getElementById('finding-count').textContent=findings.length+(findings.length===1?' finding':' findings');

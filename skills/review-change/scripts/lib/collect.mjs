@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { artifactRoot, diffTrees, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
 import { collectPullRequest, pullRequestFingerprint } from "./github.mjs";
 import { archiveContext, readContext, writeContext, writeJson } from "./context-store.mjs";
+import { renderSeries } from "./render-series.mjs";
 
 export function collect({ cwd, env }) {
   const repository = repositoryContext(cwd);
@@ -11,8 +12,8 @@ export function collect({ cwd, env }) {
   const contextPath = join(session, "context.json");
   let existing = existsSync(contextPath) ? readContext(contextPath) : null;
   const pending = existing?.passes.at(-1);
-  if (pending?.status === "pending") {
-    throw new Error(`render pending pass ${pending.number} before collecting another review`);
+  if (pending && pending.status !== "complete") {
+    throw new Error(`complete pass ${pending.number} before collecting another review`);
   }
   const pullRequest = collectPullRequest({
     cwd: repository.root,
@@ -50,6 +51,8 @@ export function collect({ cwd, env }) {
   const diff = join(session, `${label}.diff`);
   const activity = pullRequest ? join(session, `${label}.activity.json`) : null;
   const review = join(session, `${label}.review.json`);
+  const summary = join(session, "summary.json");
+  const summaryReport = join(session, "summary.html");
   const kind = previous ? "incremental" : "full";
   const from = previous?.tree ?? base.sha;
   const patch = codeChanged ? diffTrees({ root: repository.root, from, to: tree }) : "";
@@ -59,9 +62,10 @@ export function collect({ cwd, env }) {
   writeFileSync(diff, patch);
   if (activity) writeJson(activity, pullRequest);
   const context = existing ?? {
-    version: 1,
+    version: 2,
     passes: [],
   };
+  context.version = 2;
   context.change = {
     mode: pullRequest ? "pr" : "local",
     pullRequest: pullRequest?.metadata.number ?? null,
@@ -72,6 +76,7 @@ export function collect({ cwd, env }) {
     head: repository.head,
   };
   delete context.sources;
+  context.summary ??= { data: summary, report: summaryReport, study: null };
   context.passes.push({
     number: pass,
     kind,
@@ -82,9 +87,13 @@ export function collect({ cwd, env }) {
     tree,
     activityHash,
     changes: { code: codeChanged, activity: activityChanged },
-    status: "pending",
+    status: "collected",
   });
   context.output = review;
   writeContext(contextPath, context);
-  return { status: "ready", context: contextPath, diff, activity, review };
+  if (previous) {
+    renderSeries({ context });
+    writeContext(contextPath, context);
+  }
+  return { status: "ready", context: contextPath, diff, activity, summary: context.summary.data, review };
 }

@@ -6,14 +6,12 @@ import { renderReport } from "./render-report.mjs";
 import { validateReview } from "./review.mjs";
 
 export function renderSeries({ context }) {
-  const passes = context.passes
+  const complete = context.passes
     .filter((pass) => pass.status === "complete" && existsSync(pass.review))
     .sort((left, right) => left.number - right.number);
-  if (!passes.length) throw new Error("cannot render a review series without a completed pass");
-
-  const latest = passes.at(-1);
-  for (let index = 0; index < passes.length; index += 1) {
-    const pass = passes[index];
+  const current = context.passes.at(-1);
+  for (let index = 0; index < complete.length; index += 1) {
+    const pass = complete[index];
     pass.report = join(dirname(pass.review), `${String(pass.number).padStart(2, "0")}.report.html`);
     const review = validateReview(readJson(pass.review), `review at ${pass.review}`);
     renderReport({
@@ -21,16 +19,18 @@ export function renderSeries({ context }) {
       context,
       pass,
       review,
-      historical: pass !== latest,
+      historical: pass !== current || current.status !== "complete",
       navigation: {
         index: "index.html",
-        previous: index > 0 ? `${String(passes[index - 1].number).padStart(2, "0")}.report.html` : null,
-        next: index + 1 < passes.length ? `${String(passes[index + 1].number).padStart(2, "0")}.report.html` : null,
+        summary: `summary.html#pass-${String(pass.number).padStart(2, "0")}`,
+        previous: index > 0 ? `${String(complete[index - 1].number).padStart(2, "0")}.report.html` : null,
+        next: index + 1 < complete.length ? `${String(complete[index + 1].number).padStart(2, "0")}.report.html` : null,
       },
     });
   }
 
-  context.index = join(dirname(latest.review), "index.html");
-  renderIndex({ path: context.index, context, passes });
+  const session = dirname(current.review);
+  context.index = join(session, "index.html");
+  renderIndex({ path: context.index, context, passes: context.passes });
   return context.index;
 }
