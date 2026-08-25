@@ -232,7 +232,7 @@ bash <SKILL_DIR>/scripts/artifacts.sh allocate <skill-name> [branch]
 
 **Check:** `bash <SKILL_DIR>/scripts/artifacts.sh check [--json]`
 
-**Overrides:** `AGENTS_ARTIFACTS_ROOT=/absolute/path` takes precedence. Otherwise use `AGENTS_ARTIFACTS_SCOPE=local|global` to force the existing local or global root.
+**Override:** Set `AGENTS_ARTIFACTS_ROOT=/absolute/path` to choose a different write root.
 
 Skills must not write persistent artifacts into the skill package itself. Recommend `.agents/` in project `.gitignore`.
 

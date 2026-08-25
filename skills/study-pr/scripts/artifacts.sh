@@ -16,7 +16,6 @@
 # Layout: <write-root>/<owner>/<repo>/<branch-slug>/<skill-name>/
 # Overrides:
 #   AGENTS_ARTIFACTS_ROOT=/absolute/path
-#   AGENTS_ARTIFACTS_SCOPE=local|global
 #   ARTIFACT_GITHUB_OWNER + ARTIFACT_GITHUB_REPO (must be supplied together)
 
 readonly ARTIFACT_GLOBAL_ROOT="${AGENTS_ARTIFACTS_ROOT:-${HOME}/.agents/artifacts}"
@@ -50,7 +49,6 @@ artifact_artifacts_gitignored() {
 }
 
 artifact_write_scope() {
-  local scope="${AGENTS_ARTIFACTS_SCOPE:-}"
   local git_root
   _artifact_validate_configured_root || return
   git_root=$(artifact_git_root)
@@ -60,10 +58,6 @@ artifact_write_scope() {
     return
   fi
 
-  case "$scope" in
-    global|local) printf '%s' "$scope"; return ;;
-  esac
-
   if [[ -z "$git_root" ]] || ! artifact_artifacts_gitignored "$git_root"; then
     printf 'global'
   else
@@ -72,7 +66,7 @@ artifact_write_scope() {
 }
 
 artifact_search_roots() {
-  local git_root scope="${AGENTS_ARTIFACTS_SCOPE:-}"
+  local git_root
   _artifact_validate_configured_root || return
   git_root=$(artifact_git_root)
 
@@ -81,13 +75,8 @@ artifact_search_roots() {
     return
   fi
 
-  if [[ "$scope" == "global" ]]; then
-    printf '%s\n' "$ARTIFACT_GLOBAL_ROOT"
-    return
-  fi
-
   [[ -n "$git_root" ]] && printf '%s\n' "$(_artifact_local_root "$git_root")"
-  [[ "$scope" != "local" ]] && printf '%s\n' "$ARTIFACT_GLOBAL_ROOT"
+  printf '%s\n' "$ARTIFACT_GLOBAL_ROOT"
 }
 
 artifact_write_root() {
@@ -291,8 +280,6 @@ _artifact_check_reason() {
   local git_root="$1"
   if [[ -n "${AGENTS_ARTIFACTS_ROOT:-}" ]]; then
     printf 'AGENTS_ARTIFACTS_ROOT=%s override' "${AGENTS_ARTIFACTS_ROOT}"
-  elif [[ "${AGENTS_ARTIFACTS_SCOPE:-}" == "local" || "${AGENTS_ARTIFACTS_SCOPE:-}" == "global" ]]; then
-    printf 'AGENTS_ARTIFACTS_SCOPE=%s override' "${AGENTS_ARTIFACTS_SCOPE}"
   elif [[ -z "$git_root" ]]; then
     printf 'not inside a git repository'
   elif artifact_artifacts_gitignored "$git_root"; then

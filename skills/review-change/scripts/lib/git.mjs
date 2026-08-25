@@ -24,8 +24,7 @@ export function artifactRoot({ root, env }) {
     if (!isAbsolute(env.AGENTS_ARTIFACTS_ROOT)) throw new Error("AGENTS_ARTIFACTS_ROOT must be an absolute path");
     return resolve(root, env.AGENTS_ARTIFACTS_ROOT);
   }
-  const local = env.AGENTS_ARTIFACTS_SCOPE === "local"
-    || git(["check-ignore", "-q", "--", ".agents/artifacts"], root, { allowFailure: true }) !== null
+  const local = git(["check-ignore", "-q", "--", ".agents/artifacts"], root, { allowFailure: true }) !== null
     || git(["check-ignore", "-q", "--", ".agents"], root, { allowFailure: true }) !== null;
   return local ? join(root, ".agents", "artifacts") : join(env.HOME, ".agents", "artifacts");
 }
