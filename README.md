@@ -6,11 +6,9 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 
 | Skill | Description |
 |---|---|
-| [review-diff](skills/review-diff/SKILL.md) | Skeptical pre-push review—shippable before the PR exists. |
+| [review-change](skills/review-change/SKILL.md) | Review changed code or PR activity, browse linked HTML pass history, then copy an explicit submission command. |
 | [scan-blast-radius](skills/scan-blast-radius/SKILL.md) | Scan blast radius of local changes before commit — fixes, features, glue, and rewiring. |
-| [review-pr](skills/review-pr/SKILL.md) | Skeptical PR review—stance, findings, session on disk. Does not submit to GitHub. |
 | [study-pr](skills/study-pr/SKILL.md) | Visual-first PR study—understand the code change before reviewing it. |
-| [submit-pr-review](skills/submit-pr-review/SKILL.md) | Submit saved review session to GitHub—inline paste blocks, approve or request-changes via gh. |
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address unresolved PR feedback — triage, fix, push, notify human reviewers, loop until clear. Use `--fetch-only` to list only. |
 | [handle-on-call](skills/handle-on-call/SKILL.md) | On-call from Slack paste — ack thread via Slack MCP, triage, confirm, fix or skip, push, close the loop. |
 | [refactor-safely](skills/refactor-safely/SKILL.md) | Refactor code in any language with a beauty-first, safety-first style while preserving behavior. |

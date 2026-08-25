@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+BIN_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SKILL_DIR=$(cd "${BIN_DIR}/.." && pwd)
+
+command -v node >/dev/null 2>&1 || {
+  printf 'Error: review-change requires Node.js 18 or newer.\n' >&2
+  exit 1
+}
+
+NODE_MAJOR=$(node -p 'Number(process.versions.node.split(".")[0])')
+if (( NODE_MAJOR < 18 )); then
+  printf 'Error: review-change requires Node.js 18 or newer; found %s.\n' "$(node --version)" >&2
+  exit 1
+fi
+
+exec node "${SKILL_DIR}/scripts/review-change.mjs" "$@"

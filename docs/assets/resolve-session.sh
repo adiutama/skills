@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # TEMPLATE ONLY — copy to skills/<skill-name>/scripts/resolve-session.sh
 #
-# Set SESSION_SOURCE_SKILL when copying (artifact namespace whose NN.md session to find):
-#   submit-pr-review → submit-pr-review (also checks review-pr in the skill copy)
+# Set SESSION_SOURCE_SKILL when copying (artifact namespace whose NN.md session to find).
 #
 # Usage: resolve-session.sh <PR URL or number>
 # Output: JSON { owner, repo, number, head_sha, branch, session_path }

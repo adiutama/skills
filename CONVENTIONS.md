@@ -38,7 +38,7 @@ See [best practices — Voice and compression](docs/references/best-practices.md
 When building or refactoring a skill:
 
 - **Self-contained package** — everything the run needs lives under `skills/<skill-name>/`: workflow in `SKILL.md`, detail in `references/`, mechanics in `scripts/`, templates in `assets/`.
-- **No skill-to-skill dependency** — do not instruct the agent to invoke, load, or assume another skill (`/other-skill`, "use the review-pr skill", model-invoked reach clauses).
+- **No skill-to-skill dependency** — do not instruct the agent to invoke, load, or assume another skill (`/other-skill`, "use the review-change skill", model-invoked reach clauses).
 - **No borrowed runtime** — do not point at another skill's `references/` or `scripts/`. If this skill needs a concept, format, gate, or checklist that exists elsewhere, **duplicate it** into this package (`references/`, `assets/`, or inline in `SKILL.md`) and adapt only what this skill needs.
 - **Duplicate until modularity** — shared concepts stay copied per skill for now. Do not wait for cross-skill imports, routers, or shared skill libraries; when the setup supports modularity, deduplication can happen then—not before.
 - **One job, one skill** — if a workflow only works as a chain of skills, merge or split until each command stands alone; the human chooses the sequence, not the skill text.
@@ -53,7 +53,7 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 **Default:** skill names use `verb-object[-qualifier]` in kebab-case.
 
 - Skill directory name and `name:` in frontmatter must match.
-- Command form should read naturally: `/review-pr`, `/submit-pr-review`, `/refactor-safely`.
+- Command form should read naturally: `/review-change`, `/address-pr-feedback`, `/refactor-safely`.
 
 ### Choosing the name
 
@@ -92,7 +92,7 @@ A **summon name** is what you'd actually say when pausing to think—not a capab
 
 **When not to use a summon name:**
 
-- Deterministic pipelines (`review-pr`, `submit-pr-review`, `work-until`).
+- Deterministic pipelines (`review-change`, `address-pr-feedback`, `work-until`).
 - Skills another person must scan in a catalog without reading the body.
 - Anything where `/name` alone should auto-start work without a question.
 
@@ -123,6 +123,7 @@ Good: `work-until` (work until [condition]; not timed `/loop`), `refactor-safely
 ├── skills/
 │   └── <skill-name>/
 │       ├── SKILL.md
+│       ├── bin/             # optional PATH-ready public executables
 │       ├── references/      # guidance docs used at runtime
 │       ├── assets/          # optional templates/examples
 │       └── scripts/         # optional shell helpers
@@ -130,6 +131,7 @@ Good: `work-until` (work until [condition]; not timed `/loop`), `refactor-safely
 ```
 
 - Skill packages must live under `skills/<skill-name>/`.
+- Put a stable executable in `bin/<skill-name>` when the skill may be invoked from `PATH`; keep its implementation under `scripts/`.
 - `references/` is the default home for guidance docs.
 - `assets/` is allowed for reusable templates/examples.
 - Omit `scripts/` or `assets/` when unused.
@@ -188,9 +190,9 @@ Shared shell helpers live in `docs/assets/` as **templates only** — copy into 
 | `artifacts.sh` | `scripts/artifacts.sh` | Any skill with persistent artifact output |
 | `pr-identity.sh` | `scripts/pr-identity.sh` | Skills that parse a GitHub PR URL or number (source-only) |
 | `resolve-range.sh` | `scripts/resolve-range.sh` | Pre-push review skills; source base for `scan-blast-radius/scripts/resolve-scope.sh` |
-| `resolve-session.sh` | `scripts/resolve-session.sh` | `submit-pr-review` — set `SESSION_SOURCE_SKILL`; skill copy also falls back to `review-pr` sessions |
+| `resolve-session.sh` | `scripts/resolve-session.sh` | Skills that resolve a persisted session for a GitHub PR |
 | `submit-review.sh` | `scripts/submit-review.sh` | Skills that submit GitHub PR reviews via `gh api` |
-| `mark-posted.sh` | `scripts/mark-posted.sh` | Skills that flip finding `Posted` markers in session markdown |
+| `mark-posted.sh` | `scripts/mark-posted.sh` | Skills that update finding `posting` state in review JSON |
 
 When updating a template, copy into each skill package that uses it.
 
@@ -208,6 +210,7 @@ skills/<skill-name>/scripts/artifacts.sh
 
 | Condition | Write root |
 |-----------|------------|
+| `AGENTS_ARTIFACTS_ROOT` is set | Its absolute path |
 | `.agents/artifacts` or `.agents/` is **gitignored** | `<git-root>/.agents/artifacts/` |
 | Not gitignored (or not in a git repo) | `~/.agents/artifacts/` |
 
@@ -229,7 +232,7 @@ bash <SKILL_DIR>/scripts/artifacts.sh allocate <skill-name> [branch]
 
 **Check:** `bash <SKILL_DIR>/scripts/artifacts.sh check [--json]`
 
-**Override:** `AGENTS_ARTIFACTS_SCOPE=local|global`.
+**Overrides:** `AGENTS_ARTIFACTS_ROOT=/absolute/path` takes precedence. Otherwise use `AGENTS_ARTIFACTS_SCOPE=local|global` to force the existing local or global root.
 
 Skills must not write persistent artifacts into the skill package itself. Recommend `.agents/` in project `.gitignore`.
 

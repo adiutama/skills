@@ -45,4 +45,4 @@ Use `assets/template.md`. Fill all sections; empty findings → ring table all `
 Rules:
 - Surface may be outside the diff — that is expected for blast radius.
 - Every warning+ must have a suggested check.
-- Do not duplicate review-diff style nits (style/clarity) unless they indicate a wiring mistake.
+- Do not duplicate review-change style nits (style/clarity) unless they indicate a wiring mistake.

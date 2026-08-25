@@ -14,10 +14,17 @@ branch=$(git -C "$git_root" branch --show-current 2>/dev/null || true)
 branch=${branch:-detached}
 branch_slug=$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
 
-if git -C "$git_root" check-ignore -q .agents 2>/dev/null || git -C "$git_root" check-ignore -q .agents/artifacts 2>/dev/null; then
+if [[ -n "${AGENTS_ARTIFACTS_ROOT:-}" && "${AGENTS_ARTIFACTS_ROOT}" != /* ]]; then
+  echo "AGENTS_ARTIFACTS_ROOT must be an absolute path" >&2
+  exit 1
+fi
+
+if [[ -n "${AGENTS_ARTIFACTS_ROOT:-}" ]]; then
+  root="$AGENTS_ARTIFACTS_ROOT"
+elif git -C "$git_root" check-ignore -q .agents 2>/dev/null || git -C "$git_root" check-ignore -q .agents/artifacts 2>/dev/null; then
   root="$git_root/.agents/artifacts"
 else
-  root="${AGENTS_ARTIFACTS_ROOT:-${HOME}/.agents/artifacts}"
+  root="${HOME}/.agents/artifacts"
 fi
 
 base="$root/$owner/$repo/$branch_slug/orchestrate/sessions"
