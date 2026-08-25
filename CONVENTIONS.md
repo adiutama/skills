@@ -64,7 +64,7 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 
 ### Summon names (exception)
 
-A **summon name** is what you'd actually say when pausing to think—not a capability label. Example: `/hmmm should we use OAuth or magic link?`
+A **summon name** is what you'd actually say when pausing to think—not a capability label. Example: `/ponder should we use OAuth or magic link?`
 
 **Default stays `verb-object`.** Use a summon name only when all of the following hold:
 
@@ -78,25 +78,23 @@ A **summon name** is what you'd actually say when pausing to think—not a capab
 
 **Name rules (still apply):**
 
-- Lowercase kebab-case in `name:` and folder (`hmmm`, not `Hmmm` or `hmmm 😂`).
+- Lowercase kebab-case in `name:` and folder (`ponder`, not `Ponder` or `ponder 😂`).
 - No emoji or punctuation in `name:` — voice lives in prose and examples.
 - One real word or a short fixed phrase you already use; not a synonym for an existing pipeline skill.
 - **One summon name per cognitive mode** — don't spawn `/ugh`, `/hmm`, `/think` for the same job.
 
 **Required compensating fields** (summon names carry less meaning in the command—put it here):
 
-- **`description`** — third person; full **what** + **when**; include trigger terms (`hmmm`, `question`, `think through`).
+- **`description`** — third person; full **what** + **when**; include trigger terms (`question`, `think through`).
 - **`metadata.argument-hint`** — conversational tail, e.g. `'<your question>'` or `'resume'`.
 - **`Invoked as`** — 2–3 example questions, not spec-style problem statements.
 - **`Voice` or equivalent** — chat stays human; artifacts on disk stay structured.
 
 **When not to use a summon name:**
 
-- Deterministic pipelines (`review-change`, `address-pr-feedback`, `work-until`).
+- Deterministic pipelines (`review-change`, `address-pr-feedback`, `scan-blast-radius`).
 - Skills another person must scan in a catalog without reading the body.
 - Anything where `/name` alone should auto-start work without a question.
-
-**Reference:** `skills/hmmm/` — summon + durable session + delegated discovery.
 
 ### Primitive extension names
 
@@ -104,7 +102,7 @@ When a skill extends a familiar primitive, name the delta:
 
 | Pattern | Example | Reads as |
 |---------|---------|----------|
-| `<primitive>-<stop-word>` | `work-until` | work until [user-supplied condition] |
+| `<primitive>-<stop-word>` | `retry-until` | retry until [user-supplied condition] |
 | `<primitive>-with-<feature>` | `loop-with-handoff` | loop, but with X |
 | `<feature>-<primitive>` | `resumable-loop` | the kind of primitive that is X |
 
@@ -113,7 +111,7 @@ When a skill extends a familiar primitive, name the delta:
 - Avoid generic deltas (`task`, `process`, `thing`).
 
 Bad: `iterate-task` (generic object, verb overlaps many workflows).  
-Good: `work-until` (work until [condition]; not timed `/loop`), `refactor-safely` (action + constraint).
+Good: `retry-until` (retry until [condition]; not timed `/loop`), `refactor-safely` (action + constraint).
 
 ## Repository and package layout
 

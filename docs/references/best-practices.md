@@ -12,7 +12,7 @@
 - **Default:** `verb-object[-qualifier]` in kebab-case.
 - Keep directory name and `name:` in frontmatter identical.
 - Prefer command-like names (for example: `/review-pr`, `/submit-pr-review`).
-- **Summon names** (e.g. `/hmmm <question>`) are an exception—see [CONVENTIONS.md — Summon names](../../CONVENTIONS.md#summon-names-exception).
+- **Summon names** (e.g. `/ponder <question>`) are an exception—see [CONVENTIONS.md — Summon names](../../CONVENTIONS.md#summon-names-exception).
 
 ## SKILL.md authoring
 
