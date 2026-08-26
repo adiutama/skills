@@ -4,7 +4,8 @@ This document reflects the current repository style (as implemented in existing 
 
 ## Core principles
 
-- Optimize for execution clarity first; **voice** and **leading words** are how skills stay compact without losing power.
+- **Poetic boundaries. Literal actions. Visible structure.**
+- Optimize for execution clarity first; **voice**, **structure**, and **leading words** keep skills compact without losing power.
 - Keep commands explicit, deterministic, and easy to run.
 - Prefer **distilled** instructions—lean and alive—not hollow cuts or spec voice.
 - Treat existing successful patterns as valid templates.
@@ -13,21 +14,81 @@ This document reflects the current repository style (as implemented in existing 
 
 Skills in this repo aim for **beautiful, powerful, lean**: shared meaning in few tokens, not stripped wording. **Required for every skill**—not optional polish after structure or independence.
 
-**Voice** is deliberate human prose that earns its place—opening lines, gates, boundaries, judgment the agent cannot infer. Cut **ornament** and **mere exposition**; keep lines that change behavior or trust.
+> At a glance, structure. On reading, voice. In execution, precision.
+
+| Element | Job | Boundary |
+|---------|-----|----------|
+| Quotation | Inherit a relevant perspective | Optional; never substitutes for evidence or instruction |
+| Poetic boundary | Set intent, posture, or judgment | Never the only source of an action or safety rule |
+| Structure | Reveal the workflow before close reading | One block, one job |
+| Literal instruction | Control action, branching, failure, and completion | Prefer plain, explicit English |
+
+### Voice and poetic boundaries
+
+**Voice** is deliberate human prose that earns its place—opening lines, gates, boundaries, and judgment the agent cannot infer. A poetic line may compress the reason for a whole block; the instructions beneath it state the mechanism literally.
+
+- Use poetry where judgment matters, not mechanically in every section.
+- Keep actions, conditions, tool calls, safety rules, and stop conditions literal.
+- If removing a line changes neither behavior nor trust, it is **ornament**; cut it.
+- If a metaphor must be interpreted before the agent can act, rewrite the action.
+
+### Quotations
+
+**Borrow a compass, not authority.** A quotation may steer the skill toward a field's enduring idea; it does not make the idea true.
+
+- Use a quote only when it sharpens the skill's central judgment.
+- Keep it short, understandable, and relevant to the field.
+- Verify the exact wording, author, and source. If verification is weak, write an original boundary line instead.
+- Do not place a requirement only inside a quotation.
+
+### Leading words
 
 **Leading words** are compact pretrained concepts the agent thinks with (e.g. _distill_, _oblivion_, _tight_, _red_). They collapse repeated meaning into one token:
 
 - Front-load them in the **description** (invocation).
 - Repeat them in the body as tokens, not re-explained sentences (execution).
-- Prefer existing words that recruit model priors; coining costs definition tokens.
+- Prefer common English and stable field terms that recruit model priors.
+- Use one term for one meaning. Define uncommon, coined, or metaphorical terms when they control behavior.
+- Do not depend on cultural familiarity or advanced English for correct execution.
+
+For a controlled local term, define its operational meaning once:
+
+```markdown
+**Oblivion** — Discard the current draft and restore the last valid version.
+```
+
+### Literal execution
+
+Borrow the useful discipline of controlled technical English without adopting cold spec voice:
+
+- Put the condition before the action.
+- Give one main action per sentence.
+- Prefer common, concrete verbs: `read`, `write`, `run`, `check`, `ask`, `stop`.
+- Name the subject and object when omission could confuse.
+- Keep one term for one concept; avoid casual synonyms.
+- Separate explanation from instruction.
+- State observable completion and stop conditions.
+
+### Visible structure
+
+Structure is compression the reader can see:
+
+- Give each block one job.
+- Use headings that name an outcome, decision, or phase.
+- Keep related definitions, rules, and caveats together.
+- Use tables for real mappings, branches, and comparisons—not decoration.
+- Use whitespace to separate ideas.
+- End important steps with `Done when:` or an equally observable criterion.
 
 | Layer | Job | Cut when |
 |-------|-----|----------|
-| Voice | Trust, gates, intent, completion criteria | Pretty but behavior-neutral |
+| Quote / voice | Perspective, trust, boundaries, judgment | Decorative or unverifiable |
 | Leading word | Anchor a whole region of behavior | Weak no-op (_be thorough_) |
-| Script / reference | Repeatable mechanics | Judgment belongs in prose |
+| Structure | Orientation and grouping | Blocks divide nothing meaningful |
+| Literal step | Exact action and completion | Another step already owns the meaning |
+| Script / reference | Repeatable mechanics or disclosed detail | Judgment belongs in prose |
 
-**Before shipping**, run the distilled test: still know what to do, what must never happen, and still sound like someone who trusts you? All yes and shorter → **distilled**. Any no → **hollow**.
+**Before shipping**, run the distilled test: at a glance, can the reader see the workflow? On reading, does it still sound human? In execution, are actions and stop conditions literal? All yes and shorter → **distilled**. Any no → **hollow**.
 
 See [best practices — Voice and compression](docs/references/best-practices.md#voice-and-compression) and `skills/refine-skill/` for examples.
 
@@ -239,4 +300,4 @@ Skills must not write persistent artifacts into the skill package itself. Recomm
 - [SKILL template](docs/templates/SKILL.template.md)
 - [Best practices](docs/references/best-practices.md)
 - [Author checklist](docs/references/author-checklist.md)
-- [Refine skill](../skills/refine-skill/SKILL.md) — distillation workflow and voice examples
+- [Refine skill](skills/refine-skill/SKILL.md) — distillation workflow and voice examples

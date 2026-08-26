@@ -60,9 +60,17 @@ function carryOverSources(context, review) {
 }
 
 export function renderReport({ path, context, pass, review, navigation = { index: "index.html", summary: "summary.html", previous: null, next: null }, historical = false }) {
-  const submit = !historical && context.change.mode === "pr" && context.change.pullRequest
-    ? { tokens: [entrypoint, "submit"] }
-    : null;
+  let submissionUnavailable = null;
+  if (historical) {
+    submissionUnavailable = "Historical pass — open the latest report to prepare a submission.";
+  } else if (context.change.mode !== "pr" || !context.change.pullRequest) {
+    submissionUnavailable = "No open pull request was detected for this review.";
+  } else if (pass.tree !== pass.headTree) {
+    submissionUnavailable = "Submission unavailable — this review includes local worktree changes that are not in the pull request.";
+  } else if (pass.pullRequestHead !== pass.head) {
+    submissionUnavailable = "Submission unavailable — local HEAD did not match the pull request HEAD when this review was collected.";
+  }
+  const submit = submissionUnavailable ? null : { tokens: [entrypoint, "submit"] };
   const data = {
     change: context.change,
     pass,
@@ -73,6 +81,7 @@ export function renderReport({ path, context, pass, review, navigation = { index
     navigation,
     historical,
     submit,
+    submissionUnavailable,
   };
   return renderPage(path, reportTemplate, {
     __REVIEW_CHANGE_PASS__: String(pass.number),

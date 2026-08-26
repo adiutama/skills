@@ -1,12 +1,48 @@
-# Voice
+# Voice and structure
 
-**Distilled** = lean and alive. **Hollow** = short but dead. **Oblivion** = looked lean, broke a promise.
+*Poetry marks the boundary. Plain English moves the work.*
 
-**The test** — still know what to do, what must never happen, and sound like someone who trusts you? All yes and shorter → **distilled**. Any no → **hollow**. Promise broke later → **oblivion**.
+| Term | Meaning |
+|------|---------|
+| **Distilled** | Shorter; behavior, constraints, clarity, and voice survive |
+| **Hollow** | Shorter, but meaning or voice is weaker |
+| **Oblivion** | A revision broke a promise; restore the last valid version |
+
+## The test
+
+Check three levels:
+
+1. **At a glance:** Is the workflow visible?
+2. **On reading:** Is the prose human and easy to understand?
+3. **In execution:** Are actions, safety rules, and stop conditions precise?
+
+All yes and shorter → **distilled**. Any no → **hollow**. A broken promise → **oblivion**.
+
+## Poetry and precision
+
+A poetic boundary may guide judgment. The instruction beneath it must remain literal.
+
+```markdown
+## Step 3 — Verify the result
+
+*Green means the evidence agrees—not that the work merely ended.*
+
+Run `<verification command>`.
+
+If the command fails, record the failure and continue working.
+
+**Done when:** the command succeeds and every exit condition is satisfied.
+```
+
+## Quotations
+
+Keep a quotation only when it is short, relevant, understandable, and verified. Record its author and source. Never place a requirement only inside the quotation.
+
+If the exact wording or source is uncertain, write an original boundary line instead.
 
 ## Redundant safety
 
-**Before** — same gate, three times:
+**Before** — one gate, three times:
 
 ```markdown
 Before making any changes to production files, you should always make sure to ask the user for confirmation first. Do not proceed without getting explicit approval from the user. It is important that you never overwrite files unless the user has clearly said it is okay.
@@ -15,16 +51,18 @@ Before making any changes to production files, you should always make sure to as
 - **Hollow:** Ask before overwriting.
 - **Distilled:** Never overwrite without explicit confirmation.
 
-## Workflow echo
+## Workflow repetition
 
 **Before** — two steps, one action:
 
 ```markdown
 ## Step 1 — Gather context
-First, you need to gather all of the relevant context about the change. Read the diff and understand what files were modified.
+
+First, gather all relevant context. Read the diff and understand which files were modified.
 
 ## Step 2 — Read the diff
-Once you have gathered context, read through the git diff carefully to see exactly what changed in each file.
+
+Read the git diff carefully to see what changed in each file.
 ```
 
 - **Hollow:** `1. Read diff.`
@@ -32,10 +70,14 @@ Once you have gathered context, read through the git diff carefully to see exact
 
 ```markdown
 ## Step 1 — Gather context
-Read the diff; note which files changed and why.
 
-## Step 2 — Review
-Walk each hunk for behavior, not just syntax.
+Read the diff. Record which files changed and why.
+
+**Done when:** every changed file has a known purpose.
+
+## Step 2 — Review behavior
+
+Review each hunk for behavior, not only syntax.
 ```
 
 ## Voice stripped
@@ -43,9 +85,9 @@ Walk each hunk for behavior, not just syntax.
 **Before:** *Work as an editor of meaning, not a minimizer of characters. Leave a trace of the human—concise, deliberate; not telegraphic unless they asked.*
 
 - **Hollow:** Edit for meaning. Be concise.
-- **Distilled:** Edit for meaning, not character count. Concise and deliberate—telegraphic only if they asked.
+- **Distilled:** Edit meaning, not character count. Stay concise and human; use telegraphic language only when requested.
 
-## Repeatable logic → script
+## Repeatable logic
 
 **Before** — prose walks the tree every time:
 
@@ -57,16 +99,19 @@ When the user provides a folder path, recursively search that directory for mark
 - **Distilled:**
 
 ```markdown
-bash <SKILL_DIR>/scripts/discover-targets.sh "<FOLDER>" → candidates.
-One: distill it. Many: list; ask all or selected.
+Run `bash <SKILL_DIR>/scripts/discover-targets.sh "<FOLDER>"`.
+
+If the command returns one candidate, refine it.
+
+If the command returns multiple candidates, list them and ask whether to refine all or selected files.
 ```
 
-Prose keeps the decision; the script keeps the walk.
+The script owns the file walk. Prose owns the decision.
 
 ## Oblivion
 
-**Before:** temp file + ask before overwrite; never overwrite without confirmation.
+**Before:** Write a temporary file. Ask before overwriting the original.
 
-**Pass two:** `Write optimized output; overwrite when ready.`
+**Broken revision:** Write the result over the original when ready.
 
-- **Oblivion:** Broke confirmation. Discard pass two; return to pass one.
+**Oblivion:** The confirmation promise broke. Discard the revision and restore the last valid version.

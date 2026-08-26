@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -19,7 +19,7 @@ function run(command, args, options = {}) {
   return result.stdout.trim();
 }
 
-function createRepository() {
+function createRepository({ ignoreAgents = true } = {}) {
   const sandbox = mkdtempSync(join(tmpdir(), "review-change-"));
   const repository = join(sandbox, "repo");
   run("git", ["init", "-q", "-b", "main", repository]);
@@ -27,7 +27,7 @@ function createRepository() {
   run("git", ["config", "user.name", "Review Change Test"], { cwd: repository });
   run("git", ["config", "commit.gpgsign", "false"], { cwd: repository });
   writeFileSync(join(repository, "example.txt"), "base\n");
-  writeFileSync(join(repository, ".gitignore"), ".agents/\n");
+  writeFileSync(join(repository, ".gitignore"), ignoreAgents ? ".agents/\n" : "# Keep repository artifacts visible.\n");
   run("git", ["add", "example.txt", ".gitignore"], { cwd: repository });
   run("git", ["commit", "-q", "-m", "base"], { cwd: repository });
   run("git", ["switch", "-q", "-c", "feature/review"], { cwd: repository });
@@ -145,6 +145,68 @@ function readEmbeddedData(path, id) {
 
 const readReportData = (path) => readEmbeddedData(path, "report-data");
 const readIndexData = (path) => readEmbeddedData(path, "series-data");
+
+function installPullRequestHarness({ sandbox, repository }) {
+  const bin = join(sandbox, "bin");
+  const headFile = join(sandbox, "head.txt");
+  const payloadFile = join(sandbox, "payload.json");
+  mkdirSync(bin);
+  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  writeFileSync(headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
+  const fakeGh = join(bin, "gh");
+  writeFileSync(fakeGh, `#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then
+  printf 'gh version test\\n'
+elif [[ "$1 $2" == "pr view" ]]; then
+  head=$(cat "$FAKE_GH_HEAD")
+  printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+elif [[ "$1 $2" == "api user" ]]; then
+  printf 'owner\\n'
+elif [[ "$1" == "api" && "$*" == *"--method POST"* ]]; then
+  cat > "$FAKE_GH_PAYLOAD"
+  printf '{"html_url":"https://github.com/acme/widgets/pull/42#pullrequestreview-9"}\\n'
+elif [[ "$1" == "api" && "$2" == */comments ]]; then
+  printf '[]\\n'
+elif [[ "$1" == "api" && "$2" == */reviews ]]; then
+  printf '[]\\n'
+else
+  exit 1
+fi
+`);
+  chmodSync(fakeGh, 0o755);
+  return {
+    artifacts: join(sandbox, "artifacts"),
+    headFile,
+    payloadFile,
+    env: {
+      PATH: `${bin}:${process.env.PATH}`,
+      FAKE_GH_HEAD: headFile,
+      FAKE_GH_PAYLOAD: payloadFile,
+    },
+  };
+}
+
+test("artifact roots use override, ignored local storage, then home storage", () => {
+  const explicit = createRepository();
+  const explicitRoot = join(explicit.sandbox, "explicit-artifacts");
+  const explicitResult = prepareReview(explicit.repository, explicitRoot);
+  assert.equal(explicitResult.context.startsWith(`${explicitRoot}/`), true);
+
+  const local = createRepository();
+  const localResult = JSON.parse(run(publicBin, ["collect"], {
+    cwd: local.repository,
+    env: { ...process.env },
+  }));
+  assert.equal(localResult.context.startsWith(`${join(realpathSync(local.repository), ".agents", "artifacts")}/`), true);
+
+  const global = createRepository({ ignoreAgents: false });
+  const globalHome = join(global.sandbox, "home");
+  const globalResult = JSON.parse(run(publicBin, ["collect"], {
+    cwd: global.repository,
+    env: { ...process.env, HOME: globalHome },
+  }));
+  assert.equal(globalResult.context.startsWith(`${join(globalHome, ".agents", "artifacts")}/`), true);
+});
 
 test("the public bin collects and repeatably renders a review", () => {
   const { sandbox, repository } = createRepository();
@@ -515,6 +577,74 @@ fi
   assert.equal(readFileSync(second.diff, "utf8"), "");
   assert.deepEqual(context.passes[1].changes, { code: false, activity: true });
   assert.equal(activity.comments.conversation.some((comment) => comment.user.login === "review-bot[bot]"), true);
+});
+
+test("pull request collection prefers the remote-tracking base", () => {
+  const { sandbox, repository } = createRepository();
+  const originalBase = run("git", ["rev-parse", "main"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+
+  run("git", ["switch", "-q", "main"], { cwd: repository });
+  writeFileSync(join(repository, "base-only.txt"), "already on the pull request base\n");
+  run("git", ["add", "base-only.txt"], { cwd: repository });
+  run("git", ["commit", "-q", "-m", "advance remote base"], { cwd: repository });
+  const remoteBase = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  run("git", ["update-ref", "refs/remotes/origin/main", remoteBase], { cwd: repository });
+  run("git", ["switch", "-q", "feature/review"], { cwd: repository });
+  run("git", ["rebase", "-q", "origin/main"], { cwd: repository });
+  run("git", ["branch", "-f", "main", originalBase], { cwd: repository });
+  writeFileSync(harness.headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
+
+  const prepared = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  const diff = readFileSync(prepared.diff, "utf8");
+
+  assert.equal(context.change.base, "origin/main");
+  assert.equal(context.change.baseSha, remoteBase);
+  assert.match(diff, /\+changed/);
+  assert.doesNotMatch(diff, /base-only/);
+});
+
+test("pull request reviews with local-only changes cannot be submitted", async (t) => {
+  const cases = {
+    staged({ repository }) {
+      writeFileSync(join(repository, "staged-only.txt"), "not pushed\n");
+      run("git", ["add", "staged-only.txt"], { cwd: repository });
+    },
+    unstaged({ repository }) {
+      writeFileSync(join(repository, "example.txt"), "base\nchanged\nnot committed\n");
+    },
+    untracked({ repository }) {
+      writeFileSync(join(repository, "untracked-only.txt"), "not pushed\n");
+    },
+  };
+
+  for (const [name, arrange] of Object.entries(cases)) {
+    await t.test(name, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      arrange({ repository });
+
+      const prepared = prepareReview(repository, harness.artifacts, harness.env);
+      const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+      writeFileSync(prepared.review, `${JSON.stringify(approvalReview("Local changes were reviewed."), null, 2)}\n`);
+      const finished = renderReview(repository, harness.artifacts, harness.env);
+      const report = readReportData(finished.report);
+
+      assert.notEqual(context.passes[0].tree, context.passes[0].headTree);
+      assert.equal(report.submit, null);
+      assert.match(report.submissionUnavailable, /local worktree changes/i);
+
+      const submission = spawnSync(publicBin, ["submit"], {
+        cwd: repository,
+        encoding: "utf8",
+        env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
+      });
+      assert.notEqual(submission.status, 0);
+      assert.match(submission.stderr, /local worktree changes/i);
+      assert.equal(existsSync(harness.payloadFile), false);
+    });
+  }
 });
 
 test("the report command submits selected findings and records the result", () => {

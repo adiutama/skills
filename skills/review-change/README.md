@@ -51,7 +51,7 @@ Only confirmed problems become findings.
 |---|---|
 | Open pull request | Uses the PR description, discussion, diff, and repository evidence. |
 | Local commits without a PR | Builds the same summary and review from the local diff and repository evidence. |
-| Staged or unstaged changes | Includes them in the worktree snapshot. |
+| Staged, unstaged, or untracked changes | Includes them in the worktree snapshot; a PR review containing local-only changes cannot be submitted. |
 | First review | Creates a full study, full blast-radius map, and findings pass. |
 | Later code change | Reviews the diff from the previous pass and appends a blast-radius delta. |
 | New external PR comment or review | Opens an activity-only pass, even when code is unchanged. |
@@ -62,7 +62,7 @@ Only confirmed problems become findings.
 | Branch changed | Uses a separate branch-scoped review session. |
 | Review pass is unfinished | Refuses to collect another pass until the current one is complete. |
 | Local-only review | Produces summary and findings; GitHub submission is unavailable. |
-| Latest open-PR review | Generates a submission command for the user to inspect and run. |
+| Latest open-PR review at the committed PR head | Generates a submission command for the user to inspect and run. |
 | Historical review | Remains readable but cannot generate a submission. |
 | PR closed or HEAD changed after review | Rejects submission as stale. |
 
@@ -103,9 +103,10 @@ Each ring is recorded as `checked`, `not_applicable`, or `not_verified`. An unve
 - fetch, merge, rebase, or resolve divergence;
 - post findings to GitHub automatically;
 - submit from a historical or stale review;
+- submit a verdict based on local worktree changes that are absent from the PR;
 - treat PR description or discussion as authoritative behavior.
 
-The final report generates a terminal command only for the latest completed PR pass. Posting requires the user's deliberate copy-and-paste action.
+The final report generates a terminal command only for the latest completed PR pass when the reviewed tree is the committed PR head. Posting requires the user's deliberate copy-and-paste action.
 
 ## Requirements
 

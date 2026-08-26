@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { artifactRoot, diffTrees, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
+import { artifactRoot, commitTree, diffTrees, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
 import { collectPullRequest, pullRequestFingerprint } from "./github.mjs";
 import { archiveContext, readContext, writeContext, writeJson } from "./context-store.mjs";
 import { renderSeries } from "./render-series.mjs";
@@ -24,6 +24,7 @@ export function collect({ cwd, env }) {
   });
   const base = resolveBase({ ...repository, preferred: pullRequest?.metadata.baseRefName });
   const tree = snapshotWorktree({ root: repository.root, artifactDirectory: root });
+  const headTree = commitTree({ root: repository.root, commit: repository.head });
   const activityHash = pullRequestFingerprint(pullRequest);
   if (existing) {
     const last = existing.passes.at(-1);
@@ -84,6 +85,8 @@ export function collect({ cwd, env }) {
     activity,
     review,
     head: repository.head,
+    headTree,
+    pullRequestHead: pullRequest?.metadata.headRefOid ?? null,
     tree,
     activityHash,
     changes: { code: codeChanged, activity: activityChanged },

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { commandExists, run } from "./command.mjs";
 import { readContext, readJson, writeContext, writeJson } from "./context-store.mjs";
-import { artifactRoot, repositoryContext, slug } from "./git.mjs";
+import { artifactRoot, commitTree, repositoryContext, slug } from "./git.mjs";
 import { renderSeries } from "./render-series.mjs";
 import { validateReview } from "./review.mjs";
 
@@ -29,13 +29,17 @@ function currentReview({ cwd, env }) {
   }
   const pass = context.passes.at(-1);
   if (!pass || pass.status !== "complete") throw new Error("the latest review pass is not complete");
-  return { contextPath, context, pass };
+  return { contextPath, context, pass, repository };
 }
 
 export function submit({ findingIds, message, cwd, env }) {
   if (!commandExists("gh")) throw new Error("submitting a review requires authenticated gh");
-  const { contextPath, context, pass } = currentReview({ cwd, env });
+  const { contextPath, context, pass, repository } = currentReview({ cwd, env });
   if (context.change.mode !== "pr" || !context.change.pullRequest) throw new Error("this review is not attached to an open pull request");
+  const reviewedHeadTree = commitTree({ root: repository.root, commit: pass.head });
+  if (pass.tree !== reviewedHeadTree) {
+    throw new Error("this review includes local worktree changes that are not in the pull request; commit, push, and run review-change again");
+  }
 
   const slash = context.change.repository.indexOf("/");
   if (slash < 1) throw new Error(`invalid GitHub repository: ${context.change.repository}`);

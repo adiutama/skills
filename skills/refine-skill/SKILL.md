@@ -1,6 +1,6 @@
 ---
 name: refine-skill
-description: Refine skill docs and prompts—prose lean, logic in scripts. Continue, complete, or oblivion when promises break. Use for paths or text to tighten or distill.
+description: Refine skill docs and prompts—remove needless words, move repeated work to scripts, preserve behavior and voice. Use for paths or text to tighten or distill.
 disable-model-invocation: true
 metadata:
   argument-hint: "[folder-path|file-path|plain-text]"
@@ -9,67 +9,98 @@ allowed-tools: Read Write Glob rg Bash
 
 Invoked as `/refine-skill [folder-path|file-path|plain-text]`.
 
-# Refine Skill
+# Refine skill
 
-*Between human and machine, the finest instructions need little—not from stinginess, but from understanding already shared.*
+> “Omit needless words.”
+> — William Strunk Jr., [*The Elements of Style*, Rule 13](https://www.gutenberg.org/files/37134/37134-h/37134-h.htm)
 
-Some documents grow heavy—the same caution twice, rules dressed as paragraphs, a voice buried under scaffolding. Distill, don't silence: leave what still sings when the ornament falls away.
+*Leave less on the page. Leave everything that matters.*
 
-A skill can be a poem; a guardrail, one well-chosen line; a workflow, a letter to someone you trust. **Beautiful, powerful, lean**—because nothing redundant survived the cut.
+Refine meaning, not character count: prose holds judgment; literal steps hold action; scripts hold mechanics.
 
-**Save tokens by raising signal, not by deleting soul.** If cutting a sentence changes behavior, it stays. Read for intent—tone, boundaries, where the author paused because this *mattered*. Pairs and oblivion: [voice.md](references/voice.md).
+| Term | Meaning |
+|------|---------|
+| **Distilled** | Shorter; behavior, constraints, clarity, and voice survive |
+| **Hollow** | Shorter, but meaning or voice is weaker |
+| **Oblivion** | A revision broke a promise; discard it and restore the last valid version |
 
-| Keep | Let go |
-|------|--------|
-| Constraints, gates, confirmations, judgment in prose | Filler, duplicated rules, spec voice (unless wanted) |
-| Terms that anchor meaning | Synonyms that drift nuance |
-| Steps that change outcomes | Rephrased steps; repeatable sequences narrated every time |
+Paired examples: [voice.md](references/voice.md).
 
-## Input
+## Step 1 — Resolve the input
 
-1. **Plain text or file** — read if path; distill; return.
-2. **Folder** — `bash <SKILL_DIR>/scripts/discover-targets.sh "<FOLDER>"` → candidates. One: distill it. Many: list; ask all or selected.
+| Input | Action |
+|-------|--------|
+| Plain text | Refine it; return the result in chat |
+| File | Read and refine it |
+| Folder | Run `bash <SKILL_DIR>/scripts/discover-targets.sh "<FOLDER>"` |
 
-## Craft & journey
+For a folder, refine the only candidate. If there are multiple candidates, list them and ask whether to refine all or selected files.
 
-Edit for meaning, not character count. **Continuous work**—pass by pass until the next cut would break a promise.
+**Done when:** the run has plain text or an exact set of files.
 
-1. **Listen** — What must happen? What must never happen?
-2. **Find the spine** — The lines everything else supports.
-3. **Cut the echo** — Same rule twice? Keep the sharper one.
-4. **Leave a trace of the human** — Concise, deliberate; telegraphic only if they asked.
-5. **Extract what repeats mechanically** — Stable logic → `scripts/`; prose keeps when, what returns, on failure. Not judgment, branching, or gates that must stay readable.
-6. **Read it back** — Capabilities, constraints, clarity, voice—still intact? Leaner, not hollow. Then choose:
+## Step 2 — Protect the promises
 
-| Verdict | When |
-|---------|------|
-| **Continue** | Leaner; promises hold; echo remains |
-| **Complete** | Promises hold; another pass would hollow |
-| **Oblivion** | A promise broke—discard draft; return to the last version that sang |
+*Do not cut what the instruction cannot live without.*
 
-Oblivion is not failure. It is refusing to ship a corpse dressed as poetry.
+Record each target's promises:
 
-## Where you land
+- required behavior;
+- what must never happen;
+- gates, confirmations, and completion criteria;
+- necessary voice and judgment.
 
-**Complete** — irreducible prose, repetition in scripts, trust at first read. **Oblivion** — the courage to undo a pretty mistake. The journey does not end at the shortest draft; it ends when what remains cannot shrink without breaking a promise.
+Do not edit the original file yet.
 
-## Output
+**Done when:** every behavior and boundary that must survive is explicit.
 
-1. **Refined text** — full rewrite (per target).
-2. **Scripts** (if any) — path, what left prose, how to invoke.
-3. **What changed** — 3–6 bullets.
-4. **Journey** — `Continue` \| `Complete` \| `Oblivion` — one line why.
-5. **Risk** — `No semantic drift detected` or honest caveat.
+## Step 3 — Refine the draft
 
-## Write-back
+Pass by pass:
 
-- Plain text → reply in chat.
-- File/folder → `<target>.optimized.md` first; ask before overwriting originals.
+1. **Structure** — One block, one job; headings reveal the workflow.
+2. **Execution** — Actions, conditions, failures, and stops use plain English.
+3. **Voice** — Keep poetic boundaries that guide judgment. Cut ornament.
+4. **Terms** — Use one term for one meaning. Define uncommon terms that control behavior.
+5. **Repetition** — Keep the sharpest source; remove repeated meaning.
+6. **Mechanics** — Move stable repetition to `scripts/`. In prose, state when to run the script, what it returns, and what to do on failure.
+
+Do not move judgment, branches, gates, or safety rules into scripts.
+
+**Done when:** the draft is shorter, its workflow is visible, and every executable instruction is literal.
+
+## Step 4 — Read it back
+
+Check three levels:
+
+1. **At a glance:** Is the workflow visible?
+2. **On reading:** Is the prose human and easy to understand?
+3. **In execution:** Are actions, safety rules, and stop conditions precise?
+
+Choose one verdict:
+
+| Verdict | Condition |
+|---------|-----------|
+| **Continue** | Promises hold; repetition or unclear structure remains |
+| **Complete** | Promises hold; another pass would make the draft hollow |
+| **Oblivion** | A promise broke; restore the last valid version |
+
+## Step 5 — Produce the result
+
+Return:
+
+1. Refined text.
+2. Scripts and invocation, when applicable.
+3. Three to six changes.
+4. Verdict with a one-line reason.
+5. `No semantic drift detected` or a specific risk.
+
+Write back by input type:
+
+- Plain text → return the revision in chat.
+- File/folder → write `<target>.optimized.md`; compare it with the original; ask before overwrite.
 - Scripts → ask before creating or replacing under `scripts/`.
-- Multiple files → per-file temp paths; don't dump full bodies in chat when files were written.
-- Never overwrite without explicit confirmation.
+- Multiple files → one temporary path each; do not dump full bodies into chat.
 
----
+Never overwrite an original without explicit confirmation.
 
-*Leave less on the page.*
-*Leave everything that matters.*
+**Done when:** the result follows the output contract and every original remains recoverable.

@@ -15,9 +15,15 @@ Use this checklist before finalizing a skill.
 - [ ] Reference paths are clear and consistent.
 - [ ] Safety constraints and stop/confirm conditions are explicit.
 - [ ] Wording is concise; no redundant instructions.
-- [ ] **Voice:** opening, gates, and judgment in prose earn their tokens (not ornament).
-- [ ] **Leading words:** 2–4 anchor terms front-loaded in `description` and used consistently in the body.
-- [ ] **Distilled test:** shorter, and still clear on what to do, what never to do, and tone of trust.
+- [ ] **Visible structure:** the workflow is clear at a glance; each block has one job.
+- [ ] **Voice:** poetic boundaries earn their tokens through intent, posture, or judgment—not ornament.
+- [ ] **Literal execution:** actions, conditions, safety rules, and stop criteria use plain, explicit English.
+- [ ] **Controlled terms:** one term carries one meaning; uncommon or metaphorical terms that control behavior are defined.
+- [ ] **Leading words:** 2–4 accessible anchor terms are front-loaded in `description` and used consistently in the body.
+- [ ] **Completion:** important steps end with an observable `Done when:` or equivalent criterion.
+- [ ] **Quotation, if present:** short, relevant, understandable, verified, attributed, and not the only source of a requirement.
+- [ ] **User-facing voice, when relevant:** lead with the result, use plain English, and define necessary technical terms.
+- [ ] **Distilled test:** structure is visible, voice remains human, and execution stays literal.
 - [ ] Repeatable mechanics live in `scripts/` or disclosed `references/`, not narrated every run.
 - [ ] **Standalone:** full workflow in this package; no invoke/load/assume another skill.
 - [ ] **Duplicate, don't reference:** concepts borrowed from other skills are copied into this package (trimmed), not linked at runtime.
