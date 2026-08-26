@@ -164,7 +164,8 @@ elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" && "$*" == *"--method POST"* ]]; then
   cat > "$FAKE_GH_PAYLOAD"
-  printf '{"html_url":"https://github.com/acme/widgets/pull/42#pullrequestreview-9"}\\n'
+  head=$(cat "$FAKE_GH_HEAD")
+  printf '{"html_url":"https://github.com/acme/widgets/pull/42#pullrequestreview-9","commit_id":"%s"}\\n' "$head"
 elif [[ "$1" == "api" && "$2" == */comments ]]; then
   printf '[]\\n'
 elif [[ "$1" == "api" && "$2" == */reviews ]]; then
@@ -645,6 +646,115 @@ test("pull request collection prefers the remote-tracking base", () => {
   assert.doesNotMatch(diff, /base-only/);
 });
 
+test("clean pull request reviews follow the pull request head instead of local HEAD", () => {
+  const { sandbox, repository } = createRepository();
+  const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+
+  run("git", ["reset", "--hard", "main"], { cwd: repository });
+  const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  assert.notEqual(localHead, pullRequestHead);
+
+  const prepared = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  const pass = context.passes[0];
+
+  assert.equal(pass.head, pullRequestHead);
+  assert.equal(pass.pullRequestHead, pullRequestHead);
+  assert.equal(pass.tree, pass.headTree);
+  assert.deepEqual(prepared.branchUpdate, { from: localHead, to: pullRequestHead });
+  assert.deepEqual(pass.branchUpdate, prepared.branchUpdate);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), pullRequestHead);
+  assert.match(readFileSync(prepared.diff, "utf8"), /\+changed/);
+});
+
+test("pull request collection fetches a missing pull request head", () => {
+  const { sandbox, repository } = createRepository();
+  const remote = join(sandbox, "github.com", "acme", "widgets.git");
+  const producer = join(sandbox, "producer");
+  mkdirSync(join(sandbox, "github.com", "acme"), { recursive: true });
+  run("git", ["clone", "-q", "--bare", repository, remote]);
+  run("git", ["clone", "-q", remote, producer]);
+  run("git", ["config", "user.email", "test@example.com"], { cwd: producer });
+  run("git", ["config", "user.name", "Review Change Test"], { cwd: producer });
+  run("git", ["config", "commit.gpgsign", "false"], { cwd: producer });
+  writeFileSync(join(producer, "remote-only.txt"), "available only from origin\n");
+  run("git", ["add", "remote-only.txt"], { cwd: producer });
+  run("git", ["commit", "-q", "-m", "remote pull request head"], { cwd: producer });
+  const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: producer });
+  run("git", ["push", "-q", "origin", "HEAD:feature/review"], { cwd: producer });
+
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["remote", "set-url", "origin", remote], { cwd: repository });
+  writeFileSync(harness.headFile, `${pullRequestHead}\n`);
+  assert.notEqual(spawnSync("git", ["cat-file", "-e", `${pullRequestHead}^{commit}`], { cwd: repository }).status, 0);
+
+  const prepared = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.equal(context.passes[0].head, pullRequestHead);
+  assert.equal(prepared.branchUpdate.to, pullRequestHead);
+  assert.deepEqual(context.passes[0].branchUpdate, prepared.branchUpdate);
+  assert.equal(spawnSync("git", ["cat-file", "-e", `${pullRequestHead}^{commit}`], { cwd: repository }).status, 0);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), pullRequestHead);
+  assert.match(readFileSync(prepared.diff, "utf8"), /remote-only\.txt/);
+});
+
+test("a dirty worktree keeps local review mode even when the pull request head differs", () => {
+  const { sandbox, repository } = createRepository();
+  const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["reset", "--hard", "main"], { cwd: repository });
+  const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  writeFileSync(join(repository, "local-only.txt"), "uncommitted review target\n");
+
+  const prepared = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  const pass = context.passes[0];
+
+  assert.notEqual(localHead, pullRequestHead);
+  assert.equal(pass.head, localHead);
+  assert.equal(pass.pullRequestHead, pullRequestHead);
+  assert.notEqual(pass.tree, pass.headTree);
+  assert.equal(prepared.branchUpdate, null);
+  assert.match(readFileSync(prepared.diff, "utf8"), /local-only\.txt/);
+});
+
+test("a clean diverged branch is preserved while the pull request head is reviewed", () => {
+  const { sandbox, repository } = createRepository();
+  const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["reset", "--hard", "main"], { cwd: repository });
+  writeFileSync(join(repository, "diverged-local.txt"), "preserve this commit\n");
+  run("git", ["add", "diverged-local.txt"], { cwd: repository });
+  run("git", ["commit", "-q", "-m", "diverged local commit"], { cwd: repository });
+  const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+
+  const prepared = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), localHead);
+  assert.equal(context.passes[0].head, pullRequestHead);
+  assert.match(readFileSync(prepared.diff, "utf8"), /\+changed/);
+  assert.doesNotMatch(readFileSync(prepared.diff, "utf8"), /diverged-local/);
+});
+
+test("an empty pull request patch is rejected", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["reset", "--hard", "main"], { cwd: repository });
+  writeFileSync(harness.headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
+
+  const collected = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
+  });
+
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /nothing to review: the current change is empty/i);
+});
+
 test("pull request reviews with local-only changes cannot be submitted", async (t) => {
   const cases = {
     staged({ repository }) {
@@ -747,6 +857,9 @@ fi
     tests: { run: [], gaps: [] },
   };
   writeFileSync(prepared.review, `${JSON.stringify(review, null, 2)}\n`);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  context.passes[0].pullRequestHead = "f".repeat(40);
+  writeFileSync(prepared.context, `${JSON.stringify(context, null, 2)}\n`);
   const finished = renderReview(repository, artifacts, env);
   const reportBefore = readFileSync(finished.report, "utf8");
   assert.deepEqual(readReportData(finished.report).submit.tokens, [publicBin, "submit"]);
@@ -757,27 +870,41 @@ fi
   assert.equal(reportBefore.includes(prepared.context), false);
 
   writeFileSync(headFile, `${"0".repeat(40)}\n`);
-  const stale = spawnSync(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback."], {
+  const stopped = spawnSync(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback."], {
     cwd: repository,
     encoding: "utf8",
     env: { ...process.env, ...env },
   });
-  assert.notEqual(stale.status, 0);
-  assert.match(stale.stderr, /pull request HEAD changed/);
+  assert.equal(stopped.status, 2);
+  assert.match(stopped.stderr, /warning: PR HEAD moved/i);
+  assert.match(stopped.stderr, /inline comment was written against/i);
+  assert.match(stopped.stderr, /recommended: cancel and run review-change again/i);
+  assert.equal(JSON.parse(stopped.stdout).status, "cancelled");
+  assert.equal(existsSync(payloadFile), false);
 
-  writeFileSync(headFile, `${reviewedHead}\n`);
-  const submitted = JSON.parse(run(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback."], {
+  const accepted = spawnSync(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback.", "--accept-moved-head"], {
     cwd: repository,
+    encoding: "utf8",
     env: { ...process.env, ...env },
-  }));
+  });
+  assert.equal(accepted.status, 0);
+  assert.match(accepted.stderr, /warning: PR HEAD moved/i);
+  const submitted = JSON.parse(accepted.stdout);
   const savedReview = JSON.parse(readFileSync(prepared.review, "utf8"));
   const payload = JSON.parse(readFileSync(payloadFile, "utf8"));
 
   assert.equal(submitted.status, "submitted");
   assert.equal(submitted.event, "REQUEST_CHANGES");
+  assert.match(submitted.warnings[0], /line locations may now be incorrect/i);
   assert.equal(savedReview.findings[0].posting, "posted");
   assert.equal(savedReview.submissions[0].url, submitted.url);
-  assert.equal(payload.commit_id, reviewedHead);
+  assert.equal(savedReview.submissions[0].reviewedHead, reviewedHead);
+  assert.equal(savedReview.submissions[0].observedHead, "0".repeat(40));
+  assert.equal(savedReview.submissions[0].submittedHead, "0".repeat(40));
+  assert.equal(savedReview.submissions[0].headMoved, true);
+  assert.equal(savedReview.submissions[0].confirmation, "flag");
+  assert.deepEqual(savedReview.submissions[0].warnings, submitted.warnings);
+  assert.equal("commit_id" in payload, false);
   assert.equal(payload.body, "Good job, here is the blocking feedback.");
   assert.equal(payload.comments[0].body, review.findings[0].comment);
   assert.match(readFileSync(finished.report, "utf8"), /"posting":"posted"/);

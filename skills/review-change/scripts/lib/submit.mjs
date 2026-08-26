@@ -18,6 +18,36 @@ function reviewEvent(verdict) {
   return verdict === "reject" ? "REQUEST_CHANGES" : "APPROVE";
 }
 
+function movedHeadWarning({ reviewedHead, currentHead, inlineCount }) {
+  const reviewed = reviewedHead.slice(0, 12);
+  const current = currentHead.slice(0, 12);
+  const lines = [
+    `PR HEAD moved from ${reviewed} to ${current} after this review.`,
+    "",
+  ];
+  if (inlineCount) {
+    lines.push(
+      `${inlineCount} selected inline ${inlineCount === 1 ? "comment was" : "comments were"} written against ${reviewed}.`,
+      "Their line locations may now be incorrect, and GitHub may reject the entire review.",
+      "",
+    );
+  } else {
+    lines.push("The verdict and message were written against older code.", "");
+  }
+  lines.push("Recommended: cancel and run review-change again.");
+  return lines.join("\n");
+}
+
+function pullRequestMetadata({ cwd, owner, repo, number }) {
+  const metadataRaw = run("gh", [
+    "pr", "view", String(number), "--repo", `${owner}/${repo}`,
+    "--json", "number,headRefOid,state,url",
+  ], { cwd });
+  const metadata = parseJson(metadataRaw, "gh pr view");
+  if (metadata.state !== "OPEN") throw new Error(`pull request #${metadata.number} is no longer open`);
+  return metadata;
+}
+
 function currentReview({ cwd, env }) {
   const repository = repositoryContext(cwd);
   const root = artifactRoot({ root: repository.root, env });
@@ -32,7 +62,7 @@ function currentReview({ cwd, env }) {
   return { contextPath, context, pass, repository };
 }
 
-export function submit({ findingIds, message, cwd, env }) {
+export function submit({ findingIds, message, acceptMovedHead = false, cwd, env, warn = () => {}, confirm = () => false }) {
   if (!commandExists("gh")) throw new Error("submitting a review requires authenticated gh");
   const { contextPath, context, pass, repository } = currentReview({ cwd, env });
   if (context.change.mode !== "pr" || !context.change.pullRequest) throw new Error("this review is not attached to an open pull request");
@@ -45,16 +75,7 @@ export function submit({ findingIds, message, cwd, env }) {
   if (slash < 1) throw new Error(`invalid GitHub repository: ${context.change.repository}`);
   const owner = context.change.repository.slice(0, slash);
   const repo = context.change.repository.slice(slash + 1);
-  const metadataRaw = run("gh", [
-    "pr", "view", String(context.change.pullRequest), "--repo", `${owner}/${repo}`,
-    "--json", "number,headRefOid,state,url",
-  ], { cwd });
-  const metadata = parseJson(metadataRaw, "gh pr view");
-  if (metadata.state !== "OPEN") throw new Error(`pull request #${metadata.number} is no longer open`);
-  if (metadata.headRefOid !== pass.head) {
-    throw new Error(`pull request HEAD changed from ${pass.head} to ${metadata.headRefOid}; run review-change again`);
-  }
-
+  let metadata = pullRequestMetadata({ cwd, owner, repo, number: context.change.pullRequest });
   const review = validateReview(readJson(pass.review), `review at ${pass.review}`);
   const findings = Array.isArray(review.findings) ? review.findings : [];
   const requested = [...new Set(findingIds)];
@@ -68,8 +89,33 @@ export function submit({ findingIds, message, cwd, env }) {
     return finding;
   });
   const event = reviewEvent(review.verdict?.value);
+  const warnings = [];
+  let confirmation = null;
+  let acceptedHead = pass.head;
+  let flagAvailable = acceptMovedHead;
+  while (true) {
+    if (metadata.headRefOid !== pass.head && metadata.headRefOid !== acceptedHead) {
+      const warning = movedHeadWarning({ reviewedHead: pass.head, currentHead: metadata.headRefOid, inlineCount: selected.length });
+      warnings.push(warning);
+      warn(warning);
+      if (flagAvailable) {
+        confirmation = "flag";
+      } else if (confirm({ reviewedHead: pass.head, currentHead: metadata.headRefOid, inlineCount: selected.length, warning })) {
+        confirmation = "interactive";
+      } else {
+        return { status: "cancelled", reason: "pull-request-head-changed", warnings };
+      }
+      acceptedHead = metadata.headRefOid;
+      flagAvailable = false;
+    }
+    const latest = pullRequestMetadata({ cwd, owner, repo, number: context.change.pullRequest });
+    if (latest.headRefOid === metadata.headRefOid) {
+      metadata = latest;
+      break;
+    }
+    metadata = latest;
+  }
   const payload = {
-    commit_id: pass.head,
     event,
     body: message?.trim() || review.body || review.summary || review.verdict?.reason || "Review complete.",
   };
@@ -93,11 +139,17 @@ export function submit({ findingIds, message, cwd, env }) {
     event,
     body: payload.body,
     findings: selected.map((finding) => String(finding.id)),
+    reviewedHead: pass.head,
+    observedHead: metadata.headRefOid,
+    submittedHead: response.commit_id ?? metadata.headRefOid,
+    headMoved: warnings.length > 0,
+    confirmation,
+    warnings,
     postedAt: new Date().toISOString(),
   });
   writeJson(pass.review, review);
   pass.report ??= join(dirname(pass.review), `${String(pass.number).padStart(2, "0")}.report.html`);
   const index = renderSeries({ context });
   writeContext(contextPath, context);
-  return { status: "submitted", url: response.html_url ?? null, event, findings: selected.map((finding) => String(finding.id)), report: pass.report, index };
+  return { status: "submitted", url: response.html_url ?? null, event, findings: selected.map((finding) => String(finding.id)), warnings, report: pass.report, index };
 }

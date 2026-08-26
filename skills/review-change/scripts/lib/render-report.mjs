@@ -67,8 +67,6 @@ export function renderReport({ path, context, pass, review, navigation = { index
     submissionUnavailable = "No open pull request was detected for this review.";
   } else if (pass.tree !== pass.headTree) {
     submissionUnavailable = "Submission unavailable — this review includes local worktree changes that are not in the pull request.";
-  } else if (pass.pullRequestHead !== pass.head) {
-    submissionUnavailable = "Submission unavailable — local HEAD did not match the pull request HEAD when this review was collected.";
   }
   const submit = submissionUnavailable ? null : { tokens: [entrypoint, "submit"] };
   const data = {

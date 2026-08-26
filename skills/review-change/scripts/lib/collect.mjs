@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { artifactRoot, commitTree, diffTrees, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
+import { artifactRoot, commitTree, diffTrees, ensureCommit, fastForwardBranch, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
 import { collectPullRequest, pullRequestFingerprint } from "./github.mjs";
 import { archiveContext, readContext, writeContext, writeJson } from "./context-store.mjs";
 import { renderSeries } from "./render-series.mjs";
@@ -24,16 +24,30 @@ export function collect({ cwd, env }) {
     number: existing?.change.pullRequest,
     required: existing?.change.mode === "pr",
   });
-  const base = resolveBase({ ...repository, preferred: pullRequest?.metadata.baseRefName });
-  const tree = snapshotWorktree({ root: repository.root, artifactDirectory: root });
-  const headTree = commitTree({ root: repository.root, commit: repository.head });
+  let head = repository.head;
+  let headTree = commitTree({ root: repository.root, commit: head });
+  let tree = snapshotWorktree({ root: repository.root, artifactDirectory: root });
+  let branchUpdate = null;
+  let shouldFastForward = false;
+  if (pullRequest && tree === headTree) {
+    head = pullRequest.metadata.headRefOid;
+    ensureCommit({ root: repository.root, commit: head });
+    shouldFastForward = repository.head !== head && isAncestor({ root: repository.root, ancestor: repository.head, descendant: head });
+    headTree = commitTree({ root: repository.root, commit: head });
+    tree = headTree;
+  }
+  const base = resolveBase({ ...repository, preferred: pullRequest?.metadata.baseRefName, tip: head });
+  if (shouldFastForward) {
+    fastForwardBranch({ root: repository.root, commit: head });
+    branchUpdate = { from: repository.head, to: head };
+  }
   const activityHash = pullRequestFingerprint(pullRequest);
   if (existing) {
     const last = existing.passes.at(-1);
     let reason = null;
     if (existing.change.baseSha && existing.change.baseSha !== base.sha) {
       reason = "base-changed";
-    } else if (last?.head && !isAncestor({ root: repository.root, ancestor: last.head, descendant: repository.head })) {
+    } else if (last?.head && !isAncestor({ root: repository.root, ancestor: last.head, descendant: head })) {
       reason = "history-rewritten";
     }
     if (reason) {
@@ -53,6 +67,7 @@ export function collect({ cwd, env }) {
       report: previous.report ?? null,
       index: existing.index ?? null,
       pass: previous.number,
+      branchUpdate,
     };
   }
 
@@ -66,7 +81,7 @@ export function collect({ cwd, env }) {
   const kind = previous ? "incremental" : "full";
   const from = previous?.tree ?? base.sha;
   const patch = codeChanged ? diffTrees({ root: repository.root, from, to: tree }) : "";
-  if (!previous && !patch && !pullRequest) throw new Error("nothing to review: the current change is empty");
+  if (!previous && !patch) throw new Error("nothing to review: the current change is empty");
 
   mkdirSync(session, { recursive: true });
   writeFileSync(diff, patch);
@@ -83,7 +98,7 @@ export function collect({ cwd, env }) {
     branch: repository.branch,
     base: base.ref,
     baseSha: base.sha,
-    head: repository.head,
+    head,
   };
   delete context.sources;
   context.summary ??= { data: summary, report: summaryReport, study: null };
@@ -93,12 +108,13 @@ export function collect({ cwd, env }) {
     diff,
     activity,
     review,
-    head: repository.head,
+    head,
     headTree,
     pullRequestHead: pullRequest?.metadata.headRefOid ?? null,
     tree,
     activityHash,
     changes: { code: codeChanged, activity: activityChanged },
+    branchUpdate,
     status: "collected",
   });
   context.output = review;
@@ -107,5 +123,5 @@ export function collect({ cwd, env }) {
     renderSeries({ context });
     writeContext(contextPath, context);
   }
-  return { status: "ready", context: contextPath, diff, activity, summary: context.summary.data, review };
+  return { status: "ready", context: contextPath, diff, activity, summary: context.summary.data, review, branchUpdate };
 }

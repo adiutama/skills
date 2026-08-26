@@ -18,8 +18,9 @@ bash <SKILL_DIR>/bin/review-change collect
 
 - `unchanged` → report no new code or PR activity, then share the returned index and latest report using the final handoff format; stop.
 - `ready` → read `context`, its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
+- Non-null `branchUpdate` → state that collection safely fast-forwarded the clean checked-out branch from `from` to the verified PR head at `to`.
 
-An open PR adds description and discussion; without one, review the local change and build the same summary from repository evidence. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
+On a clean PR worktree, collection reviews the latest PR head. It fetches that exact commit when missing and safely fast-forwards a checked-out branch that is behind it. It preserves dirty or diverged branches. Without a PR, review the local change and build the same summary from repository evidence. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
 
 ## 2 — Orient
 

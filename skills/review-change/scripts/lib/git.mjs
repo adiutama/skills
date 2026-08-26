@@ -39,7 +39,7 @@ export function slug(value) {
   return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export function resolveBase({ root, branch, preferred }) {
+export function resolveBase({ root, branch, preferred, tip }) {
   const configured = git(["config", "--get", `branch.${branch}.gh-merge-base`], root, { allowFailure: true });
   const originHead = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], root, { allowFailure: true });
   const remotePreferred = preferred && (preferred.startsWith("origin/") ? preferred : `origin/${preferred}`);
@@ -48,8 +48,22 @@ export function resolveBase({ root, branch, preferred }) {
   if (!ref) {
     throw new Error("could not resolve a base branch for the current change");
   }
-  const sha = git(["merge-base", "HEAD", ref], root);
+  const sha = git(["merge-base", tip, ref], root);
   return { ref, sha };
+}
+
+export function hasCommit({ root, commit }) {
+  return git(["cat-file", "-e", `${commit}^{commit}`], root, { allowFailure: true }) !== null;
+}
+
+export function ensureCommit({ root, commit }) {
+  if (hasCommit({ root, commit })) return;
+  git(["fetch", "--no-tags", "origin", commit], root);
+  if (!hasCommit({ root, commit })) throw new Error(`could not fetch pull request HEAD ${commit}`);
+}
+
+export function fastForwardBranch({ root, commit }) {
+  git(["merge", "--ff-only", commit], root);
 }
 
 export function snapshotWorktree({ root, artifactDirectory }) {
