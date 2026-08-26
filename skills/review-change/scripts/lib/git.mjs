@@ -11,12 +11,13 @@ export function repositoryContext(cwd) {
   const root = git(["rev-parse", "--show-toplevel"], cwd);
   const branchName = git(["branch", "--show-current"], root);
   const head = git(["rev-parse", "HEAD"], root);
+  const detached = !branchName;
   const branch = branchName || `detached-${git(["rev-parse", "--short", "HEAD"], root)}`;
   const remote = git(["remote", "get-url", "origin"], root, { allowFailure: true }) ?? "";
   const match = remote.match(/github\.com[:/]([^/]+)\/(.+)$/);
   const owner = match?.[1] ?? "_local";
   const repo = match?.[2]?.replace(/\.git$/, "") ?? basename(root);
-  return { root, branch, head, owner, repo };
+  return { root, branch, detached, head, owner, repo };
 }
 
 export function artifactRoot({ root, env }) {

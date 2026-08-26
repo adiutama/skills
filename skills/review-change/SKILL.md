@@ -16,7 +16,7 @@ Invoked as `/review-change`.
 bash <SKILL_DIR>/bin/review-change collect
 ```
 
-- `unchanged` → report no new code or PR activity; stop.
+- `unchanged` → report no new code or PR activity, then share the returned index and latest report using the final handoff format; stop.
 - `ready` → read `context`, its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
 
 An open PR adds description and discussion; without one, review the local change and build the same summary from repository evidence. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
@@ -51,3 +51,20 @@ bash <SKILL_DIR>/bin/review-change render
 ```
 
 Share the returned findings report, durable summary, and index; state the verdict and coverage limits. Never run the generated submission command—the user deliberately copies and runs it.
+
+End with a compact handoff. Put the index first, link every HTML artifact with its returned absolute path, and repeat the index path as plain text so it is easy to copy:
+
+````markdown
+### Review complete — <Approve|Reject>
+
+[Open review index](<absolute index path>)
+
+```text
+<absolute index path>
+```
+
+- Latest findings: [Pass <N>](<absolute report path>)
+- Change study: [Summary](<absolute summary path>)
+- Coverage: <confidence and material gaps>
+- Verdict: <one-sentence reason>
+````

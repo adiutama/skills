@@ -42,14 +42,19 @@ export function pullRequestFingerprint(pullRequest) {
   return createHash("sha256").update(JSON.stringify(canonicalize(reviewState))).digest("hex");
 }
 
-export function collectPullRequest({ cwd, owner, repo, number, required = false }) {
+export function collectPullRequest({ cwd, owner, repo, branch, detached = false, number, required = false }) {
   if (owner === "_local") return null;
   if (!commandExists("gh")) {
     if (required) throw new Error("cannot verify PR activity because gh is unavailable");
     return null;
   }
+  const selector = number ? String(number) : (!detached && branch ? branch : null);
+  if (!selector) {
+    if (required) throw new Error("could not verify the existing pull request");
+    return null;
+  }
   const metadataRaw = run("gh", [
-    "pr", "view", ...(number ? [String(number)] : []), "--repo", `${owner}/${repo}`,
+    "pr", "view", selector, "--repo", `${owner}/${repo}`,
     "--json", "number,title,body,url,baseRefName,headRefName,headRefOid,state",
   ], { cwd, allowFailure: true });
   if (!metadataRaw) {

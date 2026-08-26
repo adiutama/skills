@@ -443,13 +443,16 @@ test("collect exits early when code and PR activity are unchanged", () => {
   const artifacts = join(sandbox, "artifacts");
   const first = prepareReview(repository, artifacts);
   writeFileSync(first.review, `${JSON.stringify(approvalReview("first pass"))}\n`);
-  renderReview(repository, artifacts);
+  const finished = renderReview(repository, artifacts);
 
   const unchanged = prepareReview(repository, artifacts);
   const context = JSON.parse(readFileSync(unchanged.context, "utf8"));
 
   assert.equal(unchanged.status, "unchanged");
   assert.equal(unchanged.pass, 1);
+  assert.equal(unchanged.index, finished.index);
+  assert.equal(unchanged.report, finished.report);
+  assert.equal(unchanged.summary, finished.summary);
   assert.equal(context.passes.length, 1);
   assert.equal(existsSync(join(first.context, "..", "02.diff")), false);
 });
@@ -464,6 +467,10 @@ test("collect records raw pull request activity when one exists", () => {
 if [[ "$1 $2" == "--version " ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
+  if [[ "$3" != "feature/review" || "$4" != "--repo" || "$5" != "acme/widgets.js" ]]; then
+    printf 'unexpected pr view arguments: %s\\n' "$*" >&2
+    exit 2
+  fi
   head=$(git rev-parse HEAD)
   printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
 elif [[ "$1 $2" == "api user" ]]; then
@@ -524,6 +531,39 @@ fi
     body: "Existing concern",
     url: "https://github.com/acme/widgets/pull/42#discussion_r2",
   });
+});
+
+test("collect skips pull request discovery on detached HEAD", () => {
+  const { sandbox, repository } = createRepository();
+  const bin = join(sandbox, "bin");
+  mkdirSync(bin);
+  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  run("git", ["switch", "-q", "--detach"], { cwd: repository });
+  const fakeGh = join(bin, "gh");
+  writeFileSync(fakeGh, `#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then
+  printf 'gh version test\\n'
+elif [[ "$1 $2" == "pr view" ]]; then
+  head=$(git rev-parse HEAD)
+  printf '{"number":42,"title":"Wrong PR","body":"","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+elif [[ "$1 $2" == "api user" ]]; then
+  printf 'owner\\n'
+elif [[ "$1" == "api" ]]; then
+  printf '[]\\n'
+else
+  exit 1
+fi
+`);
+  chmodSync(fakeGh, 0o755);
+
+  const prepared = prepareReview(repository, join(sandbox, "artifacts"), {
+    PATH: `${bin}:${process.env.PATH}`,
+  });
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.equal(context.change.mode, "local");
+  assert.match(context.change.branch, /^detached-/);
+  assert.equal(context.passes[0].activity, null);
 });
 
 test("collect opens an activity-only pass for a new reviewer comment", () => {

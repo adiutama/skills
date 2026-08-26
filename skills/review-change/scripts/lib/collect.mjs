@@ -19,6 +19,8 @@ export function collect({ cwd, env }) {
     cwd: repository.root,
     owner: repository.owner,
     repo: repository.repo,
+    branch: repository.branch,
+    detached: repository.detached,
     number: existing?.change.pullRequest,
     required: existing?.change.mode === "pr",
   });
@@ -44,7 +46,14 @@ export function collect({ cwd, env }) {
   const codeChanged = !previous || previous.tree !== tree;
   const activityChanged = previous ? previous.activityHash !== activityHash : Boolean(pullRequest);
   if (previous && !codeChanged && !activityChanged) {
-    return { status: "unchanged", context: contextPath, pass: previous.number };
+    return {
+      status: "unchanged",
+      context: contextPath,
+      summary: existing.summary?.report ?? null,
+      report: previous.report ?? null,
+      index: existing.index ?? null,
+      pass: previous.number,
+    };
   }
 
   const pass = previous ? previous.number + 1 : 1;

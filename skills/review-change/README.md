@@ -11,6 +11,8 @@ The review arrives in two phases:
 
 `index.html` links the durable summary and every review pass with one consistent visual style.
 
+At the end of a review, the skill presents `index.html` first as a clickable local link and repeats its absolute path in a plain-text block for quick copying. The latest findings report, durable summary, verdict, and coverage limits follow in the same compact handoff. An unchanged follow-up returns those existing artifact paths again instead of leaving the user to find the session directory.
+
 ```text
 review-change/
 ├── summary.html       Study + blast-radius history
