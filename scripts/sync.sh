@@ -4,7 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${SOURCE_DIR:-${REPO_ROOT}/skills}"
-GLOBAL_SKILLS_DIR="${GLOBAL_SKILLS_DIR:-${HOME}/.agents/skills}"
 source "${SCRIPT_DIR}/lib/agent-harnesses.sh"
 EXTRA_ADD_ARGS=()
 LOCAL_SKILL_NAMES=()
@@ -26,7 +25,6 @@ STALE_SKILL_NAMES=()
 #
 # Optional environment:
 #   SOURCE_DIR=/abs/path/to/skills
-#   GLOBAL_SKILLS_DIR=/abs/path/to/global/skills
 ##
 
 DRY_RUN=false
@@ -42,9 +40,8 @@ Examples:
   ./scripts/sync.sh --copy
 
 Environment:
-  SOURCE_DIR        Skills source directory (default: <repo>/skills)
-  GLOBAL_SKILLS_DIR Global skills directory (default: ~/.agents/skills)
-  SKILLS_AGENTS     Optional explicit agent slug list (comma/space-separated)
+  SOURCE_DIR    Skills source directory (default: <repo>/skills)
+  SKILLS_AGENTS Optional explicit agent slug list (comma/space-separated)
 EOF
 }
 
@@ -115,97 +112,29 @@ collect_repo_known_skill_names() {
   fi
 }
 
-# Lexically normalize an absolute path (without requiring it to exist).
-normalize_absolute_path_lexically() {
-  local input_path="$1"
-  local -a parts=()
-  local -a resolved_parts=()
-  local part=""
-
-  [[ "${input_path}" == /* ]] || return 1
-
-  IFS='/' read -r -a parts <<< "${input_path}"
-  for part in "${parts[@]}"; do
-    [[ -z "${part}" || "${part}" == "." ]] && continue
-    if [[ "${part}" == ".." ]]; then
-      if [[ ${#resolved_parts[@]} -gt 0 ]]; then
-        unset "resolved_parts[$((${#resolved_parts[@]} - 1))]"
-      fi
-      continue
-    fi
-    resolved_parts+=("${part}")
-  done
-
-  if [[ ${#resolved_parts[@]} -eq 0 ]]; then
-    printf '/\n'
-  else
-    printf '/%s\n' "$(IFS=/; echo "${resolved_parts[*]}")"
-  fi
-}
-
-# Convert readlink output to an absolute path, even if target is missing.
-resolve_link_target() {
-  local link_path="$1"
-  local raw_target
-  local absolute_target
-  raw_target="$(readlink "${link_path}" || true)"
-
-  if [[ -z "${raw_target}" ]]; then
-    return 1
-  fi
-
-  if [[ "${raw_target}" == /* ]]; then
-    absolute_target="${raw_target}"
-  else
-    absolute_target="$(dirname "${link_path}")/${raw_target}"
-  fi
-
-  normalize_absolute_path_lexically "${absolute_target}"
-}
-
-# Collect global skill names that are managed by this repo
-# (symlinks whose targets live under SOURCE_DIR).
+# Ask the skills CLI for global state. It owns the agent-specific paths and
+# understands both linked and copied installs.
 collect_repo_managed_global_names() {
-  local names=()
-  local entry=""
-  local target=""
-  local normalized_source=""
+  local name=""
 
-  normalized_source="$(normalize_absolute_path_lexically "${SOURCE_DIR}")"
-
-  if [[ -d "${GLOBAL_SKILLS_DIR}" ]]; then
-    while IFS= read -r entry; do
-      [[ -n "${entry}" ]] || continue
-      target="$(resolve_link_target "${entry}" || true)"
-      [[ -n "${target}" ]] || continue
-
-      if [[ "${target}" == "${normalized_source}/"* ]]; then
-        names+=("${entry##*/}")
-      fi
-    done < <(
-      for p in "${GLOBAL_SKILLS_DIR}"/*; do
-        [[ -L "${p}" ]] && printf '%s\n' "${p}"
-      done | sort
-    )
-
-    # Also include copied/global directory installs that match known repo skills.
-    while IFS= read -r entry; do
-      [[ -n "${entry}" ]] || continue
-      if [[ -d "${entry}" && -f "${entry}/SKILL.md" ]]; then
-        if contains_name "${entry##*/}" "${REPO_KNOWN_SKILL_NAMES[@]}"; then
-          names+=("${entry##*/}")
-        fi
-      fi
-    done < <(
-      for p in "${GLOBAL_SKILLS_DIR}"/*; do
-        [[ -d "${p}" ]] && printf '%s\n' "${p}"
-      done | sort
-    )
-  fi
-
-  if [[ ${#names[@]} -gt 0 ]]; then
-    printf '%s\n' "${names[@]}" | sort -u
-  fi
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] || continue
+    if contains_name "${name}" "${REPO_KNOWN_SKILL_NAMES[@]}"; then
+      printf '%s\n' "${name}"
+    fi
+  done < <(
+    npx skills list -g --json | node -e '
+      let input = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", chunk => input += chunk);
+      process.stdin.on("end", () => {
+        const skills = JSON.parse(input);
+        for (const skill of skills) {
+          if (skill && typeof skill.name === "string") console.log(skill.name);
+        }
+      });
+    '
+  )
 }
 
 contains_name() {
@@ -226,7 +155,8 @@ collect_stale_names() {
   local stale=()
 
   for name in "${repo_global[@]}"; do
-    if ! contains_name "${name}" "${LOCAL_SKILL_NAMES[@]}"; then
+    [[ -n "${name}" ]] || continue
+    if [[ ${#LOCAL_SKILL_NAMES[@]} -eq 0 ]] || ! contains_name "${name}" "${LOCAL_SKILL_NAMES[@]}"; then
       stale+=("${name}")
     fi
   done
@@ -243,7 +173,7 @@ remove_stale_globals() {
   fi
 
   echo "Removing stale global skills: ${STALE_SKILL_NAMES[*]}"
-  run_skills_remove_global "${DRY_RUN}" "${STALE_SKILL_NAMES[@]}" --
+  run_skills_remove_global_all_agents "${DRY_RUN}" "${STALE_SKILL_NAMES[@]}"
 }
 
 link_current_locals() {
@@ -257,6 +187,8 @@ link_current_locals() {
 }
 
 main() {
+  local repo_managed_output=""
+
   parse_args "$@"
   ensure_source_dir_exists
   build_agent_args
@@ -271,10 +203,15 @@ main() {
     [[ -n "${name}" ]] && REPO_KNOWN_SKILL_NAMES+=("${name}")
   done < <(collect_repo_known_skill_names)
 
+  if ! repo_managed_output="$(collect_repo_managed_global_names)"; then
+    echo "Unable to list global skills with npx skills." >&2
+    exit 1
+  fi
+
   REPO_MANAGED_GLOBAL_NAMES=()
   while IFS= read -r name; do
     [[ -n "${name}" ]] && REPO_MANAGED_GLOBAL_NAMES+=("${name}")
-  done < <(collect_repo_managed_global_names)
+  done <<< "${repo_managed_output}"
 
   STALE_SKILL_NAMES=()
   while IFS= read -r name; do
@@ -282,7 +219,6 @@ main() {
   done < <(collect_stale_names "${REPO_MANAGED_GLOBAL_NAMES[@]:-}")
 
   echo "Syncing skills from: ${SOURCE_DIR}"
-  echo "Global skills path: ${GLOBAL_SKILLS_DIR}"
   echo "Target: global (${AGENT_SCOPE_DESC})"
 
   remove_stale_globals

@@ -283,3 +283,16 @@ run_skills_remove_global() {
 
   run_or_print "${dry_run}" "${cmd[@]}"
 }
+
+run_skills_remove_global_all_agents() {
+  local dry_run="$1"
+  shift
+  local cmd=(npx skills remove -g -y)
+
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
+
+  cmd+=("$@")
+  run_or_print "${dry_run}" "${cmd[@]}"
+}

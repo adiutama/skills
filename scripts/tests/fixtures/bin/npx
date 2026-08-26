@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$*" == "skills list -g --json" ]]; then
+  printf '[{"name":"review-change"}]\n'
+  exit 0
+fi
+
+printf 'Unexpected npx invocation: %s\n' "$*" >&2
+exit 1
