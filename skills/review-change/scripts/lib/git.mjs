@@ -13,11 +13,27 @@ export function repositoryContext(cwd) {
   const head = git(["rev-parse", "HEAD"], root);
   const detached = !branchName;
   const branch = branchName || `detached-${git(["rev-parse", "--short", "HEAD"], root)}`;
-  const remote = git(["remote", "get-url", "origin"], root, { allowFailure: true }) ?? "";
+  const remote = git(["config", "--get", "remote.origin.url"], root, { allowFailure: true }) ?? "";
   const match = remote.match(/github\.com[:/]([^/]+)\/(.+)$/);
   const owner = match?.[1] ?? "_local";
   const repo = match?.[2]?.replace(/\.git$/, "") ?? basename(root);
   return { root, branch, detached, head, owner, repo };
+}
+
+export function refreshRemote({ root }) {
+  const origin = git(["remote", "get-url", "origin"], root, { allowFailure: true });
+  if (!origin) return false;
+  git(["fetch", "--no-tags", "--prune", "origin"], root);
+  return true;
+}
+
+export function remoteBranch({ root, branch, detached = false }) {
+  if (detached) return null;
+  const configured = git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], root, { allowFailure: true });
+  const candidates = [configured, `origin/${branch}`];
+  const ref = candidates.find((candidate) => candidate && git(["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`], root, { allowFailure: true }) !== null);
+  if (!ref) return null;
+  return { ref, sha: git(["rev-parse", `${ref}^{commit}`], root) };
 }
 
 export function artifactRoot({ root, env }) {

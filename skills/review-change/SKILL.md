@@ -47,9 +47,11 @@ bash <SKILL_DIR>/bin/review-change collect
 
 - `unchanged` → run `bash <SKILL_DIR>/bin/review-change complete`, return its handoff verbatim, and stop.
 - `ready` → read `context`, its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
-- Non-null `branchUpdate` → state that collection safely fast-forwarded the clean checked-out branch from `from` to the verified PR head at `to`.
+- Non-null `branchUpdate` → state that collection safely fast-forwarded the clean checked-out branch from `from` to the freshly verified PR or remote branch head at `to`.
+- Non-null `remoteSync` → state its `ref`, `head`, and whether the local branch was already `current` or was `fast-forwarded`.
+- Command error → return the error and stop. Do not review stale or unsynchronized code, and do not reconcile the branch for the user.
 
-On a clean PR worktree, collection reviews the latest PR head. It fetches that exact commit when missing and safely fast-forwards a checked-out branch that is behind it. It preserves dirty or diverged branches. Without a PR, review the local change and build the same summary from repository evidence. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
+Treat every collection as a fresh remote update. The adapter fetches `origin`, rediscovers whether the current branch has an open PR, and reads that PR's current head and activity every time; never reuse a previous pass's PR status as current truth. When a PR or remote branch exists, collection starts only after the checked-out `HEAD` and clean worktree exactly match that fetched head. It may fast-forward a clean branch that is behind. It exits without reviewing when the worktree is dirty or the branch is ahead or diverged, leaving reconciliation to the user. A branch without a PR or remote counterpart remains eligible for a local-only review. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
 
 ## 2 — Orient
 

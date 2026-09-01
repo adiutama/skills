@@ -35,6 +35,13 @@ function coverageGaps(review) {
   return gaps.length ? ` — Not verified: ${gaps.join("; ")}` : "";
 }
 
+function checkoutStatus(context) {
+  const sync = context.remoteSync;
+  if (!sync) return "Checkout at collection: **local-only** — no PR or remote branch target was available.";
+  const action = sync.status === "fast-forwarded" ? "verified after fast-forward" : "verified current";
+  return `Checkout at collection: **${action}** — ${sync.ref} at \`${sync.head}\`.`;
+}
+
 function submissionAction({ context, pass, review }) {
   if (context.change.mode !== "pr" || !context.change.pullRequest) {
     return "Submission is unavailable because this review is not attached to an open pull request.";
@@ -57,6 +64,7 @@ export function renderHandoff({ context, pass, review }) {
     SUBMIT_MESSAGE: quote(review.body || review.summary || review.verdict.reason),
     COVERAGE: review.coverage?.confidence || "unspecified",
     COVERAGE_GAPS: coverageGaps(review),
+    CHECKOUT_STATUS: checkoutStatus(context),
     SUBMISSION_ACTION: submissionAction({ context, pass, review }),
     OPEN_INVOCATION: reviewChangeInvocation("open"),
     RENDER_INVOCATION: reviewChangeInvocation("render"),

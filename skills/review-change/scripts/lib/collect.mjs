@@ -1,12 +1,14 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { artifactRoot, commitTree, diffTrees, ensureCommit, fastForwardBranch, isAncestor, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
+import { artifactRoot, commitTree, diffTrees, ensureCommit, fastForwardBranch, isAncestor, refreshRemote, remoteBranch, repositoryContext, resolveBase, slug, snapshotWorktree } from "./git.mjs";
 import { collectPullRequest, pullRequestFingerprint } from "./github.mjs";
 import { archiveContext, readContext, writeContext, writeJson } from "./context-store.mjs";
 import { renderSeries } from "./render-series.mjs";
 
 export function collect({ cwd, env }) {
-  const repository = repositoryContext(cwd);
+  let repository = repositoryContext(cwd);
+  refreshRemote({ root: repository.root });
+  repository = repositoryContext(repository.root);
   const root = artifactRoot({ root: repository.root, env });
   const session = join(root, repository.owner, repository.repo, slug(repository.branch), "review-change");
   const contextPath = join(session, "context.json");
@@ -21,26 +23,45 @@ export function collect({ cwd, env }) {
     repo: repository.repo,
     branch: repository.branch,
     detached: repository.detached,
-    number: existing?.change.pullRequest,
-    required: existing?.change.mode === "pr",
   });
   let head = repository.head;
   let headTree = commitTree({ root: repository.root, commit: head });
   let tree = snapshotWorktree({ root: repository.root, artifactDirectory: root });
   let branchUpdate = null;
-  let shouldFastForward = false;
-  if (pullRequest && tree === headTree) {
-    head = pullRequest.metadata.headRefOid;
-    ensureCommit({ root: repository.root, commit: head });
-    shouldFastForward = repository.head !== head && isAncestor({ root: repository.root, ancestor: repository.head, descendant: head });
-    headTree = commitTree({ root: repository.root, commit: head });
-    tree = headTree;
+  let remoteSync = null;
+  const remote = pullRequest
+    ? { ref: `pull request #${pullRequest.metadata.number}`, sha: pullRequest.metadata.headRefOid }
+    : remoteBranch(repository);
+  if (pullRequest) ensureCommit({ root: repository.root, commit: remote.sha });
+  if (remote) {
+    if (tree !== headTree) {
+      throw new Error(`remote sync stopped: the worktree has staged, unstaged, or untracked changes; commit or stash them before reviewing ${remote.ref}`);
+    }
+    if (repository.head !== remote.sha) {
+      if (isAncestor({ root: repository.root, ancestor: repository.head, descendant: remote.sha })) {
+        fastForwardBranch({ root: repository.root, commit: remote.sha });
+        branchUpdate = { from: repository.head, to: remote.sha };
+      } else if (isAncestor({ root: repository.root, ancestor: remote.sha, descendant: repository.head })) {
+        throw new Error(`remote sync stopped: local HEAD ${repository.head} is ahead of ${remote.ref} ${remote.sha}; decide whether to push or restore the remote state, then rerun review-change`);
+      } else {
+        throw new Error(`remote sync stopped: local HEAD ${repository.head} has diverged from ${remote.ref} ${remote.sha}; reconcile the branch, then rerun review-change`);
+      }
+    }
+    const synchronized = repositoryContext(repository.root);
+    head = synchronized.head;
+    headTree = commitTree({ root: repository.root, commit: remote.sha });
+    tree = snapshotWorktree({ root: repository.root, artifactDirectory: root });
+    if (head !== remote.sha || tree !== headTree) {
+      throw new Error(`remote sync verification failed: the checked-out tree does not exactly match ${remote.ref} ${remote.sha}; inspect git status and decide how to proceed`);
+    }
+    remoteSync = {
+      ref: remote.ref,
+      before: repository.head,
+      head,
+      status: branchUpdate ? "fast-forwarded" : "current",
+    };
   }
   const base = resolveBase({ ...repository, preferred: pullRequest?.metadata.baseRefName, tip: head });
-  if (shouldFastForward) {
-    fastForwardBranch({ root: repository.root, commit: head });
-    branchUpdate = { from: repository.head, to: head };
-  }
   const activityHash = pullRequestFingerprint(pullRequest);
   if (existing) {
     const last = existing.passes.at(-1);
@@ -60,6 +81,8 @@ export function collect({ cwd, env }) {
   const codeChanged = !previous || previous.tree !== tree;
   const activityChanged = previous ? previous.activityHash !== activityHash : Boolean(pullRequest);
   if (previous && !codeChanged && !activityChanged) {
+    existing.remoteSync = remoteSync;
+    writeContext(contextPath, existing);
     return {
       status: "unchanged",
       context: contextPath,
@@ -68,6 +91,7 @@ export function collect({ cwd, env }) {
       index: existing.index ?? null,
       pass: previous.number,
       branchUpdate,
+      remoteSync,
     };
   }
 
@@ -91,6 +115,7 @@ export function collect({ cwd, env }) {
     passes: [],
   };
   context.version = 2;
+  context.remoteSync = remoteSync;
   context.change = {
     mode: pullRequest ? "pr" : "local",
     pullRequest: pullRequest?.metadata.number ?? null,
@@ -115,6 +140,7 @@ export function collect({ cwd, env }) {
     activityHash,
     changes: { code: codeChanged, activity: activityChanged },
     branchUpdate,
+    remoteSync,
     status: "collected",
   });
   context.output = review;
@@ -124,5 +150,5 @@ export function collect({ cwd, env }) {
     renderSeries({ context });
     writeContext(contextPath, context);
   }
-  return { status: "ready", context: contextPath, diff, activity, summary: context.summary.data, review, branchUpdate };
+  return { status: "ready", context: contextPath, diff, activity, summary: context.summary.data, review, branchUpdate, remoteSync };
 }

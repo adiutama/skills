@@ -165,13 +165,25 @@ function readEmbeddedData(path, id) {
 const readReportData = (path) => readEmbeddedData(path, "report-data");
 const readIndexData = (path) => readEmbeddedData(path, "series-data");
 
+function installFetchableGithubOrigin({ sandbox, repository, name = "widgets" }) {
+  const remote = join(sandbox, `${name}.git`);
+  const url = `https://github.com/acme/${name}.git`;
+  run("git", ["clone", "-q", "--bare", repository, remote]);
+  run("git", ["symbolic-ref", "HEAD", "refs/heads/main"], { cwd: remote });
+  run("git", ["remote", "add", "origin", url], { cwd: repository });
+  run("git", ["config", `url.${remote}.insteadOf`, url], { cwd: repository });
+  return remote;
+}
+
 function installPullRequestHarness({ sandbox, repository }) {
   const bin = join(sandbox, "bin");
   const headFile = join(sandbox, "head.txt");
   const payloadFile = join(sandbox, "payload.json");
+  const prStateFile = join(sandbox, "pr-state.txt");
   mkdirSync(bin);
-  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  const remote = installFetchableGithubOrigin({ sandbox, repository });
   writeFileSync(headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
+  writeFileSync(prStateFile, "open\n");
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
 next_head() {
@@ -186,6 +198,7 @@ next_head() {
 if [[ "$1" == "--version" ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
+  [[ "$(cat "$FAKE_GH_PR_STATE")" == "open" ]] || exit 1
   head=$(next_head)
   printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
 elif [[ "$1 $2" == "api user" ]]; then
@@ -205,12 +218,15 @@ fi
   chmodSync(fakeGh, 0o755);
   return {
     artifacts: join(sandbox, "artifacts"),
+    remote,
     headFile,
     payloadFile,
+    prStateFile,
     env: {
       PATH: `${bin}:${process.env.PATH}`,
       FAKE_GH_HEAD: headFile,
       FAKE_GH_PAYLOAD: payloadFile,
+      FAKE_GH_PR_STATE: prStateFile,
     },
   };
 }
@@ -558,11 +574,87 @@ test("collect exits early when code and PR activity are unchanged", () => {
   assert.equal(existsSync(join(first.context, "..", "02.diff")), false);
 });
 
+test("collect fetches and fast-forwards a clean branch when its remote advances", () => {
+  const { sandbox, repository } = createRepository();
+  const remote = join(sandbox, "origin.git");
+  const producer = join(sandbox, "producer");
+  run("git", ["clone", "-q", "--bare", repository, remote]);
+  run("git", ["symbolic-ref", "HEAD", "refs/heads/main"], { cwd: remote });
+  run("git", ["remote", "add", "origin", remote], { cwd: repository });
+  run("git", ["clone", "-q", remote, producer]);
+  run("git", ["config", "user.email", "test@example.com"], { cwd: producer });
+  run("git", ["config", "user.name", "Review Change Test"], { cwd: producer });
+  run("git", ["config", "commit.gpgsign", "false"], { cwd: producer });
+  run("git", ["switch", "-q", "feature/review"], { cwd: producer });
+  writeFileSync(join(producer, "remote-only.txt"), "new remote change\n");
+  run("git", ["add", "remote-only.txt"], { cwd: producer });
+  run("git", ["commit", "-q", "-m", "advance remote branch"], { cwd: producer });
+  const remoteHead = run("git", ["rev-parse", "HEAD"], { cwd: producer });
+  run("git", ["push", "-q", "origin", "HEAD:feature/review"], { cwd: producer });
+  const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+
+  const prepared = prepareReview(repository, join(sandbox, "artifacts"));
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.deepEqual(prepared.branchUpdate, { from: localHead, to: remoteHead });
+  assert.deepEqual(prepared.remoteSync, { ref: "origin/feature/review", before: localHead, head: remoteHead, status: "fast-forwarded" });
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), remoteHead);
+  assert.equal(context.change.mode, "local");
+  assert.match(readFileSync(prepared.diff, "utf8"), /remote-only\.txt/);
+});
+
+test("collect exits visibly when the remote fetch fails", () => {
+  const { sandbox, repository } = createRepository();
+  const missingRemote = join(sandbox, "missing-origin.git");
+  run("git", ["remote", "add", "origin", missingRemote], { cwd: repository });
+
+  const collected = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, AGENTS_ARTIFACTS_ROOT: join(sandbox, "artifacts") },
+  });
+
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /git fetch .* origin failed/i);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), run("git", ["rev-parse", "feature/review"], { cwd: repository }));
+  assert.equal(existsSync(join(sandbox, "artifacts")), false);
+});
+
+test("collect rediscovers pull request status on every pass", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const first = prepareReview(repository, harness.artifacts, harness.env);
+  summarizeReview(repository, harness.artifacts, harness.env, first.context);
+  writeFileSync(first.review, `${JSON.stringify(approvalReview("open pull request"))}\n`);
+  completeReview(repository, harness.artifacts, harness.env);
+  writeFileSync(harness.prStateFile, "closed\n");
+
+  const second = prepareReview(repository, harness.artifacts, harness.env);
+  const context = JSON.parse(readFileSync(second.context, "utf8"));
+
+  assert.equal(second.status, "ready");
+  assert.equal(context.change.mode, "local");
+  assert.equal(context.change.pullRequest, null);
+  assert.deepEqual(context.passes[1].changes, { code: false, activity: true });
+
+  summarizeReview(repository, harness.artifacts, harness.env, second.context);
+  writeFileSync(second.review, `${JSON.stringify(approvalReview("no open pull request"))}\n`);
+  completeReview(repository, harness.artifacts, harness.env);
+  writeFileSync(harness.prStateFile, "open\n");
+
+  const third = prepareReview(repository, harness.artifacts, harness.env);
+  const refreshed = JSON.parse(readFileSync(third.context, "utf8"));
+  assert.equal(third.status, "ready");
+  assert.equal(refreshed.change.mode, "pr");
+  assert.equal(refreshed.change.pullRequest, 42);
+  assert.deepEqual(refreshed.passes[2].changes, { code: false, activity: true });
+});
+
 test("collect records raw pull request activity when one exists", () => {
   const { sandbox, repository } = createRepository();
   const bin = join(sandbox, "bin");
   mkdirSync(bin);
-  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.js.git"], { cwd: repository });
+  installFetchableGithubOrigin({ sandbox, repository, name: "widgets.js" });
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
 if [[ "$1 $2" == "--version " ]]; then
@@ -638,7 +730,7 @@ test("collect skips pull request discovery on detached HEAD", () => {
   const { sandbox, repository } = createRepository();
   const bin = join(sandbox, "bin");
   mkdirSync(bin);
-  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  installFetchableGithubOrigin({ sandbox, repository });
   run("git", ["switch", "-q", "--detach"], { cwd: repository });
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
@@ -673,7 +765,7 @@ test("collect opens an activity-only pass for a new reviewer comment", () => {
   const activityFile = join(sandbox, "conversation.json");
   const artifacts = join(sandbox, "artifacts");
   mkdirSync(bin);
-  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  installFetchableGithubOrigin({ sandbox, repository });
   writeFileSync(activityFile, "[]\n");
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
@@ -703,6 +795,8 @@ fi
 
   const unchanged = prepareReview(repository, artifacts, env);
   assert.equal(unchanged.status, "unchanged");
+  assert.equal(unchanged.remoteSync.status, "current");
+  assert.match(completeReview(repository, artifacts, env), /Checkout at collection: \*\*verified current\*\*.*pull request #42/);
 
   writeFileSync(activityFile, '[{"id":6,"user":{"login":"owner"},"body":"Our submitted review"}]\n');
   const ownActivity = prepareReview(repository, artifacts, env);
@@ -730,6 +824,7 @@ test("pull request collection prefers the remote-tracking base", () => {
   run("git", ["add", "base-only.txt"], { cwd: repository });
   run("git", ["commit", "-q", "-m", "advance remote base"], { cwd: repository });
   const remoteBase = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  run("git", ["push", "-q", harness.remote, `HEAD:refs/heads/main`], { cwd: repository });
   run("git", ["update-ref", "refs/remotes/origin/main", remoteBase], { cwd: repository });
   run("git", ["switch", "-q", "feature/review"], { cwd: repository });
   run("git", ["rebase", "-q", "origin/main"], { cwd: repository });
@@ -763,7 +858,9 @@ test("clean pull request reviews follow the pull request head instead of local H
   assert.equal(pass.pullRequestHead, pullRequestHead);
   assert.equal(pass.tree, pass.headTree);
   assert.deepEqual(prepared.branchUpdate, { from: localHead, to: pullRequestHead });
+  assert.deepEqual(prepared.remoteSync, { ref: "pull request #42", before: localHead, head: pullRequestHead, status: "fast-forwarded" });
   assert.deepEqual(pass.branchUpdate, prepared.branchUpdate);
+  assert.deepEqual(pass.remoteSync, prepared.remoteSync);
   assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), pullRequestHead);
   assert.match(readFileSync(prepared.diff, "utf8"), /\+changed/);
 });
@@ -800,7 +897,7 @@ test("pull request collection fetches a missing pull request head", () => {
   assert.match(readFileSync(prepared.diff, "utf8"), /remote-only\.txt/);
 });
 
-test("a dirty worktree keeps local review mode even when the pull request head differs", () => {
+test("pull request collection exits when the worktree is dirty", () => {
   const { sandbox, repository } = createRepository();
   const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
   const harness = installPullRequestHarness({ sandbox, repository });
@@ -808,19 +905,21 @@ test("a dirty worktree keeps local review mode even when the pull request head d
   const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
   writeFileSync(join(repository, "local-only.txt"), "uncommitted review target\n");
 
-  const prepared = prepareReview(repository, harness.artifacts, harness.env);
-  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
-  const pass = context.passes[0];
+  const collected = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
+  });
 
   assert.notEqual(localHead, pullRequestHead);
-  assert.equal(pass.head, localHead);
-  assert.equal(pass.pullRequestHead, pullRequestHead);
-  assert.notEqual(pass.tree, pass.headTree);
-  assert.equal(prepared.branchUpdate, null);
-  assert.match(readFileSync(prepared.diff, "utf8"), /local-only\.txt/);
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /remote sync stopped.*worktree has staged, unstaged, or untracked changes/i);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), localHead);
+  assert.equal(readFileSync(join(repository, "local-only.txt"), "utf8"), "uncommitted review target\n");
+  assert.equal(existsSync(harness.artifacts), false);
 });
 
-test("a clean diverged branch is preserved while the pull request head is reviewed", () => {
+test("pull request collection exits when the local branch diverged", () => {
   const { sandbox, repository } = createRepository();
   const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
   const harness = installPullRequestHarness({ sandbox, repository });
@@ -830,13 +929,36 @@ test("a clean diverged branch is preserved while the pull request head is review
   run("git", ["commit", "-q", "-m", "diverged local commit"], { cwd: repository });
   const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
 
-  const prepared = prepareReview(repository, harness.artifacts, harness.env);
-  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  const collected = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
+  });
 
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /remote sync stopped.*has diverged/i);
   assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), localHead);
-  assert.equal(context.passes[0].head, pullRequestHead);
-  assert.match(readFileSync(prepared.diff, "utf8"), /\+changed/);
-  assert.doesNotMatch(readFileSync(prepared.diff, "utf8"), /diverged-local/);
+  assert.equal(existsSync(harness.artifacts), false);
+});
+
+test("pull request collection exits when the local branch is ahead", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  writeFileSync(join(repository, "local-ahead.txt"), "not on the pull request\n");
+  run("git", ["add", "local-ahead.txt"], { cwd: repository });
+  run("git", ["commit", "-q", "-m", "local commit"], { cwd: repository });
+  const localHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+
+  const collected = spawnSync(publicBin, ["collect"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
+  });
+
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /remote sync stopped.*is ahead/i);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), localHead);
+  assert.equal(existsSync(harness.artifacts), false);
 });
 
 test("an empty pull request patch is rejected", () => {
@@ -855,7 +977,7 @@ test("an empty pull request patch is rejected", () => {
   assert.match(collected.stderr, /nothing to review: the current change is empty/i);
 });
 
-test("pull request reviews with local-only changes cannot be submitted", async (t) => {
+test("pull request collection exits without modifying local-only changes", async (t) => {
   const cases = {
     staged({ repository }) {
       writeFileSync(join(repository, "staged-only.txt"), "not pushed\n");
@@ -875,23 +997,16 @@ test("pull request reviews with local-only changes cannot be submitted", async (
       const harness = installPullRequestHarness({ sandbox, repository });
       arrange({ repository });
 
-      const prepared = prepareReview(repository, harness.artifacts, harness.env);
-      const context = JSON.parse(readFileSync(prepared.context, "utf8"));
-      writeFileSync(prepared.review, `${JSON.stringify(approvalReview("Local changes were reviewed."), null, 2)}\n`);
-      const finished = renderReview(repository, harness.artifacts, harness.env);
-      const report = readReportData(finished.report);
-
-      assert.notEqual(context.passes[0].tree, context.passes[0].headTree);
-      assert.equal(report.submit, null);
-      assert.match(report.submissionUnavailable, /local worktree changes/i);
-
-      const submission = spawnSync(publicBin, ["submit"], {
+      const head = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+      const collected = spawnSync(publicBin, ["collect"], {
         cwd: repository,
         encoding: "utf8",
         env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts },
       });
-      assert.notEqual(submission.status, 0);
-      assert.match(submission.stderr, /local worktree changes/i);
+      assert.notEqual(collected.status, 0);
+      assert.match(collected.stderr, /remote sync stopped.*worktree has staged, unstaged, or untracked changes/i);
+      assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), head);
+      assert.equal(existsSync(harness.artifacts), false);
       assert.equal(existsSync(harness.payloadFile), false);
     });
   }
@@ -904,7 +1019,7 @@ test("the report command submits selected findings and records the result", () =
   const payloadFile = join(sandbox, "payload.json");
   const artifacts = join(sandbox, "artifacts");
   mkdirSync(bin);
-  run("git", ["remote", "add", "origin", "https://github.com/acme/widgets.git"], { cwd: repository });
+  installFetchableGithubOrigin({ sandbox, repository });
   const reviewedHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
   writeFileSync(headFile, `${reviewedHead}\n`);
   const fakeGh = join(bin, "gh");

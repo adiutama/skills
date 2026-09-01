@@ -55,9 +55,10 @@ Only confirmed problems become findings.
 
 | Scenario | Behavior |
 |---|---|
-| Open pull request with a clean worktree | Reviews the PR's latest commit, fetching it when missing and safely fast-forwarding a behind checked-out branch. |
+| Every collection | Fetches `origin` and rediscovers the current branch's open-PR status before comparing changes. |
+| Open pull request with a clean worktree | Verifies the checkout matches the freshly discovered PR head, safely fast-forwarding a behind branch first. |
 | Local commits without a PR | Builds the same summary and review from the local diff and repository evidence. |
-| Staged, unstaged, or untracked changes | Includes them in the worktree snapshot; a PR review containing local-only changes cannot be submitted. |
+| Staged, unstaged, or untracked changes with a PR or remote branch | Stops before review and preserves the worktree for the user to resolve. |
 | First review | Creates a full study, full blast-radius map, and findings pass. |
 | Later code change | Reviews the diff from the previous pass and appends a blast-radius delta. |
 | New external PR comment or review | Opens an activity-only pass, even when code is unchanged. |
@@ -75,18 +76,18 @@ Only confirmed problems become findings.
 
 ## Local and remote branch states
 
-When a remote-tracking base such as `origin/main` exists, the review uses its merge-base with the resolved review head: the latest PR commit for a clean PR worktree, otherwise local `HEAD`.
+When a remote-tracking base such as `origin/main` exists, the review uses its merge-base with the synchronized review head.
 
 | Branch state | Review scope |
 |---|---|
-| Clean PR branch behind the PR head | Fetches the exact PR head if needed, safely fast-forwards the branch, and reviews the PR head. |
-| Clean PR branch ahead of or diverged from the PR head | Leaves the branch unchanged and reviews the PR head directly. |
-| Dirty PR worktree | Reviews the local tree; submission stays unavailable because that tree is not on the PR. |
-| No open PR | Reviews local commits and worktree changes against the resolved base. |
-| No remote-tracking base | Falls back to an available local base. |
+| Clean branch already at the PR or remote head | Verifies the commit and worktree tree exactly, then reviews it. |
+| Clean branch behind the PR or remote head | Safely fast-forwards, verifies the exact checkout, then reviews it. |
+| Clean branch ahead of or diverged from the PR or remote head | Stops with the two commits and relationship; the branch is unchanged. |
+| Dirty worktree with a PR or remote branch | Stops and reports the local changes; the worktree is unchanged. |
+| No PR or remote branch counterpart | Performs a local-only review against an available base. |
 | Detached HEAD | Supported under a detached-HEAD session identity. |
 
-Remote-tracking base refs reflect the repository state already available locally. The skill fetches only the exact PR head object when that commit is missing. If local `HEAD` is an ancestor of the PR head and the worktree is clean, it fast-forwards the checked-out branch. It does not refresh base refs or rewrite a dirty or diverged branch.
+Every collection fetches and prunes `origin`, so remote-tracking branches and base refs are current. It also rediscovers open-PR status from the checked-out branch instead of trusting the previous pass. A discovered PR head takes precedence over the tracking branch. Collection then enforces exact-or-exit: local `HEAD` and the full worktree tree must match the fetched target before review begins. It never resets, rebases, merges divergent history, or discards work to achieve that match.
 
 ## Blast-radius coverage
 
@@ -108,10 +109,10 @@ Each ring is recorded as `checked`, `not_applicable`, or `not_verified`. An unve
 `review-change` does not:
 
 - discard staged, unstaged, or untracked work;
-- refresh base refs, create merge commits, rebase, or rewrite dirty or diverged branches;
+- create merge commits, rebase, or rewrite dirty, ahead, or diverged branches;
 - post findings to GitHub automatically;
 - submit from a historical review;
-- submit a verdict based on local worktree changes that are absent from the PR;
+- review or submit a PR while its checkout differs from the fetched PR head;
 - treat PR description or discussion as authoritative behavior.
 
 The final TUI handoff and optional HTML report generate a parameterized skill invocation for every latest completed PR pass whose reviewed tree is committed, regardless of the local checkout or later PR movement. Finding IDs use one comma-separated argument. Historical, local-only, and dirty-worktree reviews do not generate one. If the PR moves afterward, submission stops and requires a new invocation with `accept-moved-head`. Posting always requires the user's deliberate `submit` invocation.
