@@ -119,7 +119,8 @@ export function collect({ cwd, env }) {
   });
   context.output = review;
   writeContext(contextPath, context);
-  if (previous) {
+  const presentationExists = (context.index && existsSync(context.index)) || existsSync(context.summary.report);
+  if (previous && presentationExists) {
     renderSeries({ context });
     writeContext(contextPath, context);
   }

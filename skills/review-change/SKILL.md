@@ -3,10 +3,39 @@ name: review-change
 description: Context-first, iterative review of local changes or PR activity—plain-English study, blast-radius deltas, findings, and submission handoff.
 disable-model-invocation: true
 compatibility: Requires Node.js 18+ and git. PR discovery and submission commands require authenticated gh.
+metadata:
+  argument-hint: '[review|open|render|submit [C1,C2] [--message <text>] [accept-moved-head]]'
 allowed-tools: Bash(git:* gh:* node:* bash:*) Read Write
 ---
 
-Invoked as `/review-change`.
+Invoked as:
+
+- `/review-change` or `/review-change review` — review the current change.
+- `/review-change open` — render and open the optional HTML report.
+- `/review-change render` — generate HTML without opening it.
+- `/review-change submit C1,C2` — submit the completed review with selected inline findings.
+
+## Route
+
+Treat the invocation tail as this skill's interface. The executable is an internal adapter; never ask the user to run it.
+
+- No tail or `review` → continue with **1 — Collect**.
+- `open` → run `bash <SKILL_DIR>/bin/review-change open`, report the opened index, then stop.
+- `render` → run `bash <SKILL_DIR>/bin/review-change render`, return its artifact paths, then stop.
+- `submit [C1,C2] [--message <text>] [accept-moved-head]` → follow **Submit** below, then stop.
+- Any other tail → show the four invocation forms above and stop.
+
+If a harness cannot attach parameters to a slash command, the user can select or invoke `review-change` and pass a natural-language argument such as “submit C1 and C2.” Treat that explicit argument as the equivalent parameterized invocation.
+
+## Submit
+
+The user's explicit `submit` invocation authorizes the external GitHub review. A normal review never authorizes submission.
+
+1. Accept at most one comma-separated finding list. Pass an explicit `--message` as one argument; decode the HTML handoff's JSON-style quoted text first. The submission adapter trims only outer whitespace.
+2. Add the internal `--accept-moved-head` flag only when the user included `accept-moved-head` in this invocation.
+3. Run `bash <SKILL_DIR>/bin/review-change submit ...` with those translated arguments.
+4. On success, report the review URL, event, and submitted finding IDs.
+5. If the command cancels because the PR head moved, return the warning and ask for a new explicit `/review-change submit ... accept-moved-head` invocation. Do not arrange interactive confirmation or accept movement on the user's behalf. Acceptance applies only to the head observed during that attempt; another movement cancels again and requires another explicit invocation.
 
 *Read the change as if you will own what happens after it ships.*
 
@@ -16,7 +45,7 @@ Invoked as `/review-change`.
 bash <SKILL_DIR>/bin/review-change collect
 ```
 
-- `unchanged` → report no new code or PR activity, then share the returned index and latest report using the final handoff format; stop.
+- `unchanged` → run `bash <SKILL_DIR>/bin/review-change complete`, return its handoff verbatim, and stop.
 - `ready` → read `context`, its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
 - Non-null `branchUpdate` → state that collection safely fast-forwarded the clean checked-out branch from `from` to the verified PR head at `to`.
 
@@ -32,10 +61,10 @@ Read [summary-format.md](references/summary-format.md), then update `summary`.
 Cover direct, glue, contract, parallel, integration, and operational rings. Mark each `checked`, `not_applicable`, or `not_verified`. Suspicion is a review target, not yet a finding.
 
 ```bash
-bash <SKILL_DIR>/bin/review-change render-summary
+bash <SKILL_DIR>/bin/review-change checkpoint
 ```
 
-Share the returned summary anchor and index immediately; say findings review continues. Do not wait. The summary contains no verdict or findings.
+State briefly that the change study is saved and findings review continues. Mention `/review-change open` only if the user wants the optional HTML view. The summary contains no verdict or findings.
 
 ## 3 — Judge
 
@@ -45,27 +74,14 @@ On later passes, reconcile every unresolved finding. Point duplicates to exact P
 
 Write `review` using [review-format.md](references/review-format.md). The judgment is yours; scripts validate and resolve its pointers.
 
-## 4 — Deliver
+## 4 — Complete
 
 ```bash
-bash <SKILL_DIR>/bin/review-change render
+bash <SKILL_DIR>/bin/review-change complete
 ```
 
-Share the returned findings report, durable summary, and index; state the verdict and coverage limits. Never run the generated submission command—the user deliberately copies and runs it.
+The command validates the JSON, records the completed pass, and prints a TUI-ready handoff from a checked-in template. Return that handoff verbatim. It already includes the verdict, exact submit message, coverage, deliberate submission command, and every blocking finding when the verdict is Reject.
 
-End with a compact handoff. Put the index first, link every HTML artifact with its returned absolute path, and repeat the index path as plain text so it is easy to copy:
+HTML is optional presentation. Never render it by default. The final handoff exposes `/review-change open`, `/review-change render`, and—when submission is available—the exact parameterized submit invocation. Return it verbatim.
 
-````markdown
-### Review complete — <Approve|Reject>
-
-[Open review index](<absolute index path>)
-
-```text
-<absolute index path>
-```
-
-- Latest findings: [Pass <N>](<absolute report path>)
-- Change study: [Summary](<absolute summary path>)
-- Coverage: <confidence and material gaps>
-- Verdict: <one-sentence reason>
-````
+Never submit during the review workflow. Submission happens only through a later explicit `submit` invocation routed above.

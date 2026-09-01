@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readContext, writeContext } from "./context-store.mjs";
+import { reviewChangeInvocation } from "./invocation.mjs";
 import { artifactRoot, repositoryContext, slug } from "./git.mjs";
 import { renderSeries } from "./render-series.mjs";
 import { renderSummaryPage } from "./render-summary-page.mjs";
@@ -20,25 +21,31 @@ export function render({ cwd, env }) {
   const context = readContext(contextPath);
   const pass = context.passes.at(-1);
   if (!pass) throw new Error("context has no review pass");
-  if (pass.status === "collected") throw new Error("render the change summary before rendering findings");
+  if (pass.status === "collected") throw new Error("checkpoint the change summary before rendering HTML");
   if (!["summarized", "complete"].includes(pass.status)) throw new Error(`latest pass has unsupported status: ${pass.status}`);
 
   const summary = validateSummary(readContext(context.summary.data), context, `summary at ${context.summary.data}`);
-
-  let review;
-  try {
-    review = JSON.parse(readFileSync(pass.review, "utf8"));
-  } catch (error) {
-    throw new Error(`review must be valid JSON at ${pass.review}: ${error.message}`);
-  }
-  validateReview(review, `review at ${pass.review}`);
-
-  if (pass.status === "summarized") {
-    pass.status = "complete";
+  if (pass.status === "complete") {
+    let review;
+    try {
+      review = JSON.parse(readFileSync(pass.review, "utf8"));
+    } catch (error) {
+      throw new Error(`review must be valid JSON at ${pass.review}: ${error.message}`);
+    }
+    validateReview(review, `review at ${pass.review}`);
   }
 
-  const index = renderSeries({ context });
   renderSummaryPage({ path: context.summary.report, context, summary });
+  const index = renderSeries({ context });
   writeContext(contextPath, context);
-  return { status: "rendered", context: contextPath, summary: context.summary.report, review: pass.review, report: pass.report, index, pass: pass.number };
+  return {
+    status: "rendered",
+    context: contextPath,
+    summary: context.summary.report,
+    review: pass.review,
+    report: pass.status === "complete" ? pass.report : null,
+    index,
+    pass: pass.number,
+    next: `Invoke ${reviewChangeInvocation("open")} to view the report in a browser.`,
+  };
 }

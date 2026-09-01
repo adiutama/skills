@@ -83,7 +83,7 @@ export function validateSummary(summary, context, source = "summary") {
   const priorUpdates = context.summary?.updates ?? [];
   for (let index = 0; index < priorUpdates.length; index += 1) {
     if (contentHash(summary.updates[index]) !== priorUpdates[index]) {
-      throw new Error(`${source} changed the already-rendered update for pass ${index + 1}`);
+      throw new Error(`${source} changed the already-checkpointed update for pass ${index + 1}`);
     }
   }
 

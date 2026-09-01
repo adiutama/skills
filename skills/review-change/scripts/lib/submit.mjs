@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { commandExists, run } from "./command.mjs";
 import { readContext, readJson, writeContext, writeJson } from "./context-store.mjs";
 import { artifactRoot, commitTree, repositoryContext, slug } from "./git.mjs";
@@ -18,11 +18,12 @@ function reviewEvent(verdict) {
   return verdict === "reject" ? "REQUEST_CHANGES" : "APPROVE";
 }
 
-function movedHeadWarning({ reviewedHead, currentHead, inlineCount }) {
+function movedHeadWarning({ reviewedHead, previousHead, currentHead, inlineCount }) {
   const reviewed = reviewedHead.slice(0, 12);
+  const previous = previousHead.slice(0, 12);
   const current = currentHead.slice(0, 12);
   const lines = [
-    `PR HEAD moved from ${reviewed} to ${current} after this review.`,
+    `PR HEAD moved from ${previous} to ${current} after this review.`,
     "",
   ];
   if (inlineCount) {
@@ -62,7 +63,7 @@ function currentReview({ cwd, env }) {
   return { contextPath, context, pass, repository };
 }
 
-export function submit({ findingIds, message, acceptMovedHead = false, cwd, env, warn = () => {}, confirm = () => false }) {
+export function submit({ findingIds, message, acceptMovedHead = false, cwd, env, warn = () => {} }) {
   if (!commandExists("gh")) throw new Error("submitting a review requires authenticated gh");
   const { contextPath, context, pass, repository } = currentReview({ cwd, env });
   if (context.change.mode !== "pr" || !context.change.pullRequest) throw new Error("this review is not attached to an open pull request");
@@ -94,14 +95,12 @@ export function submit({ findingIds, message, acceptMovedHead = false, cwd, env,
   let acceptedHead = pass.head;
   let flagAvailable = acceptMovedHead;
   while (true) {
-    if (metadata.headRefOid !== pass.head && metadata.headRefOid !== acceptedHead) {
-      const warning = movedHeadWarning({ reviewedHead: pass.head, currentHead: metadata.headRefOid, inlineCount: selected.length });
+    if (metadata.headRefOid !== acceptedHead) {
+      const warning = movedHeadWarning({ reviewedHead: pass.head, previousHead: acceptedHead, currentHead: metadata.headRefOid, inlineCount: selected.length });
       warnings.push(warning);
       warn(warning);
       if (flagAvailable) {
         confirmation = "flag";
-      } else if (confirm({ reviewedHead: pass.head, currentHead: metadata.headRefOid, inlineCount: selected.length, warning })) {
-        confirmation = "interactive";
       } else {
         return { status: "cancelled", reason: "pull-request-head-changed", warnings };
       }
@@ -148,8 +147,8 @@ export function submit({ findingIds, message, acceptMovedHead = false, cwd, env,
     postedAt: new Date().toISOString(),
   });
   writeJson(pass.review, review);
-  pass.report ??= join(dirname(pass.review), `${String(pass.number).padStart(2, "0")}.report.html`);
-  const index = renderSeries({ context });
+  const presentationExists = (context.index && existsSync(context.index)) || existsSync(context.summary.report) || (pass.report && existsSync(pass.report));
+  const index = presentationExists ? renderSeries({ context }) : null;
   writeContext(contextPath, context);
   return { status: "submitted", url: response.html_url ?? null, event, findings: selected.map((finding) => String(finding.id)), warnings, report: pass.report, index };
 }

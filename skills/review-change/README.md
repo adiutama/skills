@@ -4,17 +4,21 @@ Understand a change before judging it. `review-change` studies local or pull-req
 
 ## What it produces
 
-The review arrives in two phases:
+The review is stored as structured JSON and delivered in two phases:
 
-1. **Context** — `summary.html` explains the change and its blast radius while findings review continues.
-2. **Judgment** — a numbered `NN.report.html` records the verdict, findings, tests, and optional submission handoff.
+1. **Context** — `summary.json` explains the change and its blast radius while findings review continues.
+2. **Judgment** — `NN.review.json` records the verdict, message, findings, tests, and coverage.
 
-`index.html` links the durable summary and every review pass with one consistent visual style.
+The final command prints a concise agent-TUI handoff from a checked-in template. It includes the verdict, exact submit message, coverage, parameterized skill invocation, and blocking findings for a rejection. The model writes the judgment once; the script owns repeated presentation copy.
 
-At the end of a review, the skill presents `index.html` first as a clickable local link and repeats its absolute path in a plain-text block for quick copying. The latest findings report, durable summary, verdict, and coverage limits follow in the same compact handoff. An unchanged follow-up returns those existing artifact paths again instead of leaving the user to find the session directory.
+The skill invocation is the user interface. Its bundled executable is an internal adapter, so users do not need terminal access or a `review-change` executable on `PATH`.
+
+HTML is optional. `/review-change render` generates or refreshes it, and `/review-change open` renders it before opening `index.html` in the system browser.
 
 ```text
 review-change/
+├── summary.json       Canonical study + blast-radius history
+├── 01.review.json     Canonical first judgment pass
 ├── summary.html       Study + blast-radius history
 ├── index.html         Review-series navigation
 ├── 01.report.html     First findings pass
@@ -30,9 +34,9 @@ The study is written once. Later passes preserve it, summarize only what changed
 flowchart LR
     A[Collect evidence] --> B[Study the change]
     B --> C[Trace blast radius]
-    C --> D[Publish summary.html]
+    C --> D[Checkpoint summary.json]
     D --> E[Review findings]
-    E --> F[Publish report + index]
+    E --> F[Complete review JSON + TUI handoff]
     F -->|new code or PR activity| G[Compare with previous pass]
     G --> C
 ```
@@ -64,10 +68,10 @@ Only confirmed problems become findings.
 | Branch changed | Uses a separate branch-scoped review session. |
 | Review pass is unfinished | Refuses to collect another pass until the current one is complete. |
 | Local-only review | Produces summary and findings; GitHub submission is unavailable. |
-| Latest open-PR review of a committed tree | Generates a submission command for the user to inspect and run. |
+| Latest open-PR review of a committed tree | Generates `/review-change submit C1,C2` for the user to inspect and invoke. |
 | Historical review | Remains readable but cannot generate a submission. |
 | PR closed after review | Rejects submission because the PR can no longer receive a review. |
-| PR HEAD changed after review | Warns and pauses for confirmation, then submits against GitHub's latest PR commit without pinning a commit ID. |
+| PR HEAD changed after review | Stops with a warning and requires a new `accept-moved-head` invocation before submitting against GitHub's latest PR commit. |
 
 ## Local and remote branch states
 
@@ -110,7 +114,20 @@ Each ring is recorded as `checked`, `not_applicable`, or `not_verified`. An unve
 - submit a verdict based on local worktree changes that are absent from the PR;
 - treat PR description or discussion as authoritative behavior.
 
-The final report generates a terminal command for every latest completed PR pass whose reviewed tree is committed, regardless of the local checkout or later PR movement. Historical, local-only, and dirty-worktree reviews do not generate one. If the PR moves afterward, submission warns and asks for confirmation before proceeding against the latest commit. A non-interactive caller must deliberately add `--accept-moved-head`; cancellation exits with status 2. Posting always requires the user's deliberate action.
+The final TUI handoff and optional HTML report generate a parameterized skill invocation for every latest completed PR pass whose reviewed tree is committed, regardless of the local checkout or later PR movement. Finding IDs use one comma-separated argument. Historical, local-only, and dirty-worktree reviews do not generate one. If the PR moves afterward, submission stops and requires a new invocation with `accept-moved-head`. Posting always requires the user's deliberate `submit` invocation.
+
+## Chat interface
+
+```text
+/review-change                     Review the current change
+/review-change open                Render and open optional HTML
+/review-change render              Generate or refresh optional HTML
+/review-change submit              Submit the verdict and top-level message
+/review-change submit C1,C2        Also submit selected inline findings
+/review-change submit C1,C2 accept-moved-head
+```
+
+Where slash parameters are unavailable, select or invoke `review-change` and pass an equivalent explicit argument such as “submit C1 and C2.” The bundled CLI remains available to the skill as an implementation detail.
 
 ## Requirements
 

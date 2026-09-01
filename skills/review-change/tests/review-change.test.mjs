@@ -19,6 +19,16 @@ function run(command, args, options = {}) {
   return result.stdout.trim();
 }
 
+test("the skill exposes parameterized chat invocations", () => {
+  const instructions = readFileSync(join(skillDir, "SKILL.md"), "utf8");
+  const executable = readFileSync(join(skillDir, "scripts", "review-change.mjs"), "utf8");
+  assert.match(instructions, /argument-hint:.*review.*open.*render.*submit/i);
+  assert.match(instructions, /\/review-change submit C1,C2/);
+  assert.match(instructions, /accept-moved-head/);
+  assert.match(instructions, /explicit.*authoriz/i);
+  assert.doesNotMatch(executable, /Submit against .*anyway|process\.stdin\.isTTY/);
+});
+
 function createRepository({ ignoreAgents = true } = {}) {
   const sandbox = mkdtempSync(join(tmpdir(), "review-change-"));
   const repository = join(sandbox, "repo");
@@ -62,6 +72,8 @@ function renderReview(repository, artifactRoot, env = {}) {
   if (contextPath) {
     const context = JSON.parse(readFileSync(contextPath, "utf8"));
     if (context.passes.at(-1)?.status === "collected") summarizeReview(repository, artifactRoot, env, contextPath);
+    const refreshed = JSON.parse(readFileSync(contextPath, "utf8"));
+    if (refreshed.passes.at(-1)?.status === "summarized") completeReview(repository, artifactRoot, env);
   }
   return JSON.parse(run(publicBin, ["render"], {
     cwd: repository,
@@ -114,10 +126,17 @@ function summarizeReview(repository, artifactRoot, env = {}, contextPath = null)
   contextPath ??= findContext(artifactRoot);
   const context = JSON.parse(readFileSync(contextPath, "utf8"));
   writeFileSync(context.summary.data, `${JSON.stringify(summaryFor(context), null, 2)}\n`);
-  return JSON.parse(run(publicBin, ["render-summary"], {
+  return JSON.parse(run(publicBin, ["checkpoint"], {
     cwd: repository,
     env: { ...process.env, ...env, AGENTS_ARTIFACTS_ROOT: artifactRoot },
   }));
+}
+
+function completeReview(repository, artifactRoot, env = {}) {
+  return run(publicBin, ["complete"], {
+    cwd: repository,
+    env: { ...process.env, ...env, AGENTS_ARTIFACTS_ROOT: artifactRoot },
+  });
 }
 
 function approvalReview(summary = "Nothing consequential found.") {
@@ -155,10 +174,19 @@ function installPullRequestHarness({ sandbox, repository }) {
   writeFileSync(headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
+next_head() {
+  if [[ -n "$FAKE_GH_HEAD_SEQUENCE" && -s "$FAKE_GH_HEAD_SEQUENCE" ]]; then
+    head -n 1 "$FAKE_GH_HEAD_SEQUENCE"
+    sed '1d' "$FAKE_GH_HEAD_SEQUENCE" > "$FAKE_GH_HEAD_SEQUENCE.next"
+    mv "$FAKE_GH_HEAD_SEQUENCE.next" "$FAKE_GH_HEAD_SEQUENCE"
+  else
+    cat "$FAKE_GH_HEAD"
+  fi
+}
 if [[ "$1" == "--version" ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
-  head=$(cat "$FAKE_GH_HEAD")
+  head=$(next_head)
   printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
@@ -227,6 +255,7 @@ test("the public bin collects and repeatably renders a review", () => {
     tests: { run: [], gaps: [] },
   })}\n`);
   summarizeReview(repository, artifacts, {}, collected.context);
+  completeReview(repository, artifacts);
 
   const first = JSON.parse(run(publicBin, ["render"], {
     cwd: repository,
@@ -276,12 +305,13 @@ test("render enforces the verdict from blocking findings", () => {
   writeFileSync(collected.review, `${JSON.stringify(review)}\n`);
   summarizeReview(repository, artifacts, {}, collected.context);
 
-  const inconsistentApproval = spawnSync(publicBin, ["render"], { cwd: repository, env, encoding: "utf8" });
+  const inconsistentApproval = spawnSync(publicBin, ["complete"], { cwd: repository, env, encoding: "utf8" });
   assert.notEqual(inconsistentApproval.status, 0);
   assert.match(inconsistentApproval.stderr, /approve.*blocking finding/i);
 
   review.verdict = { value: "reject", reason: "The blocking finding must be fixed." };
   writeFileSync(collected.review, `${JSON.stringify(review)}\n`);
+  completeReview(repository, artifacts);
   const rendered = JSON.parse(run(publicBin, ["render"], { cwd: repository, env }));
   assert.equal(readReportData(rendered.report).review.verdict.value, "reject");
 });
@@ -334,7 +364,7 @@ test("render records AI-authored review JSON", () => {
   assert.equal(existsSync(finished.report), true);
   assert.equal(existsSync(finished.summary), true);
   assert.match(readFileSync(finished.summary, "utf8"), /Study the change/);
-  assert.match(readFileSync(finished.report, "utf8"), /Terminal handoff/);
+  assert.match(readFileSync(finished.report, "utf8"), /Chat handoff/);
   assert.doesNotMatch(readFileSync(finished.report, "utf8"), /<script>alert\('nope'\)<\/script>/);
   assert.deepEqual(JSON.parse(readFileSync(prepared.review, "utf8")), review);
 });
@@ -410,18 +440,26 @@ test("collect appends an incremental pass after a completed review", () => {
   assert.equal(summary.summary.updates[1].kind, "incremental");
 });
 
-test("summary checkpoint publishes context while findings remain in progress", () => {
+test("summary checkpoint saves JSON while HTML remains optional", () => {
   const { sandbox, repository } = createRepository();
   const artifacts = join(sandbox, "artifacts");
   const prepared = prepareReview(repository, artifacts);
   const summarized = summarizeReview(repository, artifacts, {}, prepared.context);
   const context = JSON.parse(readFileSync(prepared.context, "utf8"));
-  const summary = readEmbeddedData(summarized.report, "summary-data");
-  const index = readIndexData(summarized.index);
 
   assert.equal(summarized.status, "summarized");
   assert.equal(context.passes[0].status, "summarized");
-  assert.equal(existsSync(summarized.report), true);
+  assert.equal(existsSync(context.summary.report), false);
+  assert.equal(context.index, undefined);
+  assert.match(summarized.next, /review-change render/i);
+
+  const rendered = JSON.parse(run(publicBin, ["render"], {
+    cwd: repository,
+    env: { ...process.env, AGENTS_ARTIFACTS_ROOT: artifacts },
+  }));
+  const summary = readEmbeddedData(rendered.summary, "summary-data");
+  const index = readIndexData(rendered.index);
+  assert.equal(existsSync(rendered.summary), true);
   assert.equal(summary.summary.study.oneSentence, "The change adds one observable line.");
   assert.equal(summary.change.mode, "local");
   assert.equal(summary.summary.updates[0].blastRadius.length, 6);
@@ -437,6 +475,68 @@ test("summary checkpoint publishes context while findings remain in progress", (
   });
   assert.notEqual(prematureCollect.status, 0);
   assert.match(prematureCollect.stderr, /complete pass 1/i);
+});
+
+test("complete prints a concise TUI handoff without rendering HTML", () => {
+  const { sandbox, repository } = createRepository();
+  const artifacts = join(sandbox, "artifacts");
+  const prepared = prepareReview(repository, artifacts);
+  summarizeReview(repository, artifacts, {}, prepared.context);
+  writeFileSync(prepared.review, `${JSON.stringify({
+    version: 1,
+    summary: "Two unsafe paths remain.",
+    body: "Two paths can lose the saved value. Please address C1 and C2 before merging.",
+    verdict: { value: "reject", reason: "Two paths can lose saved data." },
+    coverage: { reviewed: ["example.txt"], notReviewed: ["Production retry behavior"], confidence: "medium" },
+    reconciliation: [],
+    findings: [
+      { id: "C1", severity: "critical", blocking: true, title: "Save before success", location: { path: "example.txt", line: 2 }, impact: "The caller may report success after losing data.", posting: "pending" },
+      { id: "C2", severity: "critical", blocking: true, title: "Keep the retry value", location: { path: "example.txt", line: 3 }, impact: "A retry may store an empty value.", posting: "pending" },
+    ],
+    tests: { run: [], gaps: [] },
+  }, null, 2)}\n`);
+
+  const handoff = completeReview(repository, artifacts);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.match(handoff, /Review complete — Reject/);
+  assert.match(handoff, /C1 · Save before success/);
+  assert.match(handoff, /C2 · Keep the retry value/);
+  assert.match(handoff, /Two paths can lose the saved value/);
+  assert.match(handoff, /Coverage: \*\*medium\*\* — Not verified: Production retry behavior/);
+  assert.match(handoff, /Submission is unavailable.*not attached to an open pull request/);
+  assert.match(handoff, /`\/review-change open`/);
+  assert.match(handoff, /`\/review-change render`/);
+  assert.equal(context.passes[0].status, "complete");
+  assert.equal(existsSync(context.summary.report), false);
+  assert.equal(context.index, undefined);
+});
+
+test("open renders the optional report and launches its index", () => {
+  const { sandbox, repository } = createRepository();
+  const artifacts = join(sandbox, "artifacts");
+  const bin = join(sandbox, "bin");
+  const openedPath = join(sandbox, "opened.txt");
+  mkdirSync(bin);
+  for (const name of ["open", "xdg-open", "explorer.exe"]) {
+    const command = join(bin, name);
+    writeFileSync(command, "#!/usr/bin/env bash\nprintf '%s' \"$1\" > \"$OPENED_PATH\"\n");
+    chmodSync(command, 0o755);
+  }
+  const env = { PATH: `${bin}:${process.env.PATH}`, OPENED_PATH: openedPath };
+  const prepared = prepareReview(repository, artifacts, env);
+  summarizeReview(repository, artifacts, env, prepared.context);
+  writeFileSync(prepared.review, `${JSON.stringify(approvalReview("Ready to merge."))}\n`);
+  completeReview(repository, artifacts, env);
+
+  const opened = JSON.parse(run(publicBin, ["open"], {
+    cwd: repository,
+    env: { ...process.env, ...env, AGENTS_ARTIFACTS_ROOT: artifacts },
+  }));
+
+  assert.equal(opened.status, "opened");
+  assert.equal(readFileSync(openedPath, "utf8"), opened.index);
+  assert.equal(existsSync(opened.index), true);
 });
 
 test("collect exits early when code and PR activity are unchanged", () => {
@@ -853,6 +953,17 @@ fi
       suggestion: "Carry the original value forward.",
       comment: "This drops the original value; please preserve it here.",
       posting: "pending",
+    }, {
+      id: "W1",
+      severity: "warning",
+      blocking: false,
+      title: "Explain the fallback",
+      location: { path: "example.txt", line: 2 },
+      explanation: "The fallback is surprising.",
+      impact: "Future changes may remove it by mistake.",
+      suggestion: "Add a short explanation.",
+      comment: "Please explain why this fallback is needed.",
+      posting: "pending",
     }],
     tests: { run: [], gaps: [] },
   };
@@ -860,29 +971,42 @@ fi
   const context = JSON.parse(readFileSync(prepared.context, "utf8"));
   context.passes[0].pullRequestHead = "f".repeat(40);
   writeFileSync(prepared.context, `${JSON.stringify(context, null, 2)}\n`);
+  summarizeReview(repository, artifacts, env, prepared.context);
+  const handoff = completeReview(repository, artifacts, env);
+  assert.match(handoff, /`\/review-change submit C1,W1`/);
   const finished = renderReview(repository, artifacts, env);
   const reportBefore = readFileSync(finished.report, "utf8");
-  assert.deepEqual(readReportData(finished.report).submit.tokens, [publicBin, "submit"]);
-  assert.match(reportBefore, /Terminal handoff/);
+  assert.deepEqual(readReportData(finished.report).submit, { invocation: "/review-change submit" });
+  assert.match(reportBefore, /Chat handoff/);
+  assert.match(reportBefore, /Copy skill invocation/);
+  assert.doesNotMatch(reportBefore, /Terminal handoff/);
   assert.match(reportBefore, /Top-level review message/);
   assert.match(reportBefore, /Reset message/);
   assert.doesNotMatch(reportBefore, /__REVIEW_CHANGE_(?:PASS|DATA)__/);
   assert.equal(reportBefore.includes(prepared.context), false);
 
+  const spaced = spawnSync(publicBin, ["submit", "C1", "W1"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
+  assert.notEqual(spaced.status, 0);
+  assert.match(spaced.stderr, /one comma-separated value/i);
+
   writeFileSync(headFile, `${"0".repeat(40)}\n`);
-  const stopped = spawnSync(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback."], {
+  const stopped = spawnSync(publicBin, ["submit", "C1,W1", "--message", "Good job, here is the blocking feedback."], {
     cwd: repository,
     encoding: "utf8",
     env: { ...process.env, ...env },
   });
   assert.equal(stopped.status, 2);
   assert.match(stopped.stderr, /warning: PR HEAD moved/i);
-  assert.match(stopped.stderr, /inline comment was written against/i);
+  assert.match(stopped.stderr, /inline comments were written against/i);
   assert.match(stopped.stderr, /recommended: cancel and run review-change again/i);
   assert.equal(JSON.parse(stopped.stdout).status, "cancelled");
   assert.equal(existsSync(payloadFile), false);
 
-  const accepted = spawnSync(publicBin, ["submit", "C1", "--message", "Good job, here is the blocking feedback.", "--accept-moved-head"], {
+  const accepted = spawnSync(publicBin, ["submit", "C1,W1", "--message", "Good job, here is the blocking feedback.", "--accept-moved-head"], {
     cwd: repository,
     encoding: "utf8",
     env: { ...process.env, ...env },
@@ -897,6 +1021,7 @@ fi
   assert.equal(submitted.event, "REQUEST_CHANGES");
   assert.match(submitted.warnings[0], /line locations may now be incorrect/i);
   assert.equal(savedReview.findings[0].posting, "posted");
+  assert.equal(savedReview.findings[1].posting, "posted");
   assert.equal(savedReview.submissions[0].url, submitted.url);
   assert.equal(savedReview.submissions[0].reviewedHead, reviewedHead);
   assert.equal(savedReview.submissions[0].observedHead, "0".repeat(40));
@@ -907,7 +1032,41 @@ fi
   assert.equal("commit_id" in payload, false);
   assert.equal(payload.body, "Good job, here is the blocking feedback.");
   assert.equal(payload.comments[0].body, review.findings[0].comment);
+  assert.equal(payload.comments[1].body, review.findings[1].comment);
   assert.match(readFileSync(finished.report, "utf8"), /"posting":"posted"/);
+});
+
+test("moved-head acceptance is one attempt and any second movement cancels", async (t) => {
+  for (const scenario of ["another new head", "back to the reviewed head"]) {
+    await t.test(scenario, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      const sequence = join(sandbox, "head-sequence.txt");
+      const reviewedHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+      const prepared = prepareReview(repository, harness.artifacts, harness.env);
+      writeFileSync(prepared.review, `${JSON.stringify(approvalReview("Ready to submit."), null, 2)}\n`);
+      summarizeReview(repository, harness.artifacts, harness.env, prepared.context);
+      completeReview(repository, harness.artifacts, harness.env);
+
+      const secondHead = scenario === "another new head" ? "2".repeat(40) : reviewedHead;
+      writeFileSync(sequence, `${"1".repeat(40)}\n${secondHead}\n`);
+      const submission = spawnSync(publicBin, ["submit", "--accept-moved-head"], {
+        cwd: repository,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          ...harness.env,
+          AGENTS_ARTIFACTS_ROOT: harness.artifacts,
+          FAKE_GH_HEAD_SEQUENCE: sequence,
+        },
+      });
+
+      assert.equal(submission.status, 2);
+      assert.equal(JSON.parse(submission.stdout).status, "cancelled");
+      assert.equal((submission.stderr.match(/Warning: PR HEAD moved/g) || []).length, 2);
+      assert.equal(existsSync(harness.payloadFile), false);
+    });
+  }
 });
 
 test("collect archives invalid history and restarts with a full pass", () => {
