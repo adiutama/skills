@@ -1,18 +1,13 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { artifactRoot, repositoryContext, slug } from "./git.mjs";
-import { readContext, readJson, writeContext } from "./context-store.mjs";
-import { validateSummary } from "./summary.mjs";
-import { validateReview } from "./review.mjs";
-import { renderHandoff } from "./render-handoff.mjs";
-
-function resolveContext({ cwd, env }) {
-  const repository = repositoryContext(cwd);
-  const root = artifactRoot({ root: repository.root, env });
-  const path = join(root, repository.owner, repository.repo, slug(repository.branch), "review-change", "context.json");
-  if (!existsSync(path)) throw new Error(`no review-change session found for ${repository.owner}/${repository.repo} on ${repository.branch}`);
-  return path;
-}
+import { readFileSync } from "node:fs";
+import {
+  readContext,
+  readJson,
+  resolveContext,
+  writeContext,
+} from "../lib/context.mjs";
+import { renderHandoff } from "../lib/presentation/handoff.mjs";
+import { validateReview } from "../lib/validation/review.mjs";
+import { validateSummary } from "../lib/validation/summary.mjs";
 
 export function complete({ cwd, env }) {
   const contextPath = resolveContext({ cwd, env });

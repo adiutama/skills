@@ -99,7 +99,7 @@ See [best practices — Voice and compression](docs/references/best-practices.md
 When building or refactoring a skill:
 
 - **Self-contained package** — everything the run needs lives under `skills/<skill-name>/`: workflow in `SKILL.md`, detail in `references/`, mechanics in `scripts/`, templates in `assets/`.
-- **No skill-to-skill dependency** — do not instruct the agent to invoke, load, or assume another skill (`/other-skill`, "use the review-change skill", model-invoked reach clauses).
+- **No skill-to-skill dependency** — do not instruct the agent to invoke, load, or assume another skill (`/other-skill`, "use the review-pr skill", model-invoked reach clauses).
 - **No borrowed runtime** — do not point at another skill's `references/` or `scripts/`. If this skill needs a concept, format, gate, or checklist that exists elsewhere, **duplicate it** into this package (`references/`, `assets/`, or inline in `SKILL.md`) and adapt only what this skill needs.
 - **Duplicate until modularity** — shared concepts stay copied per skill for now. Do not wait for cross-skill imports, routers, or shared skill libraries; when the setup supports modularity, deduplication can happen then—not before.
 - **One job, one skill** — if a workflow only works as a chain of skills, merge or split until each command stands alone; the human chooses the sequence, not the skill text.
@@ -114,7 +114,7 @@ See [best practices — Building new skills](docs/references/best-practices.md#b
 **Default:** skill names use `verb-object[-qualifier]` in kebab-case.
 
 - Skill directory name and `name:` in frontmatter must match.
-- Command form should read naturally: `/review-change`, `/address-pr-feedback`, `/refactor-safely`.
+- Command form should read naturally: `/review-pr`, `/address-pr-feedback`, `/refactor-safely`.
 
 ### Choosing the name
 
@@ -153,7 +153,7 @@ A **summon name** is what you'd actually say when pausing to think—not a capab
 
 **When not to use a summon name:**
 
-- Deterministic pipelines (`review-change`, `address-pr-feedback`, `scan-blast-radius`).
+- Deterministic pipelines (`review-pr`, `address-pr-feedback`, `scan-blast-radius`).
 - Skills another person must scan in a catalog without reading the body.
 - Anything where `/name` alone should auto-start work without a question.
 

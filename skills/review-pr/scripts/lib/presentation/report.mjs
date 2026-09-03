@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { reviewChangeInvocation } from "./invocation.mjs";
+import { reviewPrInvocation } from "../invocation.mjs";
 import { embeddedJson, renderPage, skillRoot } from "./page.mjs";
 
 const templatePath = resolve(skillRoot, "assets", "report.html");
@@ -68,7 +68,7 @@ export function renderReport({ path, context, pass, review, navigation = { index
   } else if (pass.tree !== pass.headTree) {
     submissionUnavailable = "Submission unavailable — this review includes local worktree changes that are not in the pull request.";
   }
-  const submit = submissionUnavailable ? null : { invocation: reviewChangeInvocation("submit") };
+  const submit = submissionUnavailable ? null : { invocation: reviewPrInvocation("submit") };
   const data = {
     change: context.change,
     pass,

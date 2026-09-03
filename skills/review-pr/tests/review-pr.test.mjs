@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { parsePullRequestTarget } from "../scripts/lib/github.mjs";
 
 const skillDir = resolve(import.meta.dirname, "..");
-const publicBin = join(skillDir, "bin", "review-change");
+const publicBin = join(skillDir, "bin", "review-pr");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -21,16 +22,23 @@ function run(command, args, options = {}) {
 
 test("the skill exposes parameterized chat invocations", () => {
   const instructions = readFileSync(join(skillDir, "SKILL.md"), "utf8");
-  const executable = readFileSync(join(skillDir, "scripts", "review-change.mjs"), "utf8");
-  assert.match(instructions, /argument-hint:.*review.*open.*render.*submit/i);
-  assert.match(instructions, /\/review-change submit C1,C2/);
+  const executable = readFileSync(join(skillDir, "scripts", "review-pr.mjs"), "utf8");
+  assert.match(instructions, /argument-hint:.*PR URL or number.*open.*render.*submit/i);
+  assert.match(instructions, /\/review-pr submit C1,C2/);
   assert.match(instructions, /accept-moved-head/);
   assert.match(instructions, /explicit.*authoriz/i);
   assert.doesNotMatch(executable, /Submit against .*anyway|process\.stdin\.isTTY/);
 });
 
+test("pull request targets accept a number or canonical GitHub URL", () => {
+  const repository = { owner: "acme", repo: "widgets" };
+  assert.deepEqual(parsePullRequestTarget("42", repository), { owner: "acme", repo: "widgets", number: 42 });
+  assert.deepEqual(parsePullRequestTarget("https://github.com/acme/widgets/pull/42", repository), { owner: "acme", repo: "widgets", number: 42 });
+  assert.throws(() => parsePullRequestTarget("feature/review", repository), /GitHub PR URL or positive PR number/);
+});
+
 function createRepository({ ignoreAgents = true } = {}) {
-  const sandbox = mkdtempSync(join(tmpdir(), "review-change-"));
+  const sandbox = mkdtempSync(join(tmpdir(), "review-pr-"));
   const repository = join(sandbox, "repo");
   run("git", ["init", "-q", "-b", "main", repository]);
   run("git", ["config", "user.email", "test@example.com"], { cwd: repository });
@@ -60,7 +68,7 @@ function findContext(root) {
     if (entry.isDirectory()) {
       const found = findContext(path);
       if (found) return found;
-    } else if (entry.name === "context.json" && path.includes(`${join("review-change", "context.json")}`)) {
+    } else if (entry.name === "context.json" && path.includes(`${join("review-pr", "context.json")}`)) {
       return path;
     }
   }
@@ -183,6 +191,7 @@ function installPullRequestHarness({ sandbox, repository }) {
   mkdirSync(bin);
   const remote = installFetchableGithubOrigin({ sandbox, repository });
   writeFileSync(headFile, `${run("git", ["rev-parse", "HEAD"], { cwd: repository })}\n`);
+  run("git", ["update-ref", "refs/pull/42/head", run("git", ["rev-parse", "HEAD"], { cwd: repository })], { cwd: remote });
   writeFileSync(prStateFile, "open\n");
   const fakeGh = join(bin, "gh");
   writeFileSync(fakeGh, `#!/usr/bin/env bash
@@ -199,7 +208,12 @@ if [[ "$1" == "--version" ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
   [[ "$(cat "$FAKE_GH_PR_STATE")" == "open" ]] || exit 1
+  if [[ -n "$FAKE_GH_EXPECTED_SELECTOR" && "$3" != "$FAKE_GH_EXPECTED_SELECTOR" ]]; then
+    printf 'expected PR selector %s, received %s\n' "$FAKE_GH_EXPECTED_SELECTOR" "$3" >&2
+    exit 2
+  fi
   head=$(next_head)
+  git --git-dir="$FAKE_GH_REMOTE" update-ref refs/pull/42/head "$head"
   printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
@@ -227,6 +241,7 @@ fi
       FAKE_GH_HEAD: headFile,
       FAKE_GH_PAYLOAD: payloadFile,
       FAKE_GH_PR_STATE: prStateFile,
+      FAKE_GH_REMOTE: remote,
     },
   };
 }
@@ -467,7 +482,7 @@ test("summary checkpoint saves JSON while HTML remains optional", () => {
   assert.equal(context.passes[0].status, "summarized");
   assert.equal(existsSync(context.summary.report), false);
   assert.equal(context.index, undefined);
-  assert.match(summarized.next, /review-change render/i);
+  assert.match(summarized.next, /review-pr render/i);
 
   const rendered = JSON.parse(run(publicBin, ["render"], {
     cwd: repository,
@@ -521,8 +536,8 @@ test("complete prints a concise TUI handoff without rendering HTML", () => {
   assert.match(handoff, /Two paths can lose the saved value/);
   assert.match(handoff, /Coverage: \*\*medium\*\* — Not verified: Production retry behavior/);
   assert.match(handoff, /Submission is unavailable.*not attached to an open pull request/);
-  assert.match(handoff, /`\/review-change open`/);
-  assert.match(handoff, /`\/review-change render`/);
+  assert.match(handoff, /`\/review-pr open`/);
+  assert.match(handoff, /`\/review-pr render`/);
   assert.equal(context.passes[0].status, "complete");
   assert.equal(existsSync(context.summary.report), false);
   assert.equal(context.index, undefined);
@@ -724,6 +739,61 @@ fi
     body: "Existing concern",
     url: "https://github.com/acme/widgets/pull/42#discussion_r2",
   });
+});
+
+test("collect uses an explicit pull request when the worktree branch has another name", () => {
+  const { sandbox, repository } = createRepository();
+  const pullRequestHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["branch", "-m", "worktree/review-alias"], { cwd: repository });
+
+  const prepared = JSON.parse(run(publicBin, ["collect", "42"], {
+    cwd: repository,
+    env: {
+      ...process.env,
+      ...harness.env,
+      AGENTS_ARTIFACTS_ROOT: harness.artifacts,
+      FAKE_GH_EXPECTED_SELECTOR: "42",
+    },
+  }));
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+
+  assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "pr/42");
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), pullRequestHead);
+  assert.equal(context.change.mode, "pr");
+  assert.equal(context.change.pullRequest, 42);
+  assert.equal(context.change.branch, "pr/42");
+  assert.deepEqual(prepared.remoteSync, {
+    ref: "pull request #42",
+    before: pullRequestHead,
+    head: pullRequestHead,
+    status: "checked-out",
+  });
+});
+
+test("explicit pull request collection preserves a dirty aliased worktree", () => {
+  const { sandbox, repository } = createRepository();
+  const originalHead = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["branch", "-m", "worktree/review-alias"], { cwd: repository });
+  writeFileSync(join(repository, "local-only.txt"), "do not discard\n");
+
+  const collected = spawnSync(publicBin, ["collect", "42"], {
+    cwd: repository,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...harness.env,
+      AGENTS_ARTIFACTS_ROOT: harness.artifacts,
+      FAKE_GH_EXPECTED_SELECTOR: "42",
+    },
+  });
+
+  assert.notEqual(collected.status, 0);
+  assert.match(collected.stderr, /pull request checkout stopped.*worktree has staged, unstaged, or untracked changes/i);
+  assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "worktree/review-alias");
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), originalHead);
+  assert.equal(readFileSync(join(repository, "local-only.txt"), "utf8"), "do not discard\n");
 });
 
 test("collect skips pull request discovery on detached HEAD", () => {
@@ -1088,10 +1158,10 @@ fi
   writeFileSync(prepared.context, `${JSON.stringify(context, null, 2)}\n`);
   summarizeReview(repository, artifacts, env, prepared.context);
   const handoff = completeReview(repository, artifacts, env);
-  assert.match(handoff, /`\/review-change submit C1,W1`/);
+  assert.match(handoff, /`\/review-pr submit C1,W1`/);
   const finished = renderReview(repository, artifacts, env);
   const reportBefore = readFileSync(finished.report, "utf8");
-  assert.deepEqual(readReportData(finished.report).submit, { invocation: "/review-change submit" });
+  assert.deepEqual(readReportData(finished.report).submit, { invocation: "/review-pr submit" });
   assert.match(reportBefore, /Chat handoff/);
   assert.match(reportBefore, /Copy skill invocation/);
   assert.doesNotMatch(reportBefore, /Terminal handoff/);
@@ -1117,7 +1187,7 @@ fi
   assert.equal(stopped.status, 2);
   assert.match(stopped.stderr, /warning: PR HEAD moved/i);
   assert.match(stopped.stderr, /inline comments were written against/i);
-  assert.match(stopped.stderr, /recommended: cancel and run review-change again/i);
+  assert.match(stopped.stderr, /recommended: cancel and run review-pr again/i);
   assert.equal(JSON.parse(stopped.stdout).status, "cancelled");
   assert.equal(existsSync(payloadFile), false);
 

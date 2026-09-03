@@ -1,20 +1,14 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { readContext, writeContext } from "./context-store.mjs";
-import { reviewChangeInvocation } from "./invocation.mjs";
-import { artifactRoot, repositoryContext, slug } from "./git.mjs";
-import { renderSeries } from "./render-series.mjs";
-import { renderSummaryPage } from "./render-summary-page.mjs";
-import { validateSummary } from "./summary.mjs";
-import { validateReview } from "./review.mjs";
-
-function resolveContext({ cwd, env }) {
-  const repository = repositoryContext(cwd);
-  const root = artifactRoot({ root: repository.root, env });
-  const path = join(root, repository.owner, repository.repo, slug(repository.branch), "review-change", "context.json");
-  if (!existsSync(path)) throw new Error(`no review-change session found for ${repository.owner}/${repository.repo} on ${repository.branch}`);
-  return path;
-}
+import { readFileSync } from "node:fs";
+import {
+  readContext,
+  resolveContext,
+  writeContext,
+} from "../lib/context.mjs";
+import { reviewPrInvocation } from "../lib/invocation.mjs";
+import { renderSeries } from "../lib/presentation/series.mjs";
+import { renderSummaryPage } from "../lib/presentation/summary-page.mjs";
+import { validateReview } from "../lib/validation/review.mjs";
+import { validateSummary } from "../lib/validation/summary.mjs";
 
 export function render({ cwd, env }) {
   const contextPath = resolveContext({ cwd, env });
@@ -46,6 +40,6 @@ export function render({ cwd, env }) {
     report: pass.status === "complete" ? pass.report : null,
     index,
     pass: pass.number,
-    next: `Invoke ${reviewChangeInvocation("open")} to view the report in a browser.`,
+    next: `Invoke ${reviewPrInvocation("open")} to view the report in a browser.`,
   };
 }

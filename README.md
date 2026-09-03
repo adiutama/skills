@@ -6,7 +6,7 @@ A collection of reusable AI agent skills, following the [agentskills.io](https:/
 
 | Skill | Description |
 |---|---|
-| [review-change](skills/review-change/SKILL.md) | Review changed code or PR activity, browse linked HTML pass history, then copy an explicit submission command. |
+| [review-pr](skills/review-pr/SKILL.md) | Review an explicit GitHub PR, browse linked HTML pass history, then copy a deliberate submission command. |
 | [scan-blast-radius](skills/scan-blast-radius/SKILL.md) | Scan blast radius of local changes before commit — fixes, features, glue, and rewiring. |
 | [address-pr-feedback](skills/address-pr-feedback/SKILL.md) | Address unresolved PR feedback — triage, fix, push, notify human reviewers, loop until clear. Use `--fetch-only` to list only. |
 | [refactor-safely](skills/refactor-safely/SKILL.md) | Refactor code in any language with a beauty-first, safety-first style while preserving behavior. |

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { collect } from "./lib/collect.mjs";
-import { checkpoint } from "./lib/checkpoint.mjs";
-import { complete } from "./lib/complete.mjs";
-import { openReport } from "./lib/open.mjs";
-import { render } from "./lib/render.mjs";
-import { renderSummary } from "./lib/render-summary.mjs";
-import { submit } from "./lib/submit.mjs";
+import { checkpoint } from "./actions/checkpoint.mjs";
+import { collect } from "./actions/collect.mjs";
+import { complete } from "./actions/complete.mjs";
+import { openReport } from "./actions/open.mjs";
+import { render } from "./actions/render.mjs";
+import { renderSummary } from "./actions/render-summary.mjs";
+import { submit } from "./actions/submit.mjs";
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -36,8 +36,8 @@ function submitArguments(values) {
 
 try {
   let result;
-  if (command === "collect" && args.length === 0) {
-    result = collect({ cwd: process.cwd(), env: process.env });
+  if (command === "collect" && args.length <= 1) {
+    result = collect({ cwd: process.cwd(), env: process.env, target: args[0] });
   } else if (command === "checkpoint" && args.length === 0) {
     result = checkpoint({ cwd: process.cwd(), env: process.env });
   } else if (command === "complete" && args.length === 0) {
@@ -56,7 +56,7 @@ try {
       warn: (warning) => process.stderr.write(`Warning: ${warning}\n`),
     });
   } else {
-    throw new Error("Usage: review-change collect | checkpoint | complete | render | open | submit [finding-id,...] [--message <text>] [--accept-moved-head]");
+    throw new Error("Usage: review-pr collect [PR-URL-or-number] | checkpoint | complete | render | open | submit [finding-id,...] [--message <text>] [--accept-moved-head]");
   }
   process.stdout.write(command === "complete" ? `${result.handoff}\n` : `${JSON.stringify(result)}\n`);
   if (result.status === "cancelled") process.exitCode = 2;

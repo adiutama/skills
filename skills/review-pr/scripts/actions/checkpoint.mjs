@@ -1,17 +1,15 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { artifactRoot, repositoryContext, slug } from "./git.mjs";
-import { readContext, readJson, writeContext } from "./context-store.mjs";
-import { reviewChangeInvocation } from "./invocation.mjs";
-import { contentHash, studyHash, validateSummary } from "./summary.mjs";
-
-function resolveContext({ cwd, env }) {
-  const repository = repositoryContext(cwd);
-  const root = artifactRoot({ root: repository.root, env });
-  const path = join(root, repository.owner, repository.repo, slug(repository.branch), "review-change", "context.json");
-  if (!existsSync(path)) throw new Error(`no review-change session found for ${repository.owner}/${repository.repo} on ${repository.branch}`);
-  return path;
-}
+import {
+  readContext,
+  readJson,
+  resolveContext,
+  writeContext,
+} from "../lib/context.mjs";
+import { reviewPrInvocation } from "../lib/invocation.mjs";
+import {
+  contentHash,
+  studyHash,
+  validateSummary,
+} from "../lib/validation/summary.mjs";
 
 export function checkpoint({ cwd, env }) {
   const contextPath = resolveContext({ cwd, env });
@@ -38,6 +36,6 @@ export function checkpoint({ cwd, env }) {
     summary: context.summary.data,
     review: pass.review,
     pass: pass.number,
-    next: `Write the review JSON, then continue the active ${reviewChangeInvocation()} workflow. Invoke ${reviewChangeInvocation("render")} to inspect the summary in HTML.`,
+    next: `Write the review JSON, then continue the active ${reviewPrInvocation()} workflow. Invoke ${reviewPrInvocation("render")} to inspect the summary in HTML.`,
   };
 }

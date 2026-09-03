@@ -19,7 +19,7 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "${SOURCE_DIR}" "${STALE_SKILL_DIR}"
-cp "${REPO_ROOT}/skills/review-change/SKILL.md" "${STALE_SKILL_DIR}/SKILL.md"
+cp "${REPO_ROOT}/skills/review-pr/SKILL.md" "${STALE_SKILL_DIR}/SKILL.md"
 
 output="$({
   HOME="${FIXTURE_HOME}" \

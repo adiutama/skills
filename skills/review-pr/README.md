@@ -1,6 +1,6 @@
-# review-change
+# review-pr
 
-Understand a change before judging it. `review-change` studies local or pull-request changes in plain English, maps their blast radius, then delivers findings in a separate review pass.
+Understand a pull request before judging it. `review-pr` starts from an explicit GitHub PR URL or number, studies the change in plain English, maps its blast radius, then delivers findings in a separate review pass.
 
 ## What it produces
 
@@ -11,12 +11,12 @@ The review is stored as structured JSON and delivered in two phases:
 
 The final command prints a concise agent-TUI handoff from a checked-in template. It includes the verdict, exact submit message, coverage, parameterized skill invocation, and blocking findings for a rejection. The model writes the judgment once; the script owns repeated presentation copy.
 
-The skill invocation is the user interface. Its bundled executable is an internal adapter, so users do not need terminal access or a `review-change` executable on `PATH`.
+The skill invocation is the user interface. Its bundled executable is an internal adapter, so users do not need terminal access or a `review-pr` executable on `PATH`.
 
-HTML is optional. `/review-change render` generates or refreshes it, and `/review-change open` renders it before opening `index.html` in the system browser.
+HTML is optional. `/review-pr render` generates or refreshes it, and `/review-pr open` renders it before opening `index.html` in the system browser.
 
 ```text
-review-change/
+review-pr/
 ├── summary.json       Canonical study + blast-radius history
 ├── 01.review.json     Canonical first judgment pass
 ├── summary.html       Study + blast-radius history
@@ -55,10 +55,9 @@ Only confirmed problems become findings.
 
 | Scenario | Behavior |
 |---|---|
-| Every collection | Fetches `origin` and rediscovers the current branch's open-PR status before comparing changes. |
-| Open pull request with a clean worktree | Verifies the checkout matches the freshly discovered PR head, safely fast-forwarding a behind branch first. |
-| Local commits without a PR | Builds the same summary and review from the local diff and repository evidence. |
-| Staged, unstaged, or untracked changes with a PR or remote branch | Stops before review and preserves the worktree for the user to resolve. |
+| Every collection | Resolves the explicit PR URL or number and refreshes its metadata and activity. |
+| Open pull request with a clean worktree | Fetches the PR ref, verifies its exact GitHub head, and checks out `pr/<number>`. |
+| Staged, unstaged, or untracked changes | Stops before review and preserves the worktree for the user to resolve. |
 | First review | Creates a full study, full blast-radius map, and findings pass. |
 | Later code change | Reviews the diff from the previous pass and appends a blast-radius delta. |
 | New external PR comment or review | Opens an activity-only pass, even when code is unchanged. |
@@ -66,28 +65,25 @@ Only confirmed problems become findings.
 | No code or relevant PR activity changed | Returns `unchanged` without creating another pass. |
 | Base branch changed | Archives the old series and starts a new full review. |
 | Local history was rebased or rewritten | Archives the old series and starts a new full review. |
-| Branch changed | Uses a separate branch-scoped review session. |
+| PR changed | Uses the target's `pr/<number>` checkout and its separate review session. |
 | Review pass is unfinished | Refuses to collect another pass until the current one is complete. |
-| Local-only review | Produces summary and findings; GitHub submission is unavailable. |
-| Latest open-PR review of a committed tree | Generates `/review-change submit C1,C2` for the user to inspect and invoke. |
+| Latest open-PR review of a committed tree | Generates `/review-pr submit C1,C2` for the user to inspect and invoke. |
 | Historical review | Remains readable but cannot generate a submission. |
 | PR closed after review | Rejects submission because the PR can no longer receive a review. |
 | PR HEAD changed after review | Stops with a warning and requires a new `accept-moved-head` invocation before submitting against GitHub's latest PR commit. |
 
-## Local and remote branch states
+## Checkout states
 
 When a remote-tracking base such as `origin/main` exists, the review uses its merge-base with the synchronized review head.
 
-| Branch state | Review scope |
+| Checkout state | Review scope |
 |---|---|
-| Clean branch already at the PR or remote head | Verifies the commit and worktree tree exactly, then reviews it. |
-| Clean branch behind the PR or remote head | Safely fast-forwards, verifies the exact checkout, then reviews it. |
-| Clean branch ahead of or diverged from the PR or remote head | Stops with the two commits and relationship; the branch is unchanged. |
-| Dirty worktree with a PR or remote branch | Stops and reports the local changes; the worktree is unchanged. |
-| No PR or remote branch counterpart | Performs a local-only review against an available base. |
-| Detached HEAD | Supported under a detached-HEAD session identity. |
+| Clean checkout at any local branch or detached HEAD | Verifies the fetched PR head, then switches to `pr/<number>` at that commit. |
+| Existing clean `pr/<number>` checkout | Refreshes it to the freshly verified PR head. |
+| Dirty worktree | Stops and reports the local changes; the worktree is unchanged. |
+| `pr/<number>` checked out in another worktree | Stops with Git's worktree conflict; no other worktree is changed. |
 
-Every collection fetches and prunes `origin`, so remote-tracking branches and base refs are current. It also rediscovers open-PR status from the checked-out branch instead of trusting the previous pass. A discovered PR head takes precedence over the tracking branch. Collection then enforces exact-or-exit: local `HEAD` and the full worktree tree must match the fetched target before review begins. It never resets, rebases, merges divergent history, or discards work to achieve that match.
+Every collection fetches and prunes `origin`, then resolves the supplied PR independently of the checked-out branch and upstream. It fetches GitHub's `refs/pull/<number>/head`, verifies the fetched commit against current PR metadata, and switches a clean checkout to `pr/<number>`. Collection then enforces exact-or-exit: local `HEAD` and the full worktree tree must match that verified target before review begins. It never rebases, merges, or discards dirty work.
 
 ## Blast-radius coverage
 
@@ -106,29 +102,29 @@ Each ring is recorded as `checked`, `not_applicable`, or `not_verified`. An unve
 
 ## Safety boundaries
 
-`review-change` does not:
+`review-pr` does not:
 
 - discard staged, unstaged, or untracked work;
-- create merge commits, rebase, or rewrite dirty, ahead, or diverged branches;
+- create merge commits, rebase, or rewrite branches other than the dedicated clean `pr/<number>` checkout;
 - post findings to GitHub automatically;
 - submit from a historical review;
 - review or submit a PR while its checkout differs from the fetched PR head;
 - treat PR description or discussion as authoritative behavior.
 
-The final TUI handoff and optional HTML report generate a parameterized skill invocation for every latest completed PR pass whose reviewed tree is committed, regardless of the local checkout or later PR movement. Finding IDs use one comma-separated argument. Historical, local-only, and dirty-worktree reviews do not generate one. If the PR moves afterward, submission stops and requires a new invocation with `accept-moved-head`. Posting always requires the user's deliberate `submit` invocation.
+The final TUI handoff and optional HTML report generate a parameterized skill invocation for every latest completed PR pass whose reviewed tree is committed, regardless of later PR movement. Finding IDs use one comma-separated argument. Historical and dirty-worktree reviews do not generate one. If the PR moves afterward, submission stops and requires a new invocation with `accept-moved-head`. Posting always requires the user's deliberate `submit` invocation.
 
 ## Chat interface
 
 ```text
-/review-change                     Review the current change
-/review-change open                Render and open optional HTML
-/review-change render              Generate or refresh optional HTML
-/review-change submit              Submit the verdict and top-level message
-/review-change submit C1,C2        Also submit selected inline findings
-/review-change submit C1,C2 accept-moved-head
+/review-pr <PR URL or number>  Review that pull request
+/review-pr open                Render and open optional HTML
+/review-pr render              Generate or refresh optional HTML
+/review-pr submit              Submit the verdict and top-level message
+/review-pr submit C1,C2        Also submit selected inline findings
+/review-pr submit C1,C2 accept-moved-head
 ```
 
-Where slash parameters are unavailable, select or invoke `review-change` and pass an equivalent explicit argument such as “submit C1 and C2.” The bundled CLI remains available to the skill as an implementation detail.
+Where slash parameters are unavailable, select or invoke `review-pr` and pass an equivalent explicit argument such as “submit C1 and C2.” The bundled CLI remains available to the skill as an implementation detail.
 
 ## Requirements
 
@@ -139,5 +135,5 @@ Where slash parameters are unavailable, select or invoke `review-change` and pas
 Invoke the skill with:
 
 ```text
-/review-change
+/review-pr <PR URL or number>
 ```

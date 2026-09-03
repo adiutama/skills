@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reviewChangeInvocation } from "./invocation.mjs";
+import { reviewPrInvocation } from "../invocation.mjs";
 
-const skillRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const skillRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 const template = readFileSync(resolve(skillRoot, "assets", "agent-handoff.md"), "utf8");
 
 function label(value) {
@@ -38,7 +43,11 @@ function coverageGaps(review) {
 function checkoutStatus(context) {
   const sync = context.remoteSync;
   if (!sync) return "Checkout at collection: **local-only** — no PR or remote branch target was available.";
-  const action = sync.status === "fast-forwarded" ? "verified after fast-forward" : "verified current";
+  const action = sync.status === "checked-out"
+    ? "verified after PR checkout"
+    : sync.status === "fast-forwarded"
+      ? "verified after fast-forward"
+      : "verified current";
   return `Checkout at collection: **${action}** — ${sync.ref} at \`${sync.head}\`.`;
 }
 
@@ -53,7 +62,7 @@ function submissionAction({ context, pass, review }) {
     .filter((finding) => finding.posting === "pending")
     .map((finding) => String(finding.id));
   const args = ids.length ? ["submit", ids.join(",")] : ["submit"];
-  return `To submit this review, invoke \`${reviewChangeInvocation(...args)}\`.`;
+  return `To submit this review, invoke \`${reviewPrInvocation(...args)}\`.`;
 }
 
 export function renderHandoff({ context, pass, review }) {
@@ -66,8 +75,8 @@ export function renderHandoff({ context, pass, review }) {
     COVERAGE_GAPS: coverageGaps(review),
     CHECKOUT_STATUS: checkoutStatus(context),
     SUBMISSION_ACTION: submissionAction({ context, pass, review }),
-    OPEN_INVOCATION: reviewChangeInvocation("open"),
-    RENDER_INVOCATION: reviewChangeInvocation("render"),
+    OPEN_INVOCATION: reviewPrInvocation("open"),
+    RENDER_INVOCATION: reviewPrInvocation("render"),
   };
   return Object.entries(values).reduce(
     (output, [key, value]) => output.replaceAll(`{{${key}}}`, value),

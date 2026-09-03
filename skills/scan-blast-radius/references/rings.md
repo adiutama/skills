@@ -93,4 +93,4 @@ Often `n/a` for tiny fixes; required for feature/rewire with schema or flag chan
 | **warning** | Probable gap: missed wiring, untested path, stale parallel code |
 | **note** | Worth verifying; low confidence or edge-only |
 
-IDs: `I1, I2…` (impact). Do not reuse review-change C/W/N taxonomy.
+IDs: `I1, I2…` (impact). Do not reuse review-pr C/W/N taxonomy.

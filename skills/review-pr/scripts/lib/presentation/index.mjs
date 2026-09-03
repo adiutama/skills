@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { readJson } from "./context-store.mjs";
+import { readJson } from "../context.mjs";
 import { embeddedJson, renderPage, skillRoot } from "./page.mjs";
 
 const template = readFileSync(resolve(skillRoot, "assets", "index.html"), "utf8");

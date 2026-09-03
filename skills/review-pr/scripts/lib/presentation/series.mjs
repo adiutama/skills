@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { readJson } from "./context-store.mjs";
-import { renderIndex } from "./render-index.mjs";
-import { renderReport } from "./render-report.mjs";
-import { validateReview } from "./review.mjs";
+import { readJson } from "../context.mjs";
+import { validateReview } from "../validation/review.mjs";
+import { renderIndex } from "./index.mjs";
+import { renderReport } from "./report.mjs";
 
 export function renderSeries({ context }) {
   const complete = context.passes

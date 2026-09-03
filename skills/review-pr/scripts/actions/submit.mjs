@@ -1,10 +1,18 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { commandExists, run } from "./command.mjs";
-import { readContext, readJson, writeContext, writeJson } from "./context-store.mjs";
-import { artifactRoot, commitTree, repositoryContext, slug } from "./git.mjs";
-import { renderSeries } from "./render-series.mjs";
-import { validateReview } from "./review.mjs";
+import { commandExists, run } from "../lib/command.mjs";
+import {
+  readContext,
+  readJson,
+  resolveContext,
+  writeContext,
+  writeJson,
+} from "../lib/context.mjs";
+import {
+  commitTree,
+  repositoryContext,
+} from "../lib/git.mjs";
+import { renderSeries } from "../lib/presentation/series.mjs";
+import { validateReview } from "../lib/validation/review.mjs";
 
 function parseJson(value, source) {
   try {
@@ -35,7 +43,7 @@ function movedHeadWarning({ reviewedHead, previousHead, currentHead, inlineCount
   } else {
     lines.push("The verdict and message were written against older code.", "");
   }
-  lines.push("Recommended: cancel and run review-change again.");
+  lines.push("Recommended: cancel and run review-pr again.");
   return lines.join("\n");
 }
 
@@ -51,9 +59,7 @@ function pullRequestMetadata({ cwd, owner, repo, number }) {
 
 function currentReview({ cwd, env }) {
   const repository = repositoryContext(cwd);
-  const root = artifactRoot({ root: repository.root, env });
-  const contextPath = join(root, repository.owner, repository.repo, slug(repository.branch), "review-change", "context.json");
-  if (!existsSync(contextPath)) throw new Error(`no review-change session found for ${repository.owner}/${repository.repo} on ${repository.branch}`);
+  const contextPath = resolveContext({ cwd, env });
   const context = readContext(contextPath);
   if (context.change.repository !== `${repository.owner}/${repository.repo}` || context.change.branch !== repository.branch) {
     throw new Error("resolved review context does not match the current repository and branch");
@@ -69,7 +75,7 @@ export function submit({ findingIds, message, acceptMovedHead = false, cwd, env,
   if (context.change.mode !== "pr" || !context.change.pullRequest) throw new Error("this review is not attached to an open pull request");
   const reviewedHeadTree = commitTree({ root: repository.root, commit: pass.head });
   if (pass.tree !== reviewedHeadTree) {
-    throw new Error("this review includes local worktree changes that are not in the pull request; commit, push, and run review-change again");
+    throw new Error("this review includes local worktree changes that are not in the pull request; commit, push, and run review-pr again");
   }
 
   const slash = context.change.repository.indexOf("/");

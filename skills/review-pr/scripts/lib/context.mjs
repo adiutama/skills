@@ -1,6 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, dirname, join } from "node:path";
+import {
+  artifactRoot,
+  repositoryContext,
+  slug,
+} from "./git.mjs";
 
 export function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -15,6 +27,27 @@ export function writeJson(path, value) {
 
 export const readContext = readJson;
 export const writeContext = writeJson;
+
+export function resolveContext({ cwd, env }) {
+  const repository = repositoryContext(cwd);
+  const root = artifactRoot({ root: repository.root, env });
+  const path = join(
+    root,
+    repository.owner,
+    repository.repo,
+    slug(repository.branch),
+    "review-pr",
+    "context.json",
+  );
+
+  if (!existsSync(path)) {
+    throw new Error(
+      `no review-pr session found for ${repository.owner}/${repository.repo} on ${repository.branch}`,
+    );
+  }
+
+  return path;
+}
 
 export function archiveContext(contextPath, context, reason) {
   const session = dirname(contextPath);

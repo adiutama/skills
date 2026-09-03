@@ -12,7 +12,7 @@
 
 - **Default:** `verb-object[-qualifier]` in kebab-case.
 - Keep directory name and `name:` in frontmatter identical.
-- Prefer command-like names (for example: `/review-change`, `/address-pr-feedback`).
+- Prefer command-like names (for example: `/review-pr`, `/address-pr-feedback`).
 - **Summon names** (e.g. `/ponder <question>`) are an exception—see [CONVENTIONS.md — Summon names](../../CONVENTIONS.md#summon-names-exception).
 
 ## SKILL.md authoring
@@ -40,7 +40,7 @@ When a new skill needs a concept another skill already defines (output schema, g
 
 1. Copy the minimum needed into `skills/<this-skill>/references/` or `assets/`.
 2. Trim to what **this** skill uses—no cargo-culting the whole file.
-3. Note the source in a one-line comment at the top of the copy if helpful for future merges (*"Adapted from review-change format"*).
+3. Note the source in a one-line comment at the top of the copy if helpful for future merges (*"Adapted from review-pr format"*).
 4. Do **not** link runtime instructions to the other skill's path.
 
 Modularity may arrive later; until then, **fork in place**. Prefer slight duplication over fragile coupling.

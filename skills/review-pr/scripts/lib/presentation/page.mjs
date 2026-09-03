@@ -3,7 +3,12 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const skillRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const skillRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 export const theme = readFileSync(resolve(skillRoot, "assets", "theme.css"), "utf8");
 
 export function embeddedJson(value) {

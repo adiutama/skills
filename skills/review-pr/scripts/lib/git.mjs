@@ -12,8 +12,15 @@ export function repositoryContext(cwd) {
   const branchName = git(["branch", "--show-current"], root);
   const head = git(["rev-parse", "HEAD"], root);
   const detached = !branchName;
-  const branch = branchName || `detached-${git(["rev-parse", "--short", "HEAD"], root)}`;
-  const remote = git(["config", "--get", "remote.origin.url"], root, { allowFailure: true }) ?? "";
+  const detachedName = branchName
+    ? null
+    : git(["rev-parse", "--short", "HEAD"], root);
+  const branch = branchName || `detached-${detachedName}`;
+  const remote = git(
+    ["config", "--get", "remote.origin.url"],
+    root,
+    { allowFailure: true },
+  ) ?? "";
   const match = remote.match(/github\.com[:/]([^/]+)\/(.+)$/);
   const owner = match?.[1] ?? "_local";
   const repo = match?.[2]?.replace(/\.git$/, "") ?? basename(root);
@@ -28,10 +35,24 @@ export function refreshRemote({ root }) {
 }
 
 export function remoteBranch({ root, branch, detached = false }) {
+  let configured;
+  let ref;
+
   if (detached) return null;
-  const configured = git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], root, { allowFailure: true });
+  configured = git(
+    ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+    root,
+    { allowFailure: true },
+  );
   const candidates = [configured, `origin/${branch}`];
-  const ref = candidates.find((candidate) => candidate && git(["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`], root, { allowFailure: true }) !== null);
+  ref = candidates.find((candidate) => {
+    if (!candidate) return false;
+    return git(
+      ["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`],
+      root,
+      { allowFailure: true },
+    ) !== null;
+  });
   if (!ref) return null;
   return { ref, sha: git(["rev-parse", `${ref}^{commit}`], root) };
 }
@@ -48,7 +69,13 @@ export function artifactRoot({ root, env }) {
 
 function ignoredPath({ root, path }) {
   const normalized = path.replaceAll(sep, "/").replace(/\/+$/, "");
-  return git(["check-ignore", "-q", "--no-index", "--", `${normalized}/.review-change-ignore-check`], root, { allowFailure: true }) !== null;
+  const marker = `${normalized}/.review-pr-ignore-check`;
+
+  return git(
+    ["check-ignore", "-q", "--no-index", "--", marker],
+    root,
+    { allowFailure: true },
+  ) !== null;
 }
 
 export function slug(value) {
@@ -56,11 +83,43 @@ export function slug(value) {
 }
 
 export function resolveBase({ root, branch, preferred, tip }) {
-  const configured = git(["config", "--get", `branch.${branch}.gh-merge-base`], root, { allowFailure: true });
-  const originHead = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], root, { allowFailure: true });
-  const remotePreferred = preferred && (preferred.startsWith("origin/") ? preferred : `origin/${preferred}`);
-  const candidates = [remotePreferred, preferred, configured, originHead, "origin/main", "origin/develop", "origin/master", "origin/trunk", "main", "develop", "master", "trunk"];
-  const ref = candidates.find((candidate) => candidate && git(["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`], root, { allowFailure: true }) !== null);
+  const configured = git(
+    ["config", "--get", `branch.${branch}.gh-merge-base`],
+    root,
+    { allowFailure: true },
+  );
+  const originHead = git(
+    ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+    root,
+    { allowFailure: true },
+  );
+  const remotePreferred = preferred && (
+    preferred.startsWith("origin/")
+      ? preferred
+      : `origin/${preferred}`
+  );
+  const candidates = [
+    remotePreferred,
+    preferred,
+    configured,
+    originHead,
+    "origin/main",
+    "origin/develop",
+    "origin/master",
+    "origin/trunk",
+    "main",
+    "develop",
+    "master",
+    "trunk",
+  ];
+  const ref = candidates.find((candidate) => {
+    if (!candidate) return false;
+    return git(
+      ["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`],
+      root,
+      { allowFailure: true },
+    ) !== null;
+  });
   if (!ref) {
     throw new Error("could not resolve a base branch for the current change");
   }
@@ -78,12 +137,31 @@ export function ensureCommit({ root, commit }) {
   if (!hasCommit({ root, commit })) throw new Error(`could not fetch pull request HEAD ${commit}`);
 }
 
+export function fetchPullRequestHead({ root, number, commit }) {
+  let fetched;
+  let message;
+
+  git(["fetch", "--no-tags", "origin", `refs/pull/${number}/head`], root);
+  fetched = git(["rev-parse", "FETCH_HEAD^{commit}"], root);
+  message = [
+    `pull request #${number} moved while collecting: GitHub reported ${commit},`,
+    `but fetch returned ${fetched}; rerun review-pr`,
+  ].join(" ");
+  if (fetched !== commit) {
+    throw new Error(message);
+  }
+}
+
+export function checkoutPullRequest({ root, number, commit }) {
+  git(["switch", "-C", `pr/${number}`, commit], root);
+}
+
 export function fastForwardBranch({ root, commit }) {
   git(["merge", "--ff-only", commit], root);
 }
 
 export function snapshotWorktree({ root, artifactDirectory }) {
-  const temporary = mkdtempSync(join(tmpdir(), "review-change-index-"));
+  const temporary = mkdtempSync(join(tmpdir(), "review-pr-index-"));
   const index = join(temporary, "index");
   const env = { ...process.env, GIT_INDEX_FILE: index };
   try {

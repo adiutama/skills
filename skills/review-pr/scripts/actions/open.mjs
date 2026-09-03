@@ -1,5 +1,5 @@
 import { platform } from "node:os";
-import { run } from "./command.mjs";
+import { run } from "../lib/command.mjs";
 import { render } from "./render.mjs";
 
 function opener() {
