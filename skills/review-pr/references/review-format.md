@@ -65,8 +65,13 @@ For every `duplicate` finding, include `duplicateOf` with the source activity co
 
 For a finding that continues from an earlier pass, include `carriedFrom` with the exact source pass and finding ID. Point to the pass where that specific finding version appeared. Omit it for findings introduced in the current pass. The report resolves the pointer and links back to the original finding.
 
-`body` is the reviewer's suggested top-level message. Keep it short but useful, normally two or three sentences. Lead with the decision or remaining problem, explain the practical consequence in plain English, and give one concrete direction when useful. Prefer familiar words over specialist jargon. Use a brief analogy only when it makes a difficult consequence easier to understand. Do not repeat all inline details.
+Only include findings that pass the value check in `SKILL.md`. The schema permits `nit` for explicitly requested polish reviews; it is not a request to look for nits. Keep unresolved prior findings traceable even when no new comment is needed.
 
-Apply the same style to each finding `comment`: name the problem, say why it matters, and suggest a direction when needed. Write like a teammate helping the author make a decision, not like an audit report.
+Use the length rules and output check in `SKILL.md` for `body` and every finding `comment`.
+
+- `body`: state the decision and the main consequence or remaining correction. Do not list the inline findings again.
+- `comment`: name the trigger, consequence, and a useful correction. Put additional proof in `explanation`; keep `impact` and `suggestion` to one sentence each.
+
+Before saving, apply the plain-English definition and sentence checks in `SKILL.md` to every prose field—not only `body` and `comment`. Preserve identifiers and evidence exactly.
 
 The HTML report preloads `body` for editing and can reset it exactly; an edited message replaces it when submitting. Finding `comment` values remain inline. The submission script maps `approve` to `APPROVE` and `reject` to `REQUEST_CHANGES`. It accepts pending finding IDs as one comma-separated value, such as `C1,C2`. It may append `submissions`; that field records mechanics and is not reviewer-authored judgment. Each submission records the reviewed, observed, and GitHub-returned head; whether movement was observed; how it was confirmed; and every warning shown.

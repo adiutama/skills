@@ -63,3 +63,5 @@ The first summary checkpoint creates the study; normally this is pass 1. Later p
 Refresh the study only when the PR's fundamental intent or behavior model changed, or when the user asks. Increment `revision`, set `writtenAtPass` to the current pass, and explain the invalidation in `refreshReason`. Never delete earlier blast-radius updates.
 
 Every update must cover all six rings. Mark each ring `checked`, `not_applicable`, or `not_verified`; never omit a ring silently. `not_verified` is an evidence gap, not a finding. Findings belong only in the review JSON.
+
+Before saving, apply the output check in `SKILL.md` to every prose field. Use one short sentence per entry where possible. Keep evidence in its dedicated fields; avoid repeating the same explanation across purpose, behavior, flow, and components. Preserve the required structure and useful coverage detail.
