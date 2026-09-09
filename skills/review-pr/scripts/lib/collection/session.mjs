@@ -3,7 +3,7 @@ import {
   mkdirSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   archiveContext,
   readContext,
@@ -18,6 +18,7 @@ import {
 import { renderSeries } from "../presentation/series.mjs";
 
 function sessionPaths(prepared) {
+  if (prepared.contextPath) return { session: dirname(prepared.contextPath), context: prepared.contextPath };
   const { repository, root } = prepared;
   const session = join(
     root,
@@ -85,6 +86,8 @@ function collectionChanges(prepared, previous) {
 
 function unchangedResult(prepared, session, existing, previous) {
   existing.remoteSync = prepared.remoteSync;
+  attachCheckout(prepared, existing);
+  existing.change.branch = prepared.repository.branch;
   writeContext(session.context, existing);
 
   return {
@@ -96,6 +99,7 @@ function unchangedResult(prepared, session, existing, previous) {
     pass: previous.number,
     branchUpdate: prepared.branchUpdate,
     remoteSync: prepared.remoteSync,
+    checkout: prepared.checkout,
   };
 }
 
@@ -133,6 +137,7 @@ function buildContext(prepared, existing, files) {
 
   context.version = 2;
   context.remoteSync = prepared.remoteSync;
+  attachCheckout(prepared, context);
   context.change = {
     mode: pullRequest ? "pr" : "local",
     pullRequest: pullRequest?.metadata.number ?? null,
@@ -152,6 +157,18 @@ function buildContext(prepared, existing, files) {
   return context;
 }
 
+function attachCheckout(prepared, context) {
+  if (!prepared.identity) return;
+  context.version = 3;
+  context.identity = prepared.identity;
+  context.contextPath = prepared.contextPath;
+  context.checkout = prepared.checkout;
+  context.ownedWorktrees = prepared.ownedWorktrees ?? context.ownedWorktrees ?? [];
+  if (prepared.checkout?.createdWorktree && !context.ownedWorktrees.includes(prepared.checkout.path)) {
+    context.ownedWorktrees.push(prepared.checkout.path);
+  }
+}
+
 function appendPass({ prepared, context, files, number, kind, changes }) {
   context.passes.push({
     number,
@@ -167,6 +184,7 @@ function appendPass({ prepared, context, files, number, kind, changes }) {
     changes,
     branchUpdate: prepared.branchUpdate,
     remoteSync: prepared.remoteSync,
+    checkout: prepared.checkout,
     status: "collected",
   });
   context.output = files.review;
@@ -198,6 +216,7 @@ function collectedResult(prepared, session, files) {
     review: files.review,
     branchUpdate: prepared.branchUpdate,
     remoteSync: prepared.remoteSync,
+    checkout: prepared.checkout,
   };
 }
 

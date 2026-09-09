@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { run } from "./command.mjs";
 
-function git(args, cwd, options = {}) {
+export function git(args, cwd, options = {}) {
   return run("git", args, { cwd, ...options });
 }
 
@@ -62,6 +62,9 @@ export function artifactRoot({ root, env }) {
     if (!isAbsolute(env.AGENTS_ARTIFACTS_ROOT)) throw new Error("AGENTS_ARTIFACTS_ROOT must be an absolute path");
     return resolve(root, env.AGENTS_ARTIFACTS_ROOT);
   }
+  // Linked worktrees share the primary checkout's artifact policy and location.
+  const common = realpathSync(resolve(root, git(["rev-parse", "--git-common-dir"], root)));
+  if (basename(common) === ".git") root = dirname(common);
   const local = ignoredPath({ root, path: ".agents/artifacts" })
     || ignoredPath({ root, path: ".agents" });
   return local ? join(root, ".agents", "artifacts") : join(env.HOME, ".agents", "artifacts");
@@ -148,12 +151,19 @@ export function fetchPullRequestHead({ root, number, commit }) {
     `but fetch returned ${fetched}; rerun review-pr`,
   ].join(" ");
   if (fetched !== commit) {
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = "PR_HEAD_MOVED";
+    throw error;
   }
 }
 
-export function checkoutPullRequest({ root, number, commit }) {
-  git(["switch", "-C", `pr/${number}`, commit], root);
+export function cleanWorktree({ root, artifactDirectory }) {
+  const paths = ["."];
+  const excluded = relative(root, artifactDirectory);
+  if (excluded && excluded !== ".." && !excluded.startsWith(`..${sep}`) && !isAbsolute(excluded)) {
+    paths.push(`:(top,exclude)${excluded.replaceAll(sep, "/")}/**`);
+  }
+  return git(["status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none", "--", ...paths], root) === "";
 }
 
 export function fastForwardBranch({ root, commit }) {

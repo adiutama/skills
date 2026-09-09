@@ -56,8 +56,8 @@ Only confirmed problems become findings.
 | Scenario | Behavior |
 |---|---|
 | Every collection | Resolves the explicit PR URL or number and refreshes its metadata and activity. |
-| Open pull request with a clean worktree | Fetches the PR ref, verifies its exact GitHub head, and checks out `pr/<number>`. |
-| Staged, unstaged, or untracked changes | Stops before review and preserves the worktree for the user to resolve. |
+| Open pull request with a clean worktree | Fetches and verifies the PR head, then prefers its source branch name. |
+| Staged, unstaged, or untracked changes | Preserves the original checkout and reviews in a separate worktree. |
 | First review | Creates a full study, full blast-radius map, and findings pass. |
 | Later code change | Reviews the diff from the previous pass and appends a blast-radius delta. |
 | New external PR comment or review | Opens an activity-only pass, even when code is unchanged. |
@@ -65,25 +65,48 @@ Only confirmed problems become findings.
 | No code or relevant PR activity changed | Returns `unchanged` without creating another pass. |
 | Base branch changed | Archives the old series and starts a new full review. |
 | Local history was rebased or rewritten | Archives the old series and starts a new full review. |
-| PR changed | Uses the target's `pr/<number>` checkout and its separate review session. |
+| PR changed | Uses the explicit target's checkout and PR session; another unfinished review keeps its own worktree. |
 | Review pass is unfinished | Refuses to collect another pass until the current one is complete. |
 | Latest open-PR review of a committed tree | Generates `/review-pr submit C1,C2` for the user to inspect and invoke. |
 | Historical review | Remains readable but cannot generate a submission. |
 | PR closed after review | Rejects submission because the PR can no longer receive a review. |
 | PR HEAD changed after review | Stops with a warning and requires a new `accept-moved-head` invocation before submitting against GitHub's latest PR commit. |
 
-## Checkout states
+## Checkout and fallback
 
-When a remote-tracking base such as `origin/main` exists, the review uses its merge-base with the synchronized review head.
-
-| Checkout state | Review scope |
+| State | Behavior |
 |---|---|
-| Clean checkout at any local branch or detached HEAD | Verifies the fetched PR head, then switches to `pr/<number>` at that commit. |
-| Existing clean `pr/<number>` checkout | Refreshes it to the freshly verified PR head. |
-| Dirty worktree | Stops and reports the local changes; the worktree is unchanged. |
-| `pr/<number>` checked out in another worktree | Stops with Git's worktree conflict; no other worktree is changed. |
+| Fresh clean branch with an unrelated name | Check out the PR's source branch, creating it if available. |
+| Source branch already at the PR head | Verify and reuse it. |
+| Associated source branch behind the PR | Fast-forward to the verified head. |
+| Source branch conflicts, has extra commits, or is used elsewhere | Use `review/pr-<number>`, adding an unused suffix when needed. |
+| `review` already exists as a branch | Use the flat fallback `review-pr-<number>`. |
+| Current checkout is dirty or holds another unfinished review | Create a separate worktree; reuse a recorded clean owned worktree on later passes. |
+| PR changes during collection | Refresh metadata and retry once before changing branches. |
+| Access, fetch, or filesystem failure | Report the blocker; do not force checkout or review stale code. |
 
-Every collection fetches and prunes `origin`, then resolves the supplied PR independently of the checked-out branch and upstream. It fetches GitHub's `refs/pull/<number>/head`, verifies the fetched commit against current PR metadata, and switches a clean checkout to `pr/<number>`. Collection then enforces exact-or-exit: local `HEAD` and the full worktree tree must match that verified target before review begins. It never rebases, merges, or discards dirty work.
+Local and fork branches with the same name are distinguished by their source repository and tracking configuration. Collection fetches the PR head through the base repository and verifies its commit against fresh GitHub metadata. A clean worktree alone never authorizes resetting a branch tip.
+
+Collection returns `checkout.path`, `checkout.branch`, and a fallback reason. The agent inspects code and runs tests at that path, even if the client continues to display the original workspace. The client needs no special integration. Automatic thread archiving is not promised.
+
+## Sessions and compatibility
+
+Explicit PR sessions use a stable PR scope plus a Git-clone key in the artifact path. Linked worktrees share the primary checkout's artifact policy. Existing local-only adapter sessions retain their branch-based paths.
+
+`collect` returns an absolute `context` path. Pass it to every later action:
+
+```text
+review-pr checkpoint --context /absolute/path/context.json
+review-pr complete --context /absolute/path/context.json
+review-pr render --context /absolute/path/context.json
+review-pr submit C1 --context /absolute/path/context.json
+```
+
+The executable is internal; the agent translates chat invocations. Generated chat handoffs include the selector. Without it, lookup must identify a single session for the checkout; it never chooses a repository-wide latest session. Explicit context actions work from any checkout of the same Git clone, including the original dirty checkout.
+
+A single unambiguous legacy PR series is copied into the stable location before the next collection. Original artifacts and review prose remain intact. Multiple matching legacy series require a deliberate selection. An unfinished pass must be completed before another pass for that PR starts. Collection is serialized per clone; an interrupted lock reports its path for deliberate recovery.
+
+Owned fallback worktrees are recorded and retained. No automatic worktree deletion, branch deletion, or client thread archiving occurs. Artifacts live outside fallback worktrees. See [checkout policy](references/checkout-policy.md) for the full rules.
 
 ## Blast-radius coverage
 
@@ -105,7 +128,7 @@ Each ring is recorded as `checked`, `not_applicable`, or `not_verified`. An unve
 `review-pr` does not:
 
 - discard staged, unstaged, or untracked work;
-- create merge commits, rebase, or rewrite branches other than the dedicated clean `pr/<number>` checkout;
+- create merge commits, rebase, reset existing branch tips, or discard local commits;
 - post findings to GitHub automatically;
 - submit from a historical review;
 - review or submit a PR while its checkout differs from the fetched PR head;

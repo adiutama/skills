@@ -12,6 +12,7 @@ import {
   repositoryContext,
 } from "../lib/git.mjs";
 import { renderSeries } from "../lib/presentation/series.mjs";
+import { checkoutIdentity } from "../lib/session-location.mjs";
 import { validateReview } from "../lib/validation/review.mjs";
 
 function parseJson(value, source) {
@@ -61,7 +62,9 @@ function currentReview({ cwd, env }) {
   const repository = repositoryContext(cwd);
   const contextPath = resolveContext({ cwd, env });
   const context = readContext(contextPath);
-  if (context.change.repository !== `${repository.owner}/${repository.repo}` || context.change.branch !== repository.branch) {
+  if (context.archived) throw new Error("historical review sessions cannot be submitted; select the current context");
+  if (context.change.repository.toLowerCase() !== `${repository.owner}/${repository.repo}`.toLowerCase()
+    || (context.identity ? context.identity.gitCommonDir !== checkoutIdentity(repository) : context.change.branch !== repository.branch)) {
     throw new Error("resolved review context does not match the current repository and branch");
   }
   const pass = context.passes.at(-1);

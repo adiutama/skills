@@ -7,7 +7,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
+import { checkoutIdentity, contextCandidates } from "./session-location.mjs";
 import {
   artifactRoot,
   repositoryContext,
@@ -29,8 +30,23 @@ export const readContext = readJson;
 export const writeContext = writeJson;
 
 export function resolveContext({ cwd, env }) {
+  if (env.REVIEW_PR_CONTEXT) {
+    if (!isAbsolute(env.REVIEW_PR_CONTEXT)) throw new Error("--context must be an absolute context.json path");
+    const context = readContext(env.REVIEW_PR_CONTEXT);
+    const repository = repositoryContext(cwd);
+    if (context.change?.repository.toLowerCase() !== `${repository.owner}/${repository.repo}`.toLowerCase()
+      || (context.identity && context.identity.gitCommonDir !== checkoutIdentity(repository))) {
+      throw new Error("selected review context belongs to another repository or Git clone");
+    }
+    return env.REVIEW_PR_CONTEXT;
+  }
   const repository = repositoryContext(cwd);
   const root = artifactRoot({ root: repository.root, env });
+  const candidates = contextCandidates(root, repository).filter(({ context }) => context.identity
+    && context.identity.gitCommonDir === checkoutIdentity(repository)
+    && [context.checkout?.path, context.checkout?.originalPath].includes(repository.root));
+  if (candidates.length > 1) throw new Error("multiple review sessions match this checkout; pass --context with the path returned by collect");
+  if (candidates.length === 1) return candidates[0].path;
   const path = join(
     root,
     repository.owner,

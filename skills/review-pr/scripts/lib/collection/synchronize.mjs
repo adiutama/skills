@@ -1,5 +1,6 @@
 import {
   commitTree,
+  cleanWorktree,
   ensureCommit,
   fastForwardBranch,
   isAncestor,
@@ -33,7 +34,7 @@ function assertCleanWorktree({ repository, root, remote }) {
     `changes; commit or stash them before reviewing ${remote.ref}`,
   ].join(" ");
 
-  if (tree === headTree) return;
+  if (tree === headTree && cleanWorktree({ root: repository.root, artifactDirectory: root })) return;
   throw new Error(message);
 }
 

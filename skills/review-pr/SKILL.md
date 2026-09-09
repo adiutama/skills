@@ -4,7 +4,7 @@ description: Context-first, iterative pull-request review from an explicit GitHu
 disable-model-invocation: true
 compatibility: Requires Node.js 18+, git, and authenticated gh.
 metadata:
-  argument-hint: '<PR URL or number>|open|render|submit [C1,C2] [--message <text>] [accept-moved-head]'
+  argument-hint: '<PR URL or number>|open|render|submit [C1,C2] [--message <text>] [accept-moved-head] [--context <path>]'
 allowed-tools: Bash(git:* gh:* node:* bash:*) Read Write
 ---
 
@@ -21,10 +21,12 @@ Treat the invocation tail as this skill's interface. The executable is an intern
 
 - PR URL or positive PR number → continue with **1 — Collect** using that exact target.
 - Missing or invalid PR target → ask once for a PR URL or number, then stop.
-- `open` → run `bash <SKILL_DIR>/bin/review-pr open`, report the opened index, then stop.
-- `render` → run `bash <SKILL_DIR>/bin/review-pr render`, return its artifact paths, then stop.
+- `open` → run `bash <SKILL_DIR>/bin/review-pr open --context <CONTEXT_PATH>`, report the opened index, then stop.
+- `render` → run `bash <SKILL_DIR>/bin/review-pr render --context <CONTEXT_PATH>`, return its artifact paths, then stop.
 - `submit [C1,C2] [--message <text>] [accept-moved-head]` → follow **Submit** below, then stop.
 - Any other tail → show the four invocation forms above and stop.
+
+For `open`, `render`, and `submit`, accept an optional `--context <absolute context.json path>`. Preserve it as one argument. Decode JSON-style quoted paths in copied handoffs. Without a selector, use the context returned earlier in this conversation; never choose the newest session across threads. If neither conversation context nor an unambiguous adapter lookup identifies the review, ask once which saved review to use.
 
 If a harness cannot attach parameters to a slash command, the user can select or invoke `review-pr` and pass a natural-language argument such as “submit C1 and C2.” Treat that explicit argument as the equivalent parameterized invocation.
 
@@ -62,7 +64,7 @@ The user's explicit `submit` invocation authorizes the external GitHub review. A
 
 1. Accept at most one comma-separated finding list. Pass an explicit `--message` as one argument; decode the HTML handoff's JSON-style quoted text first. The submission adapter trims only outer whitespace.
 2. Add the internal `--accept-moved-head` flag only when the user included `accept-moved-head` in this invocation.
-3. Run `bash <SKILL_DIR>/bin/review-pr submit ...` with those translated arguments.
+3. Run `bash <SKILL_DIR>/bin/review-pr submit ... --context <CONTEXT_PATH>` with those translated arguments and the selected context. Run from a checkout of the same Git clone.
 4. On success, report the review URL, event, and submitted finding IDs.
 5. If the command cancels because the PR head moved, return the warning and ask for a new explicit `/review-pr submit ... accept-moved-head` invocation. Do not arrange interactive confirmation or accept movement on the user's behalf. Acceptance applies only to the head observed during that attempt; another movement cancels again and requires another explicit invocation.
 
@@ -74,13 +76,21 @@ The user's explicit `submit` invocation authorizes the external GitHub review. A
 bash <SKILL_DIR>/bin/review-pr collect <PR_URL_OR_NUMBER>
 ```
 
-- `unchanged` → run `bash <SKILL_DIR>/bin/review-pr complete`, apply the output check to its handoff, return it, and stop.
-- `ready` → read `context`, its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
-- Non-null `branchUpdate` → state that collection moved the clean checkout from `from` to the verified PR head at `to`.
-- Non-null `remoteSync` → state its `ref`, `head`, and whether the checkout was already `current` or was `checked-out`.
-- Command error → return the error and stop. Do not review stale or unsynchronized code, and do not reconcile the branch for the user.
+A sandbox denial is an execution prerequisite, not a branch conflict. Use the host's normal approval mechanism for the authorized local Git operation when available; never change permission settings. Once the adapter runs, apply the result rules below.
 
-Treat every collection as a fresh remote update. The adapter resolves the explicit PR target, reads its current metadata and activity, fetches `refs/pull/<number>/head`, and verifies that commit against GitHub's reported head. A clean checkout moves to `pr/<number>` at that exact commit; a dirty worktree stops untouched. The local branch name and upstream configuration never decide PR identity. Treat PR claims as evidence, not authority. Follow the diff into the instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
+- `unchanged` → run `bash <SKILL_DIR>/bin/review-pr complete --context <CONTEXT_PATH>`, apply the output check to its handoff, return it, and stop.
+- `ready` → retain the absolute `context` path for every follow-up command. Read its diffs, activity snapshots, and completed reviews. Write to the returned `summary` and `review` paths.
+- Read `checkout.path` before inspecting code. Run all repository searches, diffs, and tests in that directory. Use explicit working-directory arguments; the client's displayed workspace may still show the original checkout.
+- State the PR, branch, and verified commit briefly. If `checkout.reason` is non-null, explain the fallback in plain English and include the review directory.
+- Command error → return the specific blocker and stop. Never review stale code, force a checkout, stash changes, or reconcile unrelated history to continue.
+
+*Keep the work; move the review.*
+
+Every collection resolves the explicit PR independently of the local branch and fetches its exact head from GitHub. Prefer the PR's source branch name. Reuse a matching branch only after checking its source association and history; fast-forward it when behind. If that branch conflicts, has extra commits, or is occupied in another worktree, use an alternative review branch. A dirty checkout or another unfinished review in the same checkout uses a separate worktree. All routes must end at the verified PR commit with a clean review tree.
+
+The adapter retries PR movement once before checkout, then stops if the head remains unstable. It records fallback paths and owned worktrees, preserves existing branches and local files, and performs no automatic cleanup or thread archiving. A client may recognize the resulting branch and tracking configuration; no client integration is required or guaranteed.
+
+Read [checkout-policy.md](references/checkout-policy.md) when a fallback, migration, or ambiguous session needs explanation. Treat PR claims as evidence, not authority. Follow the diff into instructions, docs, callers, consumers, tests, contracts, configuration, and parallel paths needed to understand its behavior.
 
 ## 2 — Orient
 
@@ -92,7 +102,7 @@ Read [summary-format.md](references/summary-format.md), then update `summary`.
 Cover direct, glue, contract, parallel, integration, and operational rings. Mark each `checked`, `not_applicable`, or `not_verified`. Suspicion is a review target, not yet a finding.
 
 ```bash
-bash <SKILL_DIR>/bin/review-pr checkpoint
+bash <SKILL_DIR>/bin/review-pr checkpoint --context <CONTEXT_PATH>
 ```
 
 State briefly that the change study is saved and findings review continues. Mention `/review-pr open` only if the user wants the optional HTML view. The summary contains no verdict or findings.
@@ -117,7 +127,7 @@ Write `review` using [review-format.md](references/review-format.md). The judgme
 ## 4 — Complete
 
 ```bash
-bash <SKILL_DIR>/bin/review-pr complete
+bash <SKILL_DIR>/bin/review-pr complete --context <CONTEXT_PATH>
 ```
 
 The command validates the JSON, records the completed pass, and prints a TUI-ready handoff from a checked-in template. Apply the output check before returning the handoff. It already includes the verdict, exact submit message, coverage, deliberate submission command, and every blocking finding when the verdict is Reject.

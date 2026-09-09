@@ -8,7 +8,7 @@ import { render } from "./actions/render.mjs";
 import { renderSummary } from "./actions/render-summary.mjs";
 import { submit } from "./actions/submit.mjs";
 
-const [command, ...args] = process.argv.slice(2);
+const [command, ...inputArgs] = process.argv.slice(2);
 
 function submitArguments(values) {
   let findingList;
@@ -35,24 +35,38 @@ function submitArguments(values) {
 }
 
 try {
+  const args = [];
+  let contextPath;
+  for (let index = 0; index < inputArgs.length; index += 1) {
+    const value = inputArgs[index];
+    if (value === "--message") {
+      args.push(value);
+      if (index + 1 < inputArgs.length) args.push(inputArgs[++index]);
+    } else if (value === "--context") {
+      if (contextPath || !inputArgs[index + 1]) throw new Error("--context requires exactly one absolute context.json path");
+      contextPath = inputArgs[++index];
+    } else args.push(value);
+  }
+  if (contextPath && command === "collect") throw new Error("collect takes an explicit PR target, not --context");
+  const env = { ...process.env, ...(contextPath ? { REVIEW_PR_CONTEXT: contextPath } : {}) };
   let result;
   if (command === "collect" && args.length <= 1) {
-    result = collect({ cwd: process.cwd(), env: process.env, target: args[0] });
+    result = collect({ cwd: process.cwd(), env, target: args[0] });
   } else if (command === "checkpoint" && args.length === 0) {
-    result = checkpoint({ cwd: process.cwd(), env: process.env });
+    result = checkpoint({ cwd: process.cwd(), env });
   } else if (command === "complete" && args.length === 0) {
-    result = complete({ cwd: process.cwd(), env: process.env });
+    result = complete({ cwd: process.cwd(), env });
   } else if (command === "render-summary" && args.length === 0) {
-    result = renderSummary({ cwd: process.cwd(), env: process.env });
+    result = renderSummary({ cwd: process.cwd(), env });
   } else if (command === "render" && args.length === 0) {
-    result = render({ cwd: process.cwd(), env: process.env });
+    result = render({ cwd: process.cwd(), env });
   } else if (command === "open" && args.length === 0) {
-    result = openReport({ cwd: process.cwd(), env: process.env });
+    result = openReport({ cwd: process.cwd(), env });
   } else if (command === "submit") {
     result = submit({
       ...submitArguments(args),
       cwd: process.cwd(),
-      env: process.env,
+      env,
       warn: (warning) => process.stderr.write(`Warning: ${warning}\n`),
     });
   } else {

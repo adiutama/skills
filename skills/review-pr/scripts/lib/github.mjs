@@ -80,7 +80,7 @@ function pullRequestSelector({ branch, detached, number }) {
   return null;
 }
 
-function readPullRequestMetadata({ cwd, owner, repo, selector }) {
+function readPullRequestMetadata({ cwd, owner, repo, selector, required }) {
   const raw = run("gh", [
     "pr",
     "view",
@@ -88,10 +88,10 @@ function readPullRequestMetadata({ cwd, owner, repo, selector }) {
     "--repo",
     `${owner}/${repo}`,
     "--json",
-    "number,title,body,url,baseRefName,headRefName,headRefOid,state",
+    "number,title,body,url,baseRefName,headRefName,headRefOid,state,isCrossRepository,headRepository,headRepositoryOwner",
   ], {
     cwd,
-    allowFailure: true,
+    allowFailure: !required,
   });
 
   return raw ? parseJson(raw, "gh pr view") : null;
@@ -146,6 +146,7 @@ export function collectPullRequest({
     owner,
     repo,
     selector,
+    required,
   });
   if (!metadata) {
     if (required) throw new Error("could not verify the existing pull request");

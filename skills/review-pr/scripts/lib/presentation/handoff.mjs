@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reviewPrInvocation } from "../invocation.mjs";
+import { sessionInvocation } from "../invocation.mjs";
 
 const skillRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -48,7 +48,16 @@ function checkoutStatus(context) {
     : sync.status === "fast-forwarded"
       ? "verified after fast-forward"
       : "verified current";
-  return `Checkout at collection: **${action}** — ${sync.ref} at \`${sync.head}\`.`;
+  const checkout = context.checkout;
+  const reasons = {
+    "dirty-worktree": "The original checkout has local changes; they were preserved in place.",
+    "active-review-in-worktree": "Another unfinished review keeps the original checkout.",
+    "branch-name-conflict": "The source branch name belongs to other local work.",
+    "branch-has-local-commits": "The source branch has local commits that were preserved.",
+    "branch-in-another-worktree": "The source branch is checked out elsewhere.",
+  };
+  const detail = checkout ? ` Branch: \`${checkout.branch}\`. Review directory: ${JSON.stringify(checkout.path)}.${checkout.reason ? ` ${reasons[checkout.reason] || "A separate checkout was needed."}` : ""}` : "";
+  return `Checkout at collection: **${action}** — ${sync.ref} at \`${sync.head}\`.${detail}`;
 }
 
 function submissionAction({ context, pass, review }) {
@@ -62,7 +71,7 @@ function submissionAction({ context, pass, review }) {
     .filter((finding) => finding.posting === "pending")
     .map((finding) => String(finding.id));
   const args = ids.length ? ["submit", ids.join(",")] : ["submit"];
-  return `To submit this review, invoke \`${reviewPrInvocation(...args)}\`.`;
+  return `To submit this review, invoke \`${sessionInvocation(context, ...args)}\`.`;
 }
 
 export function renderHandoff({ context, pass, review }) {
@@ -75,8 +84,8 @@ export function renderHandoff({ context, pass, review }) {
     COVERAGE_GAPS: coverageGaps(review),
     CHECKOUT_STATUS: checkoutStatus(context),
     SUBMISSION_ACTION: submissionAction({ context, pass, review }),
-    OPEN_INVOCATION: reviewPrInvocation("open"),
-    RENDER_INVOCATION: reviewPrInvocation("render"),
+    OPEN_INVOCATION: sessionInvocation(context, "open"),
+    RENDER_INVOCATION: sessionInvocation(context, "render"),
   };
   return Object.entries(values).reduce(
     (output, [key, value]) => output.replaceAll(`{{${key}}}`, value),

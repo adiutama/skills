@@ -213,8 +213,8 @@ elif [[ "$1 $2" == "pr view" ]]; then
     exit 2
   fi
   head=$(next_head)
-  git --git-dir="$FAKE_GH_REMOTE" update-ref refs/pull/42/head "$head"
-  printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+  git --git-dir="$FAKE_GH_REMOTE" update-ref "refs/pull/\${FAKE_GH_PR_NUMBER:-42}/head" "$head"
+  printf '{"number":%s,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/%s","baseRefName":"main","headRefName":"%s","headRefOid":"%s","state":"OPEN","isCrossRepository":%s,"headRepositoryOwner":{"login":"%s"},"headRepository":{"name":"widgets"}}\\n' "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_SOURCE_BRANCH:-feature/review}" "$head" "\${FAKE_GH_CROSS_REPOSITORY:-false}" "\${FAKE_GH_SOURCE_OWNER:-acme}"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" && "$*" == *"--method POST"* ]]; then
@@ -680,7 +680,7 @@ elif [[ "$1 $2" == "pr view" ]]; then
     exit 2
   fi
   head=$(git rev-parse HEAD)
-  printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+  printf '{"number":%s,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/%s","baseRefName":"main","headRefName":"%s","headRefOid":"%s","state":"OPEN","isCrossRepository":%s,"headRepositoryOwner":{"login":"%s"},"headRepository":{"name":"widgets"}}\\n' "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_SOURCE_BRANCH:-feature/review}" "$head" "\${FAKE_GH_CROSS_REPOSITORY:-false}" "\${FAKE_GH_SOURCE_OWNER:-acme}"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" && "$2" == */issues/*/comments ]]; then
@@ -758,11 +758,11 @@ test("collect uses an explicit pull request when the worktree branch has another
   }));
   const context = JSON.parse(readFileSync(prepared.context, "utf8"));
 
-  assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "pr/42");
+  assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "feature/review");
   assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), pullRequestHead);
   assert.equal(context.change.mode, "pr");
   assert.equal(context.change.pullRequest, 42);
-  assert.equal(context.change.branch, "pr/42");
+  assert.equal(context.change.branch, "feature/review");
   assert.deepEqual(prepared.remoteSync, {
     ref: "pull request #42",
     before: pullRequestHead,
@@ -789,8 +789,12 @@ test("explicit pull request collection preserves a dirty aliased worktree", () =
     },
   });
 
-  assert.notEqual(collected.status, 0);
-  assert.match(collected.stderr, /pull request checkout stopped.*worktree has staged, unstaged, or untracked changes/i);
+  assert.equal(collected.status, 0, collected.stderr);
+  const prepared = JSON.parse(collected.stdout);
+  assert.equal(prepared.checkout.kind, "separate-worktree");
+  assert.equal(prepared.checkout.reason, "dirty-worktree");
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: prepared.checkout.path }), originalHead);
+  assert.equal(run("git", ["status", "--porcelain"], { cwd: prepared.checkout.path }), "");
   assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "worktree/review-alias");
   assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), originalHead);
   assert.equal(readFileSync(join(repository, "local-only.txt"), "utf8"), "do not discard\n");
@@ -808,7 +812,7 @@ if [[ "$1" == "--version" ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
   head=$(git rev-parse HEAD)
-  printf '{"number":42,"title":"Wrong PR","body":"","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+  printf '{"number":42,"title":"Wrong PR","body":"","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN","isCrossRepository":false}\\n' "$head"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" ]]; then
@@ -843,7 +847,7 @@ if [[ "$1 $2" == "--version " ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
   head=$(git rev-parse HEAD)
-  printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+  printf '{"number":%s,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/%s","baseRefName":"main","headRefName":"%s","headRefOid":"%s","state":"OPEN","isCrossRepository":%s,"headRepositoryOwner":{"login":"%s"},"headRepository":{"name":"widgets"}}\\n' "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_SOURCE_BRANCH:-feature/review}" "$head" "\${FAKE_GH_CROSS_REPOSITORY:-false}" "\${FAKE_GH_SOURCE_OWNER:-acme}"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" && "$2" == */issues/*/comments ]]; then
@@ -1098,7 +1102,7 @@ if [[ "$1" == "--version" ]]; then
   printf 'gh version test\\n'
 elif [[ "$1 $2" == "pr view" ]]; then
   head=$(cat "$FAKE_GH_HEAD")
-  printf '{"number":42,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/42","baseRefName":"main","headRefName":"feature/review","headRefOid":"%s","state":"OPEN"}\\n' "$head"
+  printf '{"number":%s,"title":"Improve widgets","body":"PR intent","url":"https://github.com/acme/widgets/pull/%s","baseRefName":"main","headRefName":"%s","headRefOid":"%s","state":"OPEN","isCrossRepository":%s,"headRepositoryOwner":{"login":"%s"},"headRepository":{"name":"widgets"}}\\n' "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_PR_NUMBER:-42}" "\${FAKE_GH_SOURCE_BRANCH:-feature/review}" "$head" "\${FAKE_GH_CROSS_REPOSITORY:-false}" "\${FAKE_GH_SOURCE_OWNER:-acme}"
 elif [[ "$1 $2" == "api user" ]]; then
   printf 'owner\\n'
 elif [[ "$1" == "api" && "$*" == *"--method POST"* ]]; then
@@ -1289,4 +1293,297 @@ test("the public entrypoint explains the Node.js dependency", () => {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /requires Node\.js 18 or newer/);
+});
+
+function collectExplicit(repository, harness, extra = {}, number = "42") {
+  return JSON.parse(run(publicBin, ["collect", number], {
+    cwd: repository,
+    env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts, ...extra },
+  }));
+}
+
+function finishExplicit(repository, harness, prepared) {
+  const env = { ...harness.env, REVIEW_PR_CONTEXT: prepared.context };
+  writeFileSync(prepared.review, JSON.stringify(approvalReview()));
+  summarizeReview(repository, harness.artifacts, env, prepared.context);
+  return completeReview(repository, harness.artifacts, env);
+}
+
+test("explicit review preserves the correct branch and fast-forwards only its remote history", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const head = readFileSync(harness.headFile, "utf8").trim();
+  run("git", ["reset", "--hard", "main"], { cwd: repository });
+  const prepared = collectExplicit(repository, harness);
+  assert.equal(prepared.checkout.branch, "feature/review");
+  assert.equal(prepared.checkout.reason, null);
+  assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), head);
+  assert.equal(run("git", ["config", "branch.feature/review.merge"], { cwd: repository }), "refs/heads/feature/review");
+  finishExplicit(repository, harness, prepared);
+  const repeated = collectExplicit(repository, harness);
+  assert.equal(repeated.status, "unchanged");
+  assert.equal(repeated.context, prepared.context);
+  assert.equal(repeated.remoteSync.status, "current");
+});
+
+test("explicit review preserves ahead, diverged, unrelated and occupied source branches", async (t) => {
+  for (const kind of ["ahead", "diverged", "unrelated", "occupied", "fallback-collision"]) {
+    await t.test(kind, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      const head = readFileSync(harness.headFile, "utf8").trim();
+      if (kind === "diverged") run("git", ["reset", "--hard", "main"], { cwd: repository });
+      if (["ahead", "diverged", "fallback-collision"].includes(kind)) {
+        writeFileSync(join(repository, "local-commit.txt"), "preserve this commit\n");
+        run("git", ["add", "."], { cwd: repository });
+        run("git", ["commit", "-qm", "local work"], { cwd: repository });
+      }
+      if (kind === "unrelated") {
+        run("git", ["config", "branch.feature/review.remote", "origin"], { cwd: repository });
+        run("git", ["config", "branch.feature/review.merge", "refs/heads/something-else"], { cwd: repository });
+      }
+      if (kind === "fallback-collision") run("git", ["branch", "review/pr-42"], { cwd: repository });
+      const savedTip = run("git", ["rev-parse", "feature/review"], { cwd: repository });
+      let other;
+      if (kind === "occupied") {
+        run("git", ["switch", "-c", "purple-panda"], { cwd: repository });
+        other = join(sandbox, "other");
+        run("git", ["worktree", "add", other, "feature/review"], { cwd: repository });
+      }
+      const prepared = collectExplicit(repository, harness);
+      assert.equal(prepared.checkout.branch, kind === "fallback-collision" ? "review/pr-42-2" : "review/pr-42");
+      assert.equal(run("git", ["rev-parse", "feature/review"], { cwd: repository }), savedTip);
+      assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), head);
+      if (other) assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: other }), savedTip);
+      if (kind === "fallback-collision") assert.equal(run("git", ["rev-parse", "review/pr-42"], { cwd: repository }), savedTip);
+      finishExplicit(repository, harness, prepared);
+      assert.equal(collectExplicit(repository, harness).checkout.branch, prepared.checkout.branch);
+    });
+  }
+});
+
+test("explicit review distinguishes identical source names in different forks", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const head = readFileSync(harness.headFile, "utf8").trim();
+  const prepared = collectExplicit(repository, harness, { FAKE_GH_CROSS_REPOSITORY: "true", FAKE_GH_SOURCE_OWNER: "alice" });
+  assert.equal(prepared.checkout.branch, "review/pr-42");
+  assert.equal(run("git", ["rev-parse", "feature/review"], { cwd: repository }), head);
+  const remote = run("git", ["config", "branch.review/pr-42.remote"], { cwd: repository });
+  assert.equal(run("git", ["config", `remote.${remote}.url`], { cwd: repository }), "https://github.com/alice/widgets.git");
+  finishExplicit(repository, harness, prepared);
+  assert.equal(collectExplicit(repository, harness, { FAKE_GH_CROSS_REPOSITORY: "true", FAKE_GH_SOURCE_OWNER: "alice" }).checkout.branch, "review/pr-42");
+});
+
+test("dirty checkout fallback preserves index and files through completion, rendering and submission", async (t) => {
+  for (const kind of ["staged", "unstaged", "untracked", "staged-then-reverted"]) {
+    await t.test(kind, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      const file = kind === "untracked" ? "new.txt" : "example.txt";
+      const original = readFileSync(join(repository, "example.txt"), "utf8");
+      writeFileSync(join(repository, file), "local changes to preserve\n");
+      if (kind.startsWith("staged")) run("git", ["add", file], { cwd: repository });
+      if (kind === "staged-then-reverted") writeFileSync(join(repository, file), original);
+      const index = run("git", ["write-tree"], { cwd: repository });
+      const status = run("git", ["status", "--porcelain"], { cwd: repository });
+      const contents = readFileSync(join(repository, file), "utf8");
+      const prepared = collectExplicit(repository, harness);
+      assert.equal(prepared.checkout.kind, "separate-worktree");
+      assert.equal(prepared.checkout.reason, "dirty-worktree");
+      assert.equal(run("git", ["status", "--porcelain"], { cwd: prepared.checkout.path }), "");
+      const handoff = finishExplicit(repository, harness, prepared);
+      assert.ok(handoff.includes(`--context ${JSON.stringify(prepared.context)}`));
+      const result = JSON.parse(run(publicBin, ["render", "--context", prepared.context], {
+        cwd: repository, env: { ...process.env, ...harness.env },
+      }));
+      assert.ok(existsSync(result.report));
+      assert.ok(readReportData(result.report).submit.invocation.includes(prepared.context));
+      run(publicBin, ["submit", "--context", prepared.context], { cwd: repository, env: { ...process.env, ...harness.env } });
+      assert.equal(JSON.parse(readFileSync(harness.payloadFile, "utf8")).event, "APPROVE");
+      const repeat = collectExplicit(repository, harness);
+      assert.equal(repeat.context, prepared.context);
+      assert.equal(repeat.checkout.path, prepared.checkout.path);
+      assert.equal(repeat.checkout.createdWorktree, false);
+      assert.equal(run("git", ["write-tree"], { cwd: repository }), index);
+      assert.equal(run("git", ["status", "--porcelain"], { cwd: repository }), status);
+      assert.equal(readFileSync(join(repository, file), "utf8"), contents);
+    });
+  }
+});
+
+test("PR sessions stay addressable after renaming the review branch", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const prepared = collectExplicit(repository, harness);
+  run("git", ["branch", "-m", "another-random-name"], { cwd: repository });
+  finishExplicit(repository, harness, prepared);
+  run(publicBin, ["render", "--context", prepared.context], { cwd: repository, env: process.env });
+  run(publicBin, ["submit", "--context", prepared.context], { cwd: repository, env: { ...process.env, ...harness.env } });
+  assert.ok(existsSync(harness.payloadFile));
+});
+
+test("legacy review history is copied without altering the original series", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const legacy = prepareReview(repository, harness.artifacts, harness.env);
+  writeFileSync(legacy.review, JSON.stringify(approvalReview()));
+  summarizeReview(repository, harness.artifacts, harness.env, legacy.context);
+  completeReview(repository, harness.artifacts, harness.env);
+  const previous = readFileSync(legacy.context, "utf8");
+  const prepared = collectExplicit(repository, harness);
+  assert.notEqual(prepared.context, legacy.context);
+  assert.equal(readFileSync(legacy.context, "utf8"), previous);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  assert.equal(context.passes.length, 1);
+  assert.notEqual(context.passes[0].review, legacy.review);
+  assert.equal(readFileSync(context.passes[0].review, "utf8"), readFileSync(legacy.review, "utf8"));
+  assert.equal(context.identity.number, 42);
+});
+
+test("two unfinished PR reviews use separate checkouts and explicit contexts", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const first = collectExplicit(repository, harness);
+  const second = collectExplicit(repository, harness, { FAKE_GH_PR_NUMBER: "43", FAKE_GH_SOURCE_BRANCH: "feature/second" }, "43");
+  assert.notEqual(first.context, second.context);
+  assert.equal(second.checkout.kind, "separate-worktree");
+  assert.equal(second.checkout.reason, "active-review-in-worktree");
+  assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), first.checkout.branch);
+  const ambiguous = spawnSync(publicBin, ["complete"], { cwd: repository, encoding: "utf8", env: { ...process.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts } });
+  assert.notEqual(ambiguous.status, 0);
+  assert.match(ambiguous.stderr, /multiple review sessions/);
+  finishExplicit(repository, harness, first);
+  finishExplicit(repository, harness, second);
+  assert.equal(JSON.parse(readFileSync(first.context, "utf8")).identity.number, 42);
+  assert.equal(JSON.parse(readFileSync(second.context, "utf8")).identity.number, 43);
+});
+
+test("PR movement retries once before any branch change", async (t) => {
+  for (const stable of [true, false]) {
+    await t.test(stable ? "stabilizes on retry" : "moves twice", () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      const original = readFileSync(harness.headFile, "utf8").trim();
+      writeFileSync(join(repository, "new-remote.txt"), "another commit\n");
+      run("git", ["add", "."], { cwd: repository });
+      run("git", ["commit", "-qm", "advance"], { cwd: repository });
+      const next = run("git", ["rev-parse", "HEAD"], { cwd: repository });
+      run("git", ["push", "origin", "HEAD:feature/review"], { cwd: repository });
+      const sequence = join(sandbox, "sequence.txt");
+      writeFileSync(sequence, [original, next, next, stable ? next : original].join("\n") + "\n");
+      const result = spawnSync(publicBin, ["collect", "42"], {
+        cwd: repository, encoding: "utf8",
+        env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts, FAKE_GH_HEAD_SEQUENCE: sequence },
+      });
+      if (stable) {
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(JSON.parse(result.stdout).remoteSync.head, next);
+      } else {
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /both collection attempts/);
+        assert.equal(run("git", ["rev-parse", "HEAD"], { cwd: repository }), next);
+        assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "feature/review");
+      }
+    });
+  }
+});
+
+test("fallback naming handles an occupied review namespace", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  run("git", ["branch", "review"], { cwd: repository });
+  run("git", ["config", "branch.feature/review.remote", "origin"], { cwd: repository });
+  run("git", ["config", "branch.feature/review.merge", "refs/heads/unrelated"], { cwd: repository });
+  const prepared = collectExplicit(repository, harness);
+  assert.equal(prepared.checkout.branch, "review-pr-42");
+});
+
+test("linked review worktrees share default artifact storage", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  writeFileSync(join(repository, "dirty.txt"), "preserve\n");
+  const env = { ...process.env, ...harness.env };
+  delete env.AGENTS_ARTIFACTS_ROOT;
+  const prepared = JSON.parse(run(publicBin, ["collect", "42"], { cwd: repository, env }));
+  const artifacts = join(realpathSync(repository), ".agents", "artifacts");
+  assert.ok(prepared.context.startsWith(artifacts));
+  finishExplicit(repository, { ...harness, artifacts }, prepared);
+  const repeated = JSON.parse(run(publicBin, ["collect", "42"], { cwd: prepared.checkout.path, env }));
+  assert.equal(repeated.context, prepared.context);
+  assert.equal(repeated.status, "unchanged");
+});
+
+test("explicit review stops on access or filesystem errors without changing branches", async (t) => {
+  for (const kind of ["access", "filesystem"]) {
+    await t.test(kind, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      const before = run("git", ["show-ref", "--heads"], { cwd: repository });
+      if (kind === "access") writeFileSync(harness.prStateFile, "unavailable\n");
+      else writeFileSync(harness.artifacts, "a file blocks the artifact directory\n");
+      const result = spawnSync(publicBin, ["collect", "42"], { cwd: repository, encoding: "utf8", env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts } });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, kind === "access" ? /gh pr view .* failed/ : /ENOTDIR/);
+      assert.equal(run("git", ["show-ref", "--heads"], { cwd: repository }), before);
+      assert.equal(run("git", ["branch", "--show-current"], { cwd: repository }), "feature/review");
+    });
+  }
+});
+
+test("explicit context refuses another clone and historical submission", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const prepared = collectExplicit(repository, harness);
+  finishExplicit(repository, harness, prepared);
+  const second = createRepository();
+  installFetchableGithubOrigin(second);
+  const wrongClone = spawnSync(publicBin, ["render", "--context", prepared.context], { cwd: second.repository, encoding: "utf8", env: process.env });
+  assert.notEqual(wrongClone.status, 0);
+  assert.match(wrongClone.stderr, /another repository or Git clone/);
+  const context = JSON.parse(readFileSync(prepared.context, "utf8"));
+  context.archived = { reason: "history-rewritten" };
+  const historical = join(sandbox, "historical-context.json");
+  writeFileSync(historical, JSON.stringify(context));
+  const submit = spawnSync(publicBin, ["submit", "--context", historical], { cwd: repository, encoding: "utf8", env: { ...process.env, ...harness.env } });
+  assert.notEqual(submit.status, 0);
+  assert.match(submit.stderr, /historical review sessions/);
+  assert.equal(existsSync(harness.payloadFile), false);
+});
+
+test("collection refuses ambiguous legacy PR histories without changing checkout", () => {
+  const { sandbox, repository } = createRepository();
+  const harness = installPullRequestHarness({ sandbox, repository });
+  const legacy = prepareReview(repository, harness.artifacts, harness.env);
+  writeFileSync(legacy.review, JSON.stringify(approvalReview()));
+  summarizeReview(repository, harness.artifacts, harness.env, legacy.context);
+  completeReview(repository, harness.artifacts, harness.env);
+  const another = join(harness.artifacts, "acme", "widgets", "another-legacy-branch", "review-pr");
+  mkdirSync(another, { recursive: true });
+  writeFileSync(join(another, "context.json"), readFileSync(legacy.context));
+  const before = run("git", ["show-ref", "--heads"], { cwd: repository });
+  const result = spawnSync(publicBin, ["collect", "42"], { cwd: repository, encoding: "utf8", env: { ...process.env, ...harness.env, AGENTS_ARTIFACTS_ROOT: harness.artifacts } });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /multiple legacy reviews/);
+  assert.equal(run("git", ["show-ref", "--heads"], { cwd: repository }), before);
+});
+
+test("fallback worktrees remain recorded and are replaced when removed or dirty", async (t) => {
+  for (const kind of ["removed", "dirty"]) {
+    await t.test(kind, () => {
+      const { sandbox, repository } = createRepository();
+      const harness = installPullRequestHarness({ sandbox, repository });
+      writeFileSync(join(repository, "dirty.txt"), "original work\n");
+      const first = collectExplicit(repository, harness);
+      finishExplicit(repository, harness, first);
+      if (kind === "removed") run("git", ["worktree", "remove", first.checkout.path], { cwd: repository });
+      else writeFileSync(join(first.checkout.path, "reviewer-notes.txt"), "preserve reviewer work\n");
+      const next = collectExplicit(repository, harness);
+      assert.notEqual(next.checkout.path, first.checkout.path);
+      const context = JSON.parse(readFileSync(next.context, "utf8"));
+      assert.deepEqual(context.ownedWorktrees, [first.checkout.path, next.checkout.path]);
+      assert.ok(existsSync(first.review));
+      if (kind === "dirty") assert.equal(readFileSync(join(first.checkout.path, "reviewer-notes.txt"), "utf8"), "preserve reviewer work\n");
+    });
+  }
 });
