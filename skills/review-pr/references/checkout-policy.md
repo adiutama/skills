@@ -29,7 +29,7 @@ After checkout, require both the exact verified commit and a clean tree. Review 
 
 Explicit PR sessions are keyed by repository, PR number, and Git clone. The artifact scope is `pr-<number>-<clone-key>` in the usual `<owner>/<repo>/<scope>/review-pr/` layout. Linked worktrees share the primary checkout's artifact root.
 
-Retain the absolute `context` path returned by collection. Use `--context <path>` for checkpoint, complete, render, open, and submit, from a checkout of the same clone. This avoids branch-dependent lookup and cross-thread guesses. If an unqualified action matches multiple sessions, request a selector rather than choosing the latest.
+Retain the absolute `context` path returned by collection. Supply `--context <path>` internally for checkpoint, complete, render, open, and submit, from a checkout of the same clone. This avoids branch-dependent lookup and cross-thread guesses. Omit the selector from user-facing follow-up commands. If an unqualified action matches multiple sessions, ask which PR or saved review the user means and resolve its path internally rather than choosing the latest.
 
 One PR series can have only one unfinished pass. Different PRs can have separate unfinished passes. Collection holds a per-clone lock while selecting a checkout and writing the session. If collection was interrupted, verify no collection is running before removing the reported stale lock.
 

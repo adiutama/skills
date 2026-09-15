@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sessionInvocation } from "../invocation.mjs";
+import { reviewPrInvocation } from "../invocation.mjs";
 
 const skillRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -71,21 +71,22 @@ function submissionAction({ context, pass, review }) {
     .filter((finding) => finding.posting === "pending")
     .map((finding) => String(finding.id));
   const args = ids.length ? ["submit", ids.join(",")] : ["submit"];
-  return `To submit this review, invoke \`${sessionInvocation(context, ...args)}\`.`;
+  return `- **Submit to GitHub:** \`${reviewPrInvocation(...args)}\` — posts the message above${ids.length ? " and the selected findings" : ""}.`;
 }
 
 export function renderHandoff({ context, pass, review }) {
   const values = {
     VERDICT: label(review.verdict.value),
     VERDICT_REASON: review.verdict.reason || review.summary || "Review complete.",
+    REVIEW_SUMMARY: review.summary || review.verdict.reason || "Review complete.",
     BLOCKING_FINDINGS: blockingSection(review),
     SUBMIT_MESSAGE: quote(review.body || review.summary || review.verdict.reason),
     COVERAGE: review.coverage?.confidence || "unspecified",
     COVERAGE_GAPS: coverageGaps(review),
     CHECKOUT_STATUS: checkoutStatus(context),
     SUBMISSION_ACTION: submissionAction({ context, pass, review }),
-    OPEN_INVOCATION: sessionInvocation(context, "open"),
-    RENDER_INVOCATION: sessionInvocation(context, "render"),
+    OPEN_INVOCATION: reviewPrInvocation("open"),
+    RENDER_INVOCATION: reviewPrInvocation("render"),
   };
   return Object.entries(values).reduce(
     (output, [key, value]) => output.replaceAll(`{{${key}}}`, value),

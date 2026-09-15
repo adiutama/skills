@@ -1393,12 +1393,14 @@ test("dirty checkout fallback preserves index and files through completion, rend
       assert.equal(prepared.checkout.reason, "dirty-worktree");
       assert.equal(run("git", ["status", "--porcelain"], { cwd: prepared.checkout.path }), "");
       const handoff = finishExplicit(repository, harness, prepared);
-      assert.ok(handoff.includes(`--context ${JSON.stringify(prepared.context)}`));
+      assert.doesNotMatch(handoff, /--context/);
+      assert.ok(!handoff.includes(prepared.context));
+      assert.match(handoff, /`\/review-pr submit`/);
       const result = JSON.parse(run(publicBin, ["render", "--context", prepared.context], {
         cwd: repository, env: { ...process.env, ...harness.env },
       }));
       assert.ok(existsSync(result.report));
-      assert.ok(readReportData(result.report).submit.invocation.includes(prepared.context));
+      assert.equal(readReportData(result.report).submit.invocation, "/review-pr submit");
       run(publicBin, ["submit", "--context", prepared.context], { cwd: repository, env: { ...process.env, ...harness.env } });
       assert.equal(JSON.parse(readFileSync(harness.payloadFile, "utf8")).event, "APPROVE");
       const repeat = collectExplicit(repository, harness);

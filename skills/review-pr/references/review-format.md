@@ -69,6 +69,9 @@ Only include findings that pass the value check in `SKILL.md`. The schema permit
 
 Use the length rules and output check in `SKILL.md` for `body` and every finding `comment`.
 
+Start both `body` and every `comment` with the AI authorship header defined in `SKILL.md`, followed by `\n\n` and the review text. Store it in the JSON so previews and submission use the same attributed text.
+
+- `summary`: write the AI commentary for the user: explain the overall assessment, relevant context, and material caveats. Keep it distinct from the proposed GitHub message and avoid repeating the verdict reason. The handoff displays it outside the message blockquote; it is not submitted as the review body.
 - `body`: state the decision and the main consequence or remaining correction. Do not list the inline findings again.
 - `comment`: name the trigger, consequence, and a useful correction. Put additional proof in `explanation`; keep `impact` and `suggestion` to one sentence each.
 

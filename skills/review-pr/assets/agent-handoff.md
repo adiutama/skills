@@ -2,14 +2,24 @@
 
 Verdict: **{{VERDICT}}** — {{VERDICT_REASON}}
 
-{{BLOCKING_FINDINGS}}Submit message:
+### AI commentary
 
-{{SUBMIT_MESSAGE}}
+{{REVIEW_SUMMARY}}
 
-Coverage: **{{COVERAGE}}**{{COVERAGE_GAPS}}
+{{BLOCKING_FINDINGS}}Coverage: **{{COVERAGE}}**{{COVERAGE_GAPS}}
 
 {{CHECKOUT_STATUS}}
 
+### Proposed GitHub message
+
+{{SUBMIT_MESSAGE}}
+
+### Next steps
+
+Submission requires your explicit instruction. Continue in this conversation:
+
 {{SUBMISSION_ACTION}}
 
-For the full report, invoke `{{OPEN_INVOCATION}}`. To rebuild its HTML, invoke `{{RENDER_INVOCATION}}`.
+- **View the full report:** `{{OPEN_INVOCATION}}`.
+- **Generate HTML without opening it:** `{{RENDER_INVOCATION}}`.
+- **Refine the review:** ask to revise the message or discuss a finding before submitting.
