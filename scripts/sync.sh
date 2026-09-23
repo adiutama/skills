@@ -10,6 +10,7 @@ LOCAL_SKILL_NAMES=()
 REPO_KNOWN_SKILL_NAMES=()
 REPO_MANAGED_GLOBAL_NAMES=()
 STALE_SKILL_NAMES=()
+TEMP_NPM_CACHE=""
 
 ##
 # sync.sh
@@ -66,6 +67,36 @@ ensure_source_dir_exists() {
   fi
 }
 
+cleanup() {
+  if [[ -n "${TEMP_NPM_CACHE}" && -d "${TEMP_NPM_CACHE}" ]]; then
+    find "${TEMP_NPM_CACHE}" -depth -delete
+  fi
+}
+trap cleanup EXIT
+
+ensure_npm_cache() {
+  local default_cache=""
+  local probe_dir=""
+  local probe=""
+  local temp_root="${TMPDIR:-/tmp}"
+
+  [[ -z "${npm_config_cache:-}" && -z "${NPM_CONFIG_CACHE:-}" ]] || return 0
+
+  default_cache="$(npm config get cache)" || return 1
+  if [[ -d "${default_cache}" ]]; then
+    probe_dir="${default_cache}/_cacache/tmp"
+    [[ -d "${probe_dir}" ]] || probe_dir="${default_cache}"
+    probe="$(mktemp "${probe_dir%/}/.skills-sync.XXXXXX" 2>/dev/null)" || true
+    if [[ -n "${probe}" ]]; then
+      find "${probe}" -delete
+      return 0
+    fi
+  fi
+
+  TEMP_NPM_CACHE="$(mktemp -d "${temp_root%/}/skills-sync-npm.XXXXXX")" || return 1
+  export npm_config_cache="${TEMP_NPM_CACHE}"
+}
+
 # Collect local skill names from directories that contain SKILL.md.
 collect_local_skill_names() {
   local names=()
@@ -112,29 +143,40 @@ collect_repo_known_skill_names() {
   fi
 }
 
-# Ask the skills CLI for global state. It owns the agent-specific paths and
-# understands both linked and copied installs.
+# Ask the skills CLI for global state. Only a symlink into SOURCE_DIR proves
+# that a stale installation belongs to this repo; copied installs are ambiguous.
 collect_repo_managed_global_names() {
   local name=""
+  local skills_json=""
+  local names_output=""
+
+  skills_json="$(npx skills list -g --json)" || return 1
+  names_output="$(printf '%s\n' "${skills_json}" | SKILLS_SOURCE_DIR="${SOURCE_DIR}" node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const sourceDir = path.resolve(process.env.SKILLS_SOURCE_DIR);
+    let input = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", chunk => input += chunk);
+    process.stdin.on("end", () => {
+      const skills = JSON.parse(input);
+      for (const skill of skills) {
+        if (!skill || typeof skill.name !== "string" || typeof skill.path !== "string") continue;
+        try {
+          if (!fs.lstatSync(skill.path).isSymbolicLink()) continue;
+          const target = path.resolve(path.dirname(skill.path), fs.readlinkSync(skill.path));
+          if (target === path.join(sourceDir, skill.name)) console.log(skill.name);
+        } catch { /* Missing or inaccessible installation: leave it alone. */ }
+      }
+    });
+  ')" || return 1
 
   while IFS= read -r name; do
     [[ -n "${name}" ]] || continue
     if contains_name "${name}" "${REPO_KNOWN_SKILL_NAMES[@]}"; then
       printf '%s\n' "${name}"
     fi
-  done < <(
-    npx skills list -g --json | node -e '
-      let input = "";
-      process.stdin.setEncoding("utf8");
-      process.stdin.on("data", chunk => input += chunk);
-      process.stdin.on("end", () => {
-        const skills = JSON.parse(input);
-        for (const skill of skills) {
-          if (skill && typeof skill.name === "string") console.log(skill.name);
-        }
-      });
-    '
-  )
+  done <<< "${names_output}"
 }
 
 contains_name() {
@@ -191,6 +233,7 @@ main() {
 
   parse_args "$@"
   ensure_source_dir_exists
+  ensure_npm_cache
   build_agent_args
 
   LOCAL_SKILL_NAMES=()

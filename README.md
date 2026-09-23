@@ -57,7 +57,7 @@ Preview unlink actions:
 ./scripts/unlink.sh --dry-run
 ```
 
-Sync local + global state (removes stale globals, links current locals):
+Sync local + global state (removes stale links into this repo, installs current skills):
 
 ```bash
 ./scripts/sync.sh
