@@ -1,8 +1,8 @@
 ---
 name: specialist
-description: "How to do one specialist job well — Architect, Designer, Implementer, Tester, Reviewer, Explorer, Researcher, Prototyper. Use when a brief starts with `Role: <specialty>`, when the user asks you to act as one of these roles, or when the current work is one of these jobs (writing a spec, UI design, implementing a slice, testing, reviewing, exploring code, researching, prototyping) even without a brief."
+description: "Use whenever you do hands-on work, with or without a `Role: <specialty>` brief — exploring or searching code, writing a spec, designing UI, implementing, testing, reviewing, researching, or prototyping. Helps you do that job efficiently: which method to follow, when to stop, and how to report."
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   related: "orchestration"
 ---
 

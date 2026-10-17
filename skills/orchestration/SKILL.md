@@ -1,8 +1,8 @@
 ---
 name: orchestration
-description: Workflow rules for every task — classify by radius (wide/deep) and stakes, pick a model tier and effort from a fixed table, decide whether to delegate, and keep each agent inside its context smart zone. Delegation (Manager → Lead → Specialist) is in a reference read only when delegating. Load at the start of every task.
+description: Use at the start of every task, before the first tool call, even when the task looks small or is a follow-up in the same conversation. Helps you work faster and cheaper — size the task, pick the right model and effort, decide whether to hand parts to subagents, and keep context small.
 metadata:
-  version: "1.0.0"
+  version: "1.0.1"
   related: "specialist, throwaway-services, evidence, pr-review"
 ---
 
