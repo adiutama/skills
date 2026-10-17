@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: false
+interface:
+  display_name: "Evidence"
+  short_description: "Capture screenshots and HTTP request/response evidence for a PR"
+  default_prompt: "Use $evidence to capture the page or request I describe."

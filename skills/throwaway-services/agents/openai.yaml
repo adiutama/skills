@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: false
+interface:
+  display_name: "Throwaway services"
+  short_description: "Start and tear down disposable local test services"
+  default_prompt: "Use $throwaway-services to start a disposable Postgres for this worktree."

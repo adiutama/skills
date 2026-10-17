@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: false
+interface:
+  display_name: "Review PR"
+  short_description: "Review a GitHub PR and prepare findings"
+  default_prompt: "Use $pr-review to review the specified pull request."
