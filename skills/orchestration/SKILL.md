@@ -1,8 +1,8 @@
 ---
 name: orchestration
-description: Use at the start of every task, before the first tool call, even when the task looks small or is a follow-up in the same conversation. Helps you work faster and cheaper — size the task, pick the right model and effort, decide whether to hand parts to subagents, and keep context small.
+description: "Use at the start of every task, before the first tool call, even when the task looks small, low-effort, or is a follow-up. Loading it costs less than it saves: it routes small work to the cheapest model and splits large reads across subagents."
 metadata:
-  version: "1.0.1"
+  version: "1.0.2"
   related: "specialist, throwaway-services, evidence, pr-review"
 ---
 
