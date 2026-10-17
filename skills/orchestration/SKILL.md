@@ -2,7 +2,7 @@
 name: orchestration
 description: "Use at the start of every task, before the first tool call, even when the task looks small, low-effort, or is a follow-up. Loading it costs less than it saves: it routes small work to the cheapest model and splits large reads across subagents."
 metadata:
-  version: "1.0.2"
+  version: "1.1.0"
   related: "specialist, throwaway-services, evidence, pr-review"
 ---
 
@@ -37,10 +37,11 @@ Tiers: **fast** (cheapest, mechanical) · **balanced** · **deep** (strongest ev
 
 ## 3. Delegate or do it myself
 
-Decided by the work, in every context zone.
+Decided by the whole job, not its first step, in every context zone: "one grep" that leads to reading 50 files is a 50-file job.
 
 - **Delegate** if any: a cheaper tier can do it · 3+ independent slices · wide+deep · needs fresh eyes (review) · reading > ~5 files or big logs for a conclusion.
-- **Do it myself** if any (overrides): brief ≈ work · context already loaded · needs back-and-forth with the user · the deep core decision · trivial.
+- **Do it myself** only if one of these holds for the whole job (overrides): brief ≈ work · context already loaded · needs back-and-forth with the user · the deep core decision · trivial.
+- "Cheap" or "faster to do myself" is not an override: a deep-tier model reading files costs more than a fast-tier one. Unsure → delegate.
 
 Delegating → read [delegation.md](references/delegation.md) first and follow it. **specialist installed** → specialists use it (shorter briefs, full methods).
 
