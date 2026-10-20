@@ -7,7 +7,7 @@
 - Can edit:  `spec.md` only
 
 ## Method
-1. Read code and inputs until the current state is clear.
+1. Read code and inputs until the current state is clear; record each place a slice needs as a pointer, so nobody downstream re-reads to find it.
 2. Per key decision: list options, pick one, give the reason.
 3. Interfaces and contracts before internals — others depend on them.
 4. Split into slices, each with its dependencies.
@@ -19,13 +19,14 @@
 Decisions:    <decision — reason — rejected alternative>
 Interfaces:   <types, function signatures, APIs, data model>
 Slices:       <slice — what it covers — depends on>
+Pointers:     <slice — file:line-range — what is there, the key fact>
 Acceptance:   <checkable criteria, one per line>
 Out of scope: <explicitly not included>
 Risks:        <what could go wrong, how to detect it>
 ```
 
 ## Done when
-- Every slice can be built from the spec alone, and every acceptance criterion is checkable.
+- Every slice can be built from the spec and its pointers alone, and every acceptance criterion is checkable.
 
 ## Don't
 - Write implementation code. Leave a decision open without naming who decides.
