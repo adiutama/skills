@@ -68,3 +68,11 @@ In `~/.claude/settings.json`, with `<dir>` = the installed skill folder:
   "statusLine": { "type": "command", "command": "<dir>/scripts/context-zone.sh status \"$(jq -r .transcript_path)\"" }
 }
 ```
+
+## Reminder hook
+
+Claude Code only, optional. [`scripts/reminder.sh`](../scripts/reminder.sh) injects a five-line checklist (classify, delegate, role card, context zone, reload) before every message, including worker notifications. Add it to the same `UserPromptSubmit` list:
+
+```json
+{ "hooks": [{ "type": "command", "command": "sh <dir>/scripts/reminder.sh" }] }
+```
