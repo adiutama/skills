@@ -2,7 +2,7 @@
 name: orchestration
 description: "Use at the start of every task, before the first tool call, even when the task looks small, low-effort, or is a follow-up. Loading it costs less than it saves: it routes small work to the cheapest model and splits large reads across subagents."
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   related: "specialist, throwaway-services, evidence, pr-review"
 ---
 
