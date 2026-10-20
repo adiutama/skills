@@ -21,7 +21,7 @@ Each term means what your harness's column says, everywhere in this skill and it
 |---|---|---|---|---|---|
 | storage | your directory for artifacts, details, handoff note | the brief's `Storage:` path, else `$BB_THREAD_STORAGE` | the brief's `Storage:` path, else `~/.agents/specialist/<task>/` | the brief's `Storage:` path, else `~/.agents/specialist/<task>/` | the brief's `Storage:` path, else `~/.agents/specialist/<task>/` |
 | link | how a brief names your parent | `@thread:<id>` | agent ID; the main session is `main` | agent ID; the main session is `main` | `main` |
-| context reading | a token count you can see | Claude Code: hook line, if installed · Codex: unknown | context-zone hook line, if installed | unknown | unknown |
+| context reading | a token count you can see | `bb thread context --self` | context-zone hook line, if installed | unknown | unknown |
 
 ## Tiers
 

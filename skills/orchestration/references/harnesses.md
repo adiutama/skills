@@ -22,17 +22,17 @@ Each term means what your harness's column says, everywhere in this skill and it
 |---|---|---|---|---|---|
 | worker | an agent you start for one job | child thread | subagent | subagent | — (you play every role in sequence) |
 | spawn | start a worker with a brief, tier, and effort | `bb thread spawn --project <id from bb status> --parent-self --environment "$BB_ENVIRONMENT_ID" --provider <claude-code\|codex> --model <id> --reasoning-level <effort> --title "<Role>: <task>" --prompt-file <brief>` | Agent tool; `model`, `effort`; brief contents as the prompt | spawn-agent tool (read its schema first); `model`, `reasoning_effort`, non-forked context; brief contents as the prompt | — |
-| wait | block until a worker's turn ends | `bb thread wait <id>` | foreground Agent call, or its completion notification | wait-agent tool; repeat after a timeout | — |
+| wait | block until a worker's turn ends | end your turn: each child's turn end wakes you with its result (`bb thread wait <id>` only within your shell's time limit) | foreground Agent call, or its completion notification | wait-agent tool; repeat after a timeout | — |
 | read | get a worker's report | `bb thread output <id>` (full history: `bb thread log <id>`) | the agent's final message | the agent's final report | — |
 | tell | message a running worker | `bb thread tell <id>` | SendMessage to the agent ID | send-message / follow-up tool with the agent ID | — |
 | link | a reference to an agent, for the user and for `Parent:` | `@thread:<id>` | agent ID; the main session is `main` | agent ID; the main session is `main` | `main` |
 | nesting | workers can spawn workers | yes | usually no | yes if the worker has the spawn tool | — |
 | isolation | give a worker its own working copy | `--new-environment worktree` on spawn | Agent `isolation: "worktree"` | — (one shared working directory) | — |
 | storage | your per-agent directory that outlives context; a worker's is the `Storage:` path in its brief | `$BB_THREAD_STORAGE` | `~/.agents/orchestration/<task>/` | `~/.agents/orchestration/<task>/` | `~/.agents/orchestration/<task>/` |
-| compact | shrink your context after the ledger is current | ask the user to run `/compact`, or let auto-compaction run | ask the user to run `/compact`, or let auto-compaction run | ask the user to run `/compact`, or let auto-compaction run | start a fresh session from the handoff note |
+| compact | shrink your context after the ledger is current | an idle worker: `bb thread compact <id>`; yourself: ask the user to run `/compact`, or let auto-compaction run | ask the user to run `/compact`, or let auto-compaction run | ask the user to run `/compact`, or let auto-compaction run | start a fresh session from the handoff note |
 | permission | a worker's permission mode | inherit; `auto` instead of `accept-edits`; denials become blockers | inherit | inherit sandbox and approval policy | — |
 | specialist installed | the `specialist` skill is available | `~/.bb/skills/specialist` exists | listed in available skills | listed in available skills | listed in available skills |
-| context reading | a token count the model can see | Claude Code: hook line, if installed · Codex: unknown | hook line, if [installed](#context-zone-hook) | unknown | unknown |
+| context reading | a token count the model can see | `bb thread context --self` (a worker's: `bb thread context <id>`) | hook line, if [installed](#context-zone-hook) | unknown | unknown |
 | spawn cost | context a worker uses before working | a full new session | ~19K tokens | a new session | — |
 
 ## Tiers

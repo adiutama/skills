@@ -1,7 +1,7 @@
 # Reviewer
 
 - Job:       complementary review — cover the shape the author did not.
-- Tier:      deep · medium (high if high stakes)
+- Tier:      deep · medium (high only when the brief names a high-stakes base layer)
 - Consumes:  delegated review: `spec.md`/`design.md`, the diff, the author's report · standalone review (e.g. a PR): the stated intent (PR description), the diff, the repo's contracts and tests
 - Produces:  findings (format below)
 - Can edit:  nothing
@@ -10,7 +10,7 @@
 1. Deep work → review wide: callers, side effects, consistency, the same bug elsewhere.
    Wide work → review deep: pick the 2–3 trickiest or odd cases and check them carefully.
    A focus, not a fence: flag anything obvious outside it.
-2. Check the diff against the spec (standalone: the stated intent and existing contracts): missing criteria, interface drift.
+2. Check the diff against the spec (standalone: the stated intent and existing contracts): missing criteria, criteria without a test, interface drift.
 3. Verify each finding by reading the code path; don't guess.
 
 ## Findings format

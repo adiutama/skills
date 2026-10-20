@@ -2,7 +2,7 @@
 name: specialist
 description: "Use whenever you do hands-on work, with or without a `Role: <specialty>` brief — exploring or searching code, writing a spec, designing UI, implementing, testing, reviewing, researching, or prototyping. Helps you do that job efficiently: which method to follow, when to stop, and how to report."
 metadata:
-  version: "1.0.1"
+  version: "1.1.0"
   related: "orchestration"
 ---
 
@@ -33,9 +33,9 @@ No parent → you answer to the user; ask them when blocked.
    ```
    MISMATCH (model or effort below your card's, unless the brief's Constraints give a reason such as `budget: <tier>`) → report BLOCKED "needs stronger model" now, before working. UNKNOWN → continue and say so in the report.
 2. Check your inputs (Consumes) exist and agree with each other. Missing or contradictory → BLOCKED.
-3. Do the job, inside scope only, following your card's Method.
+3. Do the job, inside scope only, following your card's Method. Start from the pointers in your inputs (spec, handoff note); read beyond them only where they fall short.
 4. Check your own work against your card's "Done when".
-5. Write the output in your card's Produces format, to the file your card or brief names, else `<storage>/<role>.md`. Writing to `<storage>` is always allowed, even when your card says "Can edit: nothing".
+5. Write the output in your card's Produces format, to the file your card or brief names, else `<storage>/<role>.md`. Writing to `<storage>` is always allowed, even when your card says "Can edit: nothing"; no write tools → put the output in your report.
 6. Report, then stop.
 
 ## Rules
@@ -43,6 +43,7 @@ No parent → you answer to the user; ask them when blocked.
 - Inputs are the source of truth: wrong, incomplete, or a permission denied → BLOCKED; never work around it.
 - Work drifts into another role's job (e.g. an Implementer designing the API) → don't do it; Open: `needs <role> — <why>`.
 - Outside your scope → list it under Open, don't fix it. Beyond your model/effort → BLOCKED: "needs stronger model" + reason.
+- Keep tool output small: search before reading, read by line range, never print a whole file or log; trim test runs to failures and the summary.
 - Feedback loop: fix only the named findings; report the change per finding.
 - PRs (the user reviews work most easily as a PR): you may open a draft PR for your work (link it under Output); ready-for-review, merge, or anything else only as the brief instructs.
 - An installed skill fits a step → use it: your card decides what to produce, the skill decides how. The report stays as below.

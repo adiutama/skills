@@ -41,7 +41,10 @@ Rules:     talk only to your parent; never ask the user or spawn workers.
            Inputs are the source of truth: wrong or missing → BLOCKED.
            Use any installed skill that fits a step; the report format stays.
            PRs: draft only, unless this brief says otherwise.
-Output:    write your artifact to <storage>/<role>.md unless Goal names a file (<storage> = the Storage path above).
+           Start from the pointers in your inputs. Keep tool output small: read by line range,
+           never print whole files or logs, trim test runs to failures and the summary.
+Output:    write your artifact to <storage>/<role>.md unless Goal names a file (<storage> = the Storage path above);
+           no write tools → put it in your final message.
 Report:    end every turn with this, ≤ ~300 words:
            <§6 block, with the BLOCKED fields>
 Context:   🔴 (> 250K tokens, or > 80 % of your window) → don't stop; finish and note "context 🔴" under Open.
@@ -49,7 +52,7 @@ Context:   🔴 (> 250K tokens, or > 80 % of your window) → don't stop; finish
            <§7 block>
 ```
 
-`Role: Lead`: `Role`, `Parent`, `Storage` + "Load the orchestration skill." + Goal, Inputs, Scope, Constraints, Running on + the approved plan.
+`Role: Lead`: `Role`, `Parent`, `Storage` + "Load the orchestration skill." + Goal, Inputs, Scope, Constraints, Running on + the approved plan + the owner (Lead link) of each contract it shares with other Leads.
 
 ## §3 Consultant brief
 
@@ -66,19 +69,18 @@ Answer in:  ≤ 300 words — verdict, risks missed, what to change
 ## §4 Lead plan (user approves once, via the Manager)
 
 ```
-Lead:       <name> — <goal>
+Lead:       <goal, e.g. cost sheet accuracy> — after: <Lead, or —>
 Classification: <block from §1>
 
 Dependency map (base first; a layer starts when the one below is DONE):
-  L0 base   spec.md (data model + interfaces)   Architect    deep · high      depends on: —           gate: Lead checks spec (delegation.md)
-  L1        slice A · slice B (parallel)         Implementer  fast · low       depends on: L0
-            test L1                              Tester       fast · low       depends on: slice A, B  gate: PASS
-  L2        slice C (uses A's API)               Implementer  balanced · med   depends on: L1
-            test L2                              Tester       fast · low       depends on: slice C     gate: PASS
-  Final     review the whole diff                Reviewer     deep · medium*   depends on: L2          gate: Approve (fresh eyes, complementary)
-  Optional  review L1 (high stakes, shared base) Reviewer     deep · high      depends on: test L1
-  * high if stakes are high
-Expected:  <n> specialists, max <n> parallel
+  L0 base   spec.md (data model, interfaces, pointers)  Architect    deep · high      depends on: —           gate: Lead checks spec (delegation.md)
+  L1        <slice> · <slice> · high (parallel, disjoint) Implementer  fast · low       depends on: L0          gate: criteria tests pass
+            test L1 (only cross-slice or running-app)    Tester       fast · low       depends on: L1 slices   gate: PASS
+  L2        <slice> (uses L1's API)                      Implementer  balanced · med   depends on: L1          gate: criteria tests pass
+  Final     review the whole diff (fixed: one per Lead)  Reviewer     deep · medium*   depends on: L2          gate: Approve (fresh eyes, complementary)
+  Base      only if L1 is a high-stakes shared base      Reviewer     deep · high      depends on: test L1
+  * medium even when slices are high stakes; they are named as its focus
+Expected:  <n> specialists = Architect + Implementers + Testers in the map + 1 Reviewer (+1 Base); max <n> parallel
 Needs approval again if: extra role, higher tier, consultant, > 4 parallel
 ```
 
@@ -138,7 +140,7 @@ Pointers:      <file paths, worker links, spec — never file contents>
 
 ## §8 Board (Manager → user)
 
-On every change; one row per Lead or direct specialist.
+On every milestone (delegation.md § Messages); one row per Lead or direct specialist.
 
 ```
 | Lead / specialist | Goal | Status | Needs you? |
