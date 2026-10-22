@@ -1,3 +1,0 @@
-interface:
-  display_name: "Orchestration"
-  short_description: "Classify work, route to model tiers, and delegate"

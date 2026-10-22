@@ -43,7 +43,8 @@ Every skill works with any agent harness (bb, Claude Code, Codex, …).
 - Each skill has `references/harnesses.md` with two parts:
   - **Detect** — signals to identify the harness, checked top to bottom.
   - **Glossary** — one row per term, one column per harness (plus `none`), saying what the term means there.
-- `SKILL.md` opens by telling the agent to detect its harness and read its glossary column, lists the glossary terms, then uses only those terms. No harness names, commands, paths, model names, or examples outside `harnesses.md`.
+- A skill may hold Detect and the Glossary in `scripts/harness.sh` instead, one subcommand per term that performs the action where the harness has a CLI and prints the tool parameters where it does not; `harnesses.md` then documents the script and keeps the tier table. The `workflow` skill does this.
+- `SKILL.md` opens by telling the agent to detect its harness and read its glossary column (or run the script), then uses only those terms. No harness names, commands, paths, model names, or examples outside `harnesses.md` and `harness.sh`.
 - Harness metadata files (e.g. `agents/openai.yaml` for Codex) and harness adapter scripts (e.g. a hook for one harness) live in the skill folder; they may name their harness. Frontmatter keys one harness needs (e.g. `disable-model-invocation`, `argument-hint`) stay top-level in `SKILL.md`.
 
 ## Family conventions
