@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>PR testing</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <nav class="rail" aria-label="Pull requests">
+      <h1 class="brand">PR testing</h1>
+      <ul id="pr-list" class="pr-list"></ul>
+      <p id="rail-empty" class="muted" hidden>No checklists yet. The agent adds one after reading a PR.</p>
+    </nav>
+
+    <main id="main" tabindex="-1">
+      <header id="ticket" class="ticket" hidden>
+        <div class="ticket-head">
+          <h2 id="pr-title"></h2>
+          <a id="pr-link" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+        <dl class="ticket-facts">
+          <div><dt>Testing commit</dt><dd><code id="pr-sha"></code></dd></div>
+          <div><dt>App</dt><dd id="app-cell"></dd></div>
+          <div><dt>Progress</dt><dd id="progress"></dd></div>
+        </dl>
+        <p id="retest-note" class="retest-note" hidden></p>
+      </header>
+
+      <section id="cases" aria-label="Checks"></section>
+
+      <section id="subs-wrap" class="subs" hidden>
+        <h3>Sent from this page</h3>
+        <ol id="subs" reversed></ol>
+      </section>
+
+      <p id="empty" class="empty" hidden>Pick a pull request on the left.</p>
+    </main>
+  </div>
+
+  <form id="actions" class="actions" hidden>
+    <label for="message" class="visually-hidden">Message to the agent</label>
+    <textarea id="message" rows="2" maxlength="8000" placeholder="Anything to add for the agent? Never paste passwords or keys here."></textarea>
+    <div class="buttons">
+      <button type="button" data-kind="feedback" class="btn">Send feedback</button>
+      <button type="button" data-kind="fix-request" class="btn btn-fix">Request fixes</button>
+      <button type="button" data-kind="complete" class="btn btn-done">Testing complete</button>
+    </div>
+    <p id="delivery-note" class="delivery-note"></p>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </form>
+
+  <template id="case-tpl">
+    <article class="case">
+      <div class="case-head">
+        <span class="case-id"></span>
+        <h3 class="case-title"></h3>
+      </div>
+      <ol class="steps"></ol>
+      <p class="expected"><strong>Expected:</strong> <span></span></p>
+      <p class="previous" hidden></p>
+      <fieldset class="verdict">
+        <legend class="visually-hidden">Result</legend>
+      </fieldset>
+      <label class="note-label">Note
+        <textarea class="note" rows="1" maxlength="4000" placeholder="What you saw (optional)"></textarea>
+      </label>
+      <p class="saved muted" aria-live="polite"></p>
+    </article>
+  </template>
+</body>
+</html>

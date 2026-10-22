@@ -5,8 +5,8 @@ disable-model-invocation: true
 argument-hint: '[start] [<service>,…] [--for <worktree>] [--version <n>] | seed <id> [<case>] | status | stop [<id> | all]'
 compatibility: Needs the service's server binaries, or Docker.
 metadata:
-  version: "1.1.0"
-  related: "evidence, pr-review"
+  version: "1.1.1"
+  related: "evidence, pr-review, pr-testing"
 ---
 
 ## Harness
@@ -25,7 +25,7 @@ A set is everything one `start` creates. Its ID `<id>` is `<yyyymmdd-hhmmss>-<4 
 ## Rules
 
 - **Never the developer's own.** Never connect to, reuse, stop, or change a service you didn't start. A port in use is someone else's.
-- **New every time.** Never attach to, reuse, or copy an earlier set, even one running for the same worktree.
+- **New every time.** Never attach to, reuse, or copy an earlier set, even one running for the same worktree. A caller that started a set may keep using its own set for its whole session (pr-testing does); that is not attaching to an earlier one.
 - **Loopback only, data in `<D>`.** Bind to `127.0.0.1`; trust auth on loopback is fine. Data, logs, and container volumes live under `<D>`, never in the repo.
 - **Match the repo.** Use the major version the repo expects (CI config, compose file, `.tool-versions`, engines); `--version` overrides. Unavoidable mismatch → say so in the report.
 - **Record first, then start.** Write each service's block (status `starting`, with its stop command) and its `services.json` entry before launching it; update both once running. A start that fails stops what it began.
