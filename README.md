@@ -9,8 +9,9 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 | [evidence](skills/evidence/SKILL.md) | 1.0.0 | Capture screenshots and HTTP requests with responses as proof of work — redacted, stamped with commit, stored outside the repo — and pack them into a paste-ready PR Evidence block. Manual only. |
 | [orchestration](skills/orchestration/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
 | [pr-review](skills/pr-review/SKILL.md) | 1.0.0 | Review a GitHub PR in an isolated worktree as one visual report (change map, behavior diff, blast radius, pinned findings); submit only on request. |
+| [pr-testing](skills/pr-testing/SKILL.md) | 1.0.0 | Test open PRs by hand, one at a time, in one disposable test checkout with fake integrations and synthetic data; a per-PR checklist dashboard whose buttons reach the agent, fresh implementers for agreed fixes, merge only on your say-so. Manual only. |
 | [specialist](skills/specialist/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
-| [throwaway-services](skills/throwaway-services/SKILL.md) | 1.1.0 | A disposable environment for manual verification: start new local services, emulators, and the app for a worktree, seed them for the case you want to check, get the link to open first, and keep it all running until you stop it. Manual only. |
+| [throwaway-services](skills/throwaway-services/SKILL.md) | 1.1.1 | A disposable environment for manual verification: start new local services, emulators, and the app for a worktree, seed them for the case you want to check, get the link to open first, and keep it all running until you stop it. Manual only. |
 | [workflow](skills/workflow/SKILL.md) | 1.0.0 | Classify work, route it to a model tier, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a harness script for spawn, tell, read, and storage. |
 
 ## Setup

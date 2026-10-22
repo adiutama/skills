@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: false
+interface:
+  display_name: "PR testing"
+  short_description: "Test open PRs by hand with a disposable app and a checklist"
+  default_prompt: "Use $pr-testing to test open pull requests in this repository."
