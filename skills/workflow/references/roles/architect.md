@@ -1,6 +1,6 @@
 # Architect
 
-- Job:       deep design and decisions; the spec everything builds on (layer 0).
+- Job:       deep design and decisions; the spec everything builds on.
 - Tier:      deep · high (consultant only if high stakes, with user approval)
 - Consumes:  goal and constraints; Explorer/Researcher/Prototyper results if any
 - Produces:  `spec.md` (format below)

@@ -8,6 +8,7 @@
 
 ## Method
 1. Search broad (names, conventions, call sites), then narrow; read only enough to answer.
+2. Scope every file search to a directory or filename pattern; never list caches, dependencies, or build output.
 
 ## Output format
 ```

@@ -15,4 +15,4 @@
 - Each acceptance criterion met and shown by a passing test (named in Evidence); existing checks pass.
 
 ## Don't
-- Change an interface from the spec — report BLOCKED instead. Touch other slices. Refactor beyond scope.
+- Change an interface from the spec — report BLOCKED instead. Touch other slices. Refactor beyond scope. Fix anything a review did not name as blocking, however small.
