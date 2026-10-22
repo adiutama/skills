@@ -20,6 +20,13 @@ No parent → you answer to the user; ask them when blocked.
 5. Write the output in your card's Produces format, to the file your card or brief names, else `<storage>/<role>.md`. Writing to **storage** is always allowed, even when your card says "Can edit: nothing"; no write tools → put the output in your report.
 6. Write the [Report](../SKILL.md#report), then stop.
 
+## Turn ends
+
+Every turn end wakes your parent, which re-reads its whole context. End a turn only with the Report, a plain answer to a question from your parent, or `HANDOFF`. Never end one to report progress ("still running", "gate in progress", "nothing new").
+
+- A long check (test suite, CI gate, browser run) is awaited inside the turn: run it in the foreground with a timeout long enough, or poll it in a shell loop. Never wait with a **wake tool**: each firing ends your turn.
+- Messages that arrive while you work: fold them into the job and answer them once, in the report. A message that asks for nothing gets no reply.
+
 A feedback round from your parent repeats 3–6 for the findings it names, by id, and nothing else. A finding you noticed yourself, or one marked non-blocking or "for user", is not yours even if it is a one-line fix: list it under Open. Fixing it anyway is scope creep and gets reverted.
 
 ## Scope

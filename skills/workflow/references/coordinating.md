@@ -157,7 +157,8 @@ Answer in:  ≤ 300 words — verdict, risks missed, what to change
 - Non-blocking findings (the Reviewer's For-user list) never reach the Implementer. They go to the ledger under Open and to the user on the next board as `Needs you?`; the user picks which become new work, each as its own slice with its own brief. Forwarding one, or an Implementer fixing one unasked, is scope creep: revert it.
 - BLOCKED: answer from spec, ledger, or judgment by **tell** (no **tell** → re-spawn with the answer in the brief); otherwise ask the user. Wrong spec → back to the Architect, re-check dependents. "Needs stronger model" without a `budget:` constraint → re-spawn one tier up. `Open: needs <role>` → add that role to the plan.
 - A worker the user steps into reports the user's changes to its parent.
-- After each step is done and the ledger is current, **compact**: ask the user, or let auto-compaction run. Compact an idle worker yourself before giving it a later slice.
+- After each step is done and the ledger is current, **compact**: ask the user, or let auto-compaction run. Compact an idle worker yourself before giving it a later slice, in the same command as the **tell** that gives it, so the replay and the real start arrive together.
+- Where **compact** says the next wake replays the last report: a wake whose text matches that worker's last report is noise. No ledger change, no tool calls, no post; end the turn.
 
 Ledger, `<storage>/ledger.md`:
 
