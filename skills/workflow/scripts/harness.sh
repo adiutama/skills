@@ -14,7 +14,7 @@
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
 #   harness.sh tell <id> <message|->       message a worker (- reads stdin)
-#   harness.sh compact <id>               compact an idle worker
+#   harness.sh compact <id>               compact an idle worker (bb: its next wake is a replay)
 #
 # Override detection with WORKFLOW_HARNESS=codex (Codex has no env signal).
 set -e
@@ -81,7 +81,8 @@ link        @thread:<id>
 nesting     yes, for pairing only: one helper per worker, never a coordinator under a coordinator (every child turn wakes its parent)
 isolation   --isolated on spawn gives the worker its own worktree
 storage     harness.sh storage (a worker's: the Storage: path in its brief)
-compact     a worker: harness.sh compact <id>; yourself: ask the user to run /compact, or let auto-compaction run
+compact     a worker: harness.sh compact <id>, in the same command as your next tell to it; its next wake replays its last report; yourself: ask the user to run /compact, or let auto-compaction run
+wake tool   Claude Code: Monitor, ScheduleWakeup, a background shell command that re-invokes you; Codex: none. Each firing ends your turn and wakes your parent
 permission  inherit; auto instead of accept-edits; denials become blockers
 context     harness.sh context [id]
 spawn cost  a full new session
@@ -98,6 +99,7 @@ nesting     usually no
 isolation   Agent isolation: "worktree"
 storage     harness.sh storage
 compact     ask the user to run /compact, or let auto-compaction run
+wake tool   Monitor, ScheduleWakeup, a background shell command that re-invokes you
 permission  inherit
 context     unknown
 spawn cost  ~19K tokens
@@ -114,6 +116,7 @@ nesting     yes if the worker has the spawn tool; pairing only, never a coordina
 isolation   none: one shared working directory; parallelize only disjoint writes
 storage     harness.sh storage
 compact     ask the user to run /compact, or let auto-compaction run
+wake tool   none
 permission  inherit sandbox and approval policy
 context     unknown
 spawn cost  a new session
@@ -130,6 +133,7 @@ nesting     none
 isolation   none
 storage     harness.sh storage
 compact     start a fresh session from the handoff note
+wake tool   none
 permission  none
 context     unknown
 spawn cost  none
@@ -220,7 +224,8 @@ case ${1:-} in
   tell) [ -n "$2" ] && [ -n "$3" ] || die "tell <id> <message|->"
         msg="send the message with SendMessage (Claude Code) or send-message (Codex) to $2"
         if [ "$3" = - ]; then bb_or_print "$msg" tell "$2" --message-file -; else bb_or_print "$msg" tell "$2" "$3"; fi ;;
-  compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2" ;;
+  compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
+           if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
   ''|-h|--help|help) sed -n '2,19p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
