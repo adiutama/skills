@@ -5,7 +5,7 @@ disable-model-invocation: true
 argument-hint: '[start] [<PR number or URL>] | switch <PR> | status | stop'
 compatibility: Needs git, authenticated gh, Node 18+, and the throwaway-services skill installed beside this one.
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   related: "throwaway-services"
 ---
 
@@ -43,7 +43,7 @@ Follow [setup.md § Setup](references/setup.md#setup). The result is the test ch
 
 ## 2 — Pick a PR
 
-List every open PR, drafts included, all pages: `gh pr list --state open --limit 1000 --json number,title,author,headRefName,baseRefName,isDraft,statusCheckRollup,url`. Show a table with number, title, author, head → base, draft, and CI. Flag real dependencies: a base that is another open PR's head, or a description naming one. Ask which PR to test, then wait.
+List every open PR, drafts included, all pages: `gh pr list --state open --limit 1000 --json number,title,author,headRefName,baseRefName,isDraft,statusCheckRollup,mergeable,mergeStateStatus,url`. Show a table with number, title, author, head → base, draft, CI, and mergeable / merge state (`UNKNOWN` → `gh pr view <n> --json mergeable,mergeStateStatus` once). Flag real dependencies: a base that is another open PR's head (stacked), or a description naming one. Flag every `CONFLICTING` or `BEHIND` PR now, not at merge. Ask which PR to test, then wait.
 
 Fetch the chosen PR's head into `<S>/tree` ([setup.md § Checkout](references/setup.md#checkout)) and record its SHA. Read the description, the diff, the docs it touches, and its checks. Then write its checklist ([checklist.md](references/checklist.md)): the cases come from what this PR changes, never from a template.
 
@@ -51,7 +51,7 @@ Test one PR at a time. When a PR depends on another, test the base first. Then u
 
 ## 3 — Integrations and start
 
-Inventory this PR's integrations and extra infrastructure ([setup.md § Integrations](references/setup.md#integrations)). Show the table with the fake defaults, ask which external services to enable for real, and wait. For each real choice, state its target and what it can change. Start or adjust the services, then guard and seed the data ([setup.md § Data](references/setup.md#data)). Start the app and check it is ready at its stable URL. Then report:
+Inventory this PR's integrations and extra infrastructure ([setup.md § Integrations](references/setup.md#integrations)). Show the table with the fake defaults, ask which external services to enable for real, and wait. For each real choice, state its target and what it can change. Start or adjust the services, then guard and seed the data ([setup.md § Data](references/setup.md#data)). Start the app and check it is ready at its stable URL, check the links ([setup.md § Links](references/setup.md#links)), and run the `agent` cases. Then report:
 
 ```markdown
 ## ▶ Testing PR #<n> — <title>
@@ -59,17 +59,23 @@ Inventory this PR's integrations and extra infrastructure ([setup.md § Integrat
 **Commit:** `<sha>` · **Log in as:** <synthetic user> / <synthetic password>
 **Integrations:** <name: fake | emulator | stub | real (target)>, …
 **Limitations:** <what cannot be tested here and why, or "none">
+**I checked:** <agent case id: pass | fail — what I saw>, …
+**Please check (<k> of at most 3):** <user case titles>, on the dashboard
 ```
 
 ## 4 — Feedback and fixes
 
 Listen first. Each dashboard submission and each chat report gets one reply ([checklist.md § Submissions](references/checklist.md#submissions)). **Send feedback** opens a discussion; reproduce the problem and agree on what to fix. **Request fixes**, or a fix batch the user explicitly agrees to in chat, authorizes exactly one fresh **implementer** for that batch. Never start speculative fix workers.
 
-Brief and spawn it per [fixes.md](references/fixes.md). It works in its own new worktree, never in `<S>/tree`, and it updates the existing PR branch. It returns the new SHA and its check results. Then deploy that SHA to the test checkout ([setup.md § Revision](references/setup.md#revision)), mark the affected cases for retest, restart the app at the same URL, and ask the user to retest. Log each batch in the ledger.
+Brief and spawn it per [fixes.md](references/fixes.md). It works in its own new worktree, never in `<S>/tree`, and it updates the existing PR branch. It returns the new SHA and its check results. Then deploy that SHA to the test checkout ([setup.md § Revision](references/setup.md#revision)), rerun the `agent` cases whose flows the diff touched, mark the touched `user` cases for retest, restart the app at the same URL, and ask the user to retest only those. Log each batch in the ledger.
 
 ## 5 — Merge
 
-Merge only when the user authorizes it. Plain words count ("merge it", "ship it"), and so does authorization given earlier in this session. Before merging, check all of these:
+Merge only when the user authorizes it. Plain words count ("merge it", "ship it", "merge when ready"), and so does authorization given earlier in this session.
+
+**Behind or conflicting** → a reconcile is a fix batch ([fixes.md § Reconcile and merge](references/fixes.md#reconcile-and-merge)). Before spawning it, show the user what the PR changes in behaviour they can see (screens, actions, rules), so product objections come before the work. Write the user's merge approval into the brief, or none. The implementer runs the repo's gate once on the merged head and retests only the flows the merge diff touched; that retest replaces check 1 below for its head. Reuse results from any earlier test of the same tree (`git rev-parse <sha>^{tree}`) and never rerun the full manual list.
+
+Before merging, check all of these:
 
 1. The remote head equals the SHA the user tested (ledger). A different head → deploy it, ask for a retest, and stop.
 2. Every required check is green; wait while checks are pending.

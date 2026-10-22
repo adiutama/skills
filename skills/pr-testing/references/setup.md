@@ -100,6 +100,10 @@ H run --title "pr-testing app :<port>" --log <S>/logs/app.log --cwd <S>/tree -- 
 - Add the app to the set's `services.md` and `services.json`, with its stop command `H stop-run <handle>`, so the set's own **Stop** covers it.
 - `DASH active --dir <S>/checklist --pr <n> --sha <sha> --app-url <app URL>`. Remote → `H share <port>` for the app too.
 
+## Links
+
+Before giving the user any link (app, case, dashboard): open it with browser automation on the host the user actually uses (`localhost`, `127.0.0.1`, or the **share** address), logged in as the login you will name. Send exactly the URL and login that worked. Prefer a seed user with a single organization or workspace, so the link needs no switch.
+
 ## Switch
 
 1. Dirty guard on `<S>/tree` (Checkout step 2).
