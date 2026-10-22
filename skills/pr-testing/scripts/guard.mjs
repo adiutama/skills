@@ -43,13 +43,17 @@ export function checkUrl(value, ports, { data } = {}) {
   return { ok: true, t };
 }
 
+// Dotenv, read literally: KEY=value, optional `export`, quotes stripped, `#` comments after
+// unquoted values. No expansion. clean-env.mjs uses this too, so the guard checks what the app gets.
 export function parseEnv(text) {
   const out = [];
-  for (const line of text.split('\n')) {
+  for (const line of text.split(/\r?\n/)) {
     const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
     if (!m) continue;
-    let v = m[2].trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    let v = m[2];
+    const q = /^(["'])(.*)\1\s*(?:#.*)?$/.exec(v);
+    if (q) v = q[1] === '"' ? q[2].replace(/\\n/g, '\n').replace(/\\(["\\])/g, '$1') : q[2];
+    else v = v.replace(/\s+#.*$/, '').trim();
     out.push([m[1], v]);
   }
   return out;
