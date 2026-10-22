@@ -15,4 +15,4 @@
 - Each acceptance criterion met and shown by a passing test (named in Evidence); existing checks pass.
 
 ## Don't
-- Change an interface from the spec — report BLOCKED instead. Touch other slices. Refactor beyond scope. Fix anything a review did not name as blocking, however small.
+- Change an interface from the spec — report BLOCKED instead. Touch other slices. Refactor beyond scope. Fix anything a review did not name as blocking, however small. End a turn while checks run, or wait on them with a **wake tool** ([Turn ends](../working.md#turn-ends)).
