@@ -2,7 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const SH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../scripts/harness.sh');
@@ -45,4 +47,17 @@ test('bad input exits 1 with usage', () => {
   assert.equal(run('none', 'run', '--title', 't').status, 1);
   assert.equal(run('none', 'stop-run', 'abc').status, 1);
   assert.equal(run('none', 'bogus').status, 1);
+});
+
+test('outside bb, stop-run stops the started process and its children', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'prt-h-'));
+  const r = run('none', 'run', '--title', 't', '--log', path.join(d, 'x.log'), '--cwd', d, '--', 'sh', '-c', 'sleep 300 & sleep 301; wait');
+  assert.equal(r.status, 0, r.stderr);
+  const pid = /handle (\d+)/.exec(r.stdout)[1];
+  await new Promise((res) => setTimeout(res, 300));
+  const alive = () => execSync('ps -eo command', { encoding: 'utf8' }).split('\n').filter((l) => /^sleep 30[01]$/.test(l.trim())).length;
+  assert.equal(alive(), 2);
+  assert.match(run('none', 'stop-run', pid).stdout, /stopped/);
+  await new Promise((res) => setTimeout(res, 300));
+  assert.equal(alive(), 0, 'no orphaned children');
 });

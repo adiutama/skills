@@ -91,7 +91,7 @@ Start it with the repo's run command from `<S>/tree`, with a clean environment, 
 
 ```sh
 H run --title "pr-testing app :<port>" --log <S>/logs/app.log --cwd <S>/tree -- \
-  sh <skill>/scripts/clean-env.sh --env <S>/runtime/<n>.env [--env <S>/secrets/<n>.env] \
+  node <skill>/scripts/clean-env.mjs --env <S>/runtime/<n>.env [--env <S>/secrets/<n>.env] \
   --set AGENT_SERVICE_RECORD=<services.json> --set AGENT_SERVICE_NAME=app -- <run command>
 ```
 

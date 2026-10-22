@@ -52,16 +52,28 @@ test('env guard: refuses real endpoints unless the user enabled that key', () =>
   assert.match(r.stdout, /real {5}STRIPE_API_BASE/);
 });
 
-test('clean-env: inherited credentials are dropped, files and --set apply in order', () => {
+test('clean-env: inherited credentials are dropped; env files are literal dotenv, never shell', () => {
   const d = tmp();
   const a = path.join(d, 'a.env');
-  fs.writeFileSync(a, 'APP_MODE=test\nDATABASE_URL=postgres://127.0.0.1:55400/app\n');
-  const out = execFileSync(path.join(DIR, 'clean-env.sh'), ['--env', a, '--set', 'APP_MODE=override', '--', '/usr/bin/env'], {
+  const marker = path.join(d, 'ran');
+  fs.writeFileSync(a, [
+    'APP_MODE=test',
+    'DATABASE_URL=postgres://127.0.0.1:55400/app',
+    'PASS=ab$HOME`id`',
+    'TOKEN=p@ss word # comment',
+    `EVIL=$(touch ${marker})`,
+    'QUOTED="a # not a comment"',
+  ].join('\n'));
+  const out = execFileSync(process.execPath, [path.join(DIR, 'clean-env.mjs'), '--env', a, '--set', 'APP_MODE=override', '--', '/usr/bin/env'], {
     encoding: 'utf8',
     env: { ...process.env, OPENAI_API_KEY: 'sk-real', AWS_SECRET_ACCESS_KEY: 'real', DATABASE_URL: 'postgres://prod/db' },
   });
   assert.doesNotMatch(out, /OPENAI_API_KEY|AWS_SECRET_ACCESS_KEY|postgres:\/\/prod/);
   assert.match(out, /^APP_MODE=override$/m);
   assert.match(out, /^DATABASE_URL=postgres:\/\/127\.0\.0\.1:55400\/app$/m);
+  assert.match(out, /^PASS=ab\$HOME`id`$/m);
+  assert.match(out, /^TOKEN=p@ss word$/m);
+  assert.match(out, /^QUOTED=a # not a comment$/m);
+  assert.equal(fs.existsSync(marker), false, 'nothing in an env file is executed');
   assert.match(out, /^PATH=/m);
 });

@@ -180,21 +180,27 @@ run() {
       printf 'handle %s\nlog %s\n' "$id" "$log"
       ;;
     *)
-      ( cd "$cwd" && nohup "$@" >>"$log" 2>&1 & echo $! >"$log.pid" )
-      sleep 0.2
+      # $! must be the command itself (nohup execs it), not a subshell around it.
+      ( cd "$cwd" || exit 1; nohup "$@" >>"$log" 2>&1 & echo $! >"$log.pid" )
       pid=$(cat "$log.pid")
       printf 'handle %s\nlog %s\n' "$pid" "$log"
       ;;
   esac
 }
 
+# A dev server forks (package runner → node → workers): stop the whole tree, children first.
+kill_tree() {
+  for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done
+  kill "$1" 2>/dev/null || true
+}
+
 stop_run() {
   h=$1
   [ -n "$h" ] || die "stop-run <handle>"
   case $h in
-    term_*|trm_*|terminal_*) bb terminal close "$h" ;;
+    term_*) bb terminal close "$h" ;;
     *[!0-9]*) die "stop-run: unknown handle $h" ;;
-    *) kill "$h" 2>/dev/null && echo "stopped $h" || echo "not running: $h" ;;
+    *) if kill -0 "$h" 2>/dev/null; then kill_tree "$h"; echo "stopped $h and its children"; else echo "not running: $h"; fi ;;
   esac
 }
 
