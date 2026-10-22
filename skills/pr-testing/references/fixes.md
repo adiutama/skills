@@ -19,6 +19,8 @@ Repo: <owner/repo> · PR: #<n> <URL> · Branch: <headRefName> · Base: <baseRefN
 Start from: <tested SHA> (must equal the remote head; if not, stop and report)
 Worktree: your own. Create it from the PR branch; never use <S>/tree, the coordinator checkout, or any running test environment.
 Repo instructions: read the repo's agent instruction files and CONTRIBUTING first and follow them.
+Runtime: load the throwaway-services skill for any database or app you run; never use the repo's shared dev services or the coordinator's ports (<app port>, <dashboard port>, <S> set). Stop processes only with that skill's stop command or the PIDs you recorded; never pkill or killall.
+Hosted checks: wait with `gh pr checks <n> --watch` in the background (your harness's background or monitor tool), not in a foreground call; macOS has no `timeout`.
 
 ## Feedback (from manual testing at <tested SHA>)
 - <case id> — <title>: <steps> → expected <…>, saw <user note / your reproduction, log lines>
@@ -38,6 +40,28 @@ Do not merge. Do not mark the PR ready.
 
 Ledger: <S>/ledger.md (read-only for you)
 ```
+
+## Reconcile and merge
+
+For a PR that is behind or conflicting with its base (SKILL.md step 5). Same header lines as above, from `Repo:` to `Hosted checks:`; then:
+
+```markdown
+## Reconcile
+Merge origin/<baseRefName> into <headRefName> with a normal merge commit. Never rebase or force-push. Resolve each conflict to keep both sides' intent; one you cannot resolve that way → stop and report it with both sides.
+Hold for: <dependency PR #m merging first | nothing>
+
+## Required checks
+<the repo's gate commands>, run once on the merged head; then retest only the flows the merge diff touched: <flows or case ids>.
+
+## Deliver
+Push to <headRefName>, then message the coordinator with the new head SHA.
+Merge: <the user's approval, quoted, or "not approved: stop after push">. Approved → once the hold is cleared and every required check is green, `gh pr merge <n> --<method> --match-head-commit <pushed SHA>`, then message the coordinator with the merge SHA.
+Report: pushed SHA · conflicts and how each was resolved · checks with results · merge SHA or why it was held.
+
+Ledger: <S>/ledger.md (read-only for you)
+```
+
+"Do not merge" belongs to the fix brief only. This brief merges only with the user's approval written into it.
 
 ## After it reports
 

@@ -4,7 +4,12 @@ One checklist per PR, written by you after reading that PR. The dashboard only d
 
 ## Writing cases
 
-Read the PR description, the diff, the docs it changes, and its linked issue. Write `<S>/cases/<n>.json`:
+Read the PR description, the diff, the docs it changes, and its linked issue. Split the cases by who runs them:
+
+- **`agent`** — anything with an observable result you can check yourself: you run it in the browser through browser automation, as the seeded user, and report pass or fail with what you saw. Most cases are this kind.
+- **`user`** — at most 3, only for what needs human judgement: look and feel, wording, a flow's feel. These are the cases the user gets by default; give them the `agent` cases only when they ask.
+
+Write the `user` cases to `<S>/cases/<n>.json` and the `agent` cases to `<S>/cases/<n>-agent.json`, both in this shape:
 
 ```json
 { "cases": [
@@ -17,11 +22,13 @@ Read the PR description, the diff, the docs it changes, and its linked issue. Wr
 
 - **One case per behaviour the PR claims or changes.** Include the edge cases its diff handles: empty, permission denied, an error path. Add a regression case for a neighbouring flow only when the diff touches its shared code.
 - **Concrete:** steps use the seeded data and the URL paths; `expected` says what the user should see, not "works".
-- **IDs are stable** (`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`) and stay the same across revisions; results are keyed by them.
+- **IDs are stable** (`^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$`), unique across both files, and stay the same across revisions; results are keyed by them.
 - No secrets in titles, steps, or expected text. Login passwords that the seed created are fine.
 - Something not testable here (a fake hides it) → leave it out and list it under **Limitations**.
 
-Load it: `DASH cases --pr <n> --sha <sha> --file <S>/cases/<n>.json --title "<PR title>" --url <PR URL>`. Running the same command again at the same SHA replaces the case list and keeps existing results. New cases start at Pending.
+Run the `agent` cases before handing over, and put their results in the step 3 report: one line per case (id, pass or fail, what you saw). A failed `agent` case is a finding for step 4, not a case for the user.
+
+Load the `user` cases: `DASH cases --pr <n> --sha <sha> --file <S>/cases/<n>.json --title "<PR title>" --url <PR URL>`. Running the same command again at the same SHA replaces the case list and keeps existing results. New cases start at Pending. The user asks for the rest → merge `<n>-agent.json` into `<n>.json` and load it again.
 
 ## States
 
