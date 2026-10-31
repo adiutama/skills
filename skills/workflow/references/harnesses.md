@@ -1,6 +1,6 @@
 # harness.sh
 
-`scripts/harness.sh` is the harness layer of this skill. Every harness term (worker, spawn, wait, read, tell, storage, compact, context reading, the tiers) is a subcommand. Run it; never translate a term yourself. Under bb each command performs the action. Under Claude Code or Codex, where the action is a tool call the shell cannot make, it prints the exact tool call to make. Under no harness it says so.
+`scripts/harness.sh` is the harness layer of this skill. Every harness term (worker, spawn, wait, read, tell, storage, compact, context reading, the tiers) is a subcommand; `terms` also names the **wake tools** a worker must not wait with. Run it; never translate a term yourself. Under bb each command performs the action. Under Claude Code or Codex, where the action is a tool call the shell cannot make, it prints the exact tool call to make. Under no harness it says so.
 
 Path: `<skill folder>/scripts/harness.sh`. Needs `sh`; under bb also the `bb` CLI. Every command detects the harness itself from the environment (bb sets `BB_THREAD_ID`, Claude Code sets `CLAUDECODE=1`); you never pass it. Errors go to stderr with exit code 1; a wrong or missing argument prints the usage line (`read <id>`).
 
@@ -40,7 +40,7 @@ Run once at the start; replaces reading a glossary.
 
 Input: none.
 
-Output: the harness on the first line, then one line per term with its meaning in this harness.
+Output: the harness on the first line, then one line per term with its meaning in this harness. `auto branch` names the branch the harness generates for a new working copy, which must never be pushed (SKILL.md, Branches).
 ```
 harness     bb
 worker      a child bb thread; spawn it with: harness.sh spawn
@@ -151,8 +151,10 @@ Output under bb: the command runs and prints what bb prints.
 harness.sh wait <id>            bb thread wait <id>      only within your shell's time limit; usually end your turn instead
 harness.sh read <id>            bb thread output <id>    the latest reply, which may be a question or progress; the report file in the worker's storage is the stable record
 harness.sh tell <id> "<msg>"    bb thread tell <id>      multi-line: harness.sh tell <id> - <<'EOF' ... EOF
-harness.sh compact <id>         bb thread compact <id>   on an idle worker only
+harness.sh compact <id>         bb thread compact <id>   on an idle worker only; prints a replay note
 ```
+
+After `compact <id>`, bb re-delivers the worker's last message as a new completion wake. `compact` prints `note: the next wake from <id> replays its last report; ignore it`. Run it in the same command as the next `tell` to that worker; a wake matching its last report is noise ([coordinating.md § Run](coordinating.md#5-run)). Suppressing these replays is a bb-core fix, outside this skill.
 
 Output elsewhere: one line saying which tool to use instead, for example `read the agent's final message` or `send the message with SendMessage (Claude Code) or send-message (Codex) to <id>` or `ask the user to run /compact in that agent, or let auto-compaction run`.
 

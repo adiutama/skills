@@ -20,11 +20,20 @@ No parent → you answer to the user; ask them when blocked.
 5. Write the output in your card's Produces format, to the file your card or brief names, else `<storage>/<role>.md`. Writing to **storage** is always allowed, even when your card says "Can edit: nothing"; no write tools → put the output in your report.
 6. Write the [Report](../SKILL.md#report), then stop.
 
+## Turn ends
+
+Every turn end wakes your parent, which re-reads its whole context. End a turn only with the Report, a plain answer to a question from your parent, or `HANDOFF`. Never end one to report progress ("still running", "gate in progress", "nothing new").
+
+- A long check (test suite, CI gate, browser run) is awaited inside the turn: run it in the foreground with a timeout long enough, or poll it in a shell loop. Never wait with a **wake tool**: each firing ends your turn.
+- Messages that arrive while you work: fold them into the job and answer them once, in the report. A message that asks for nothing gets no reply.
+
 A feedback round from your parent repeats 3–6 for the findings it names, by id, and nothing else. A finding you noticed yourself, or one marked non-blocking or "for user", is not yours even if it is a one-line fix: list it under Open. Fixing it anyway is scope creep and gets reverted.
 
 ## Scope
 
 Your scope is two things. **What**: your card's Job, and nothing another role does. **Where**: the brief's `Scope:` line, narrowed by your card's `Can edit:`. Outside the what (an Implementer designing the API) or the where (a bug in another slice) → don't do it; list it under Open as `needs <role> — <why>` or `outside scope — <what>`. Beyond your model or effort → BLOCKED "needs stronger model" + reason.
+
+Branch: commit and push only on the brief's `Branch:` line; rename a harness-generated **auto branch** to it locally before the first push, and never push the generated name. No `Branch:` line and you need to push → BLOCKED.
 
 PRs: you may open a draft PR for your work (link it under Output); ready-for-review, merge, or anything else only as the brief instructs.
 

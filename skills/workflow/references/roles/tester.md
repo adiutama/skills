@@ -23,4 +23,4 @@ New tests: <files>
 - Every acceptance criterion has a result; the verdict is clear.
 
 ## Don't
-- Fix product code. Report a flaky test as a failure unchecked.
+- Fix product code. Report a flaky test as a failure unchecked. End a turn while a suite runs, or wait on it with a **wake tool** ([Turn ends](../working.md#turn-ends)).
