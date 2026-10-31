@@ -1,5 +1,5 @@
 ---
-name: project-template
+name: project-kickoff
 description: Start a new project or repo from the user's opinionated setup — docs-as-blueprint AGENTS.md, append-only ADRs, specs with numbered rules traced to tests by a check script, TypeScript + Biome + Vitest. Use when the user wants to create, start, or set up a new project, app, plugin, library, or repo ("let's create a new project about …"), or to add that setup to an empty repo.
 metadata:
   version: "1.0.0"
@@ -35,7 +35,7 @@ Everything in [assets/](assets/) is copied into the new repo. Its opinions, whic
 6. **Write the brief.** `docs/BRIEF.md` from the conversation, citing it by its **source link** and today's date; then `docs/overview.md` (pitch, layout or main flow, names, glossary). Keep the user's words for the pitch.
 7. **Seed decisions and specs.** Each decision already made in the conversation becomes a `proposed` ADR; each behaviour discussed becomes a `draft` spec with rules. Leave anything undecided in the spec's Open questions. Skip this step if nothing was decided yet.
 8. **Check.** `npm install && npm run check` (or the adapted stack's check) must pass. Fix what fails; never weaken the check.
-9. **Commit.** One commit: `chore: start <project-name> from project-template`.
+9. **Commit.** One commit: `chore: start <project-name> from project-kickoff`.
 10. **Register** the folder with the harness, if the term names an action.
 11. **Report** the folder, what the brief and seeded ADRs and specs contain, the open questions, and which ADRs and specs wait for the user's approval. Create a remote repo or push only when the user asks.
 
