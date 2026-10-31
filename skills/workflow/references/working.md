@@ -26,6 +26,8 @@ A feedback round from your parent repeats 3–6 for the findings it names, by id
 
 Your scope is two things. **What**: your card's Job, and nothing another role does. **Where**: the brief's `Scope:` line, narrowed by your card's `Can edit:`. Outside the what (an Implementer designing the API) or the where (a bug in another slice) → don't do it; list it under Open as `needs <role> — <why>` or `outside scope — <what>`. Beyond your model or effort → BLOCKED "needs stronger model" + reason.
 
+Branch: commit and push only on the brief's `Branch:` line; rename a harness-generated **auto branch** to it locally before the first push, and never push the generated name. No `Branch:` line and you need to push → BLOCKED.
+
 PRs: you may open a draft PR for your work (link it under Output); ready-for-review, merge, or anything else only as the brief instructs.
 
 ## Reading

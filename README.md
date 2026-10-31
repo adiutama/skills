@@ -12,7 +12,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 | [pr-testing](skills/pr-testing/SKILL.md) | 1.0.0 | Test open PRs by hand, one at a time, in one disposable test checkout with fake integrations and synthetic data; a per-PR checklist dashboard whose buttons reach the agent, fresh implementers for agreed fixes, merge only on your say-so. Manual only. |
 | [specialist](skills/specialist/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
 | [throwaway-services](skills/throwaway-services/SKILL.md) | 1.1.1 | A disposable environment for manual verification: start new local services, emulators, and the app for a worktree, seed them for the case you want to check, get the link to open first, and keep it all running until you stop it. Manual only. |
-| [workflow](skills/workflow/SKILL.md) | 1.0.0 | Classify work, route it to a model tier, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a harness script for spawn, tell, read, and storage. |
+| [workflow](skills/workflow/SKILL.md) | 1.2.0 | Classify work, route it to a model tier, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a harness script for spawn, tell, read, and storage. |
 
 ## Setup
 

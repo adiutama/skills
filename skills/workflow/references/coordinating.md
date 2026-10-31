@@ -92,7 +92,7 @@ Every thread in a tree is titled so the sidebar, search, and notifications sort 
 | Worker | `<goal> › <Role> · <slice>` | `cost sheet accuracy › Implementer · totals row` |
 | Helper a worker spawns for itself | `<goal> › <Role> · <slice> › Explorer · <question>` | `cost sheet accuracy › Implementer · totals row › Explorer · where is rounding` |
 
-Before the first spawn, set your own title: `harness.sh title "<goal>"`. Thread titles are auto-generated from the first message and rarely match; a tree spawned under the wrong title keeps it. `harness.sh spawn` then builds each worker title from your thread's title, the role, and `--slice`. Slices and branches are named by what they do (`totals row`, `fix/cost-sheet-rounding`), never by number or sequence words (`slice 2`, `wave 1`, `phase b`).
+Before the first spawn, set your own title: `harness.sh title "<goal>"`. Thread titles are auto-generated from the first message and rarely match; a tree spawned under the wrong title keeps it. `harness.sh spawn` then builds each worker title from your thread's title, the role, and `--slice`. Slices are named by what they do (`totals row`), never by number or sequence words (`slice 2`, `wave 1`, `phase b`). Branches follow [Branches](../SKILL.md#branches); name each worker's branch before spawning it and put it on the brief's `Branch:` line, or the worker pushes the harness's **auto branch**.
 
 ### Steps
 
@@ -113,6 +113,7 @@ Load the `workflow` skill, read references/working.md, and follow role card: <ro
 Goal:        <what done means>
 Inputs:      <file paths: spec, design, handoff note, relevant code>
 Scope:       <files or areas it may change; what it must not touch — the "where" in working.md>
+Branch:      <type>/<scope>-<topic> the worker commits and pushes on; none for a worker that doesn't commit
 Constraints: <decisions already made, with reasons; `budget: <tier>` if routed down>
 Running on:  <tier · model · effort you spawned it with; model from harness.sh model <tier>>
 ```
@@ -125,6 +126,7 @@ Rules:     talk only to your parent; never ask the user or spawn workers.
            Inputs are the source of truth: wrong or missing → BLOCKED.
            Use any installed skill that fits a step; the report format stays.
            PRs: draft only, unless this brief says otherwise.
+           Branch: commit and push only on the Branch line; rename a generated branch to it before the first push.
            Start from the pointers in your inputs. Keep tool output small: read by line range,
            never print whole files or logs, trim test runs to failures and the summary.
 Output:    write your artifact to <storage>/<role>.md unless Goal names a file (<storage> = the Storage path above);

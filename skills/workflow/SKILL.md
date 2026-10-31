@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.0.0"
+  version: "1.2.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -82,6 +82,10 @@ What strengthens, so I do it myself:
 A coordinator has no override for reading > ~5 files: that goes to an Explorer even when the decision stays its own. A coordinator with workers running reads only reports, ledgers, and specs.
 
 Delegating → read [coordinating.md](references/coordinating.md) first and follow it. Doing it myself and it matches a role → [working.md](references/working.md) and that card.
+
+## Branches
+
+Name the branch when you classify the work, before the first commit: `<type>/<scope>-<topic>`, from what the work does (`feat/skills-project-kickoff`). If the name depends on something not yet settled (a new package, skill, or feature name), settle it with the user before the first push; a pushed branch with an open PR can't be renamed without closing the PR. Never push a branch name the harness generated (**auto branch**): rename it locally before its first push. A worker uses the `Branch:` line of its brief.
 
 ## 4. Context and files
 

@@ -40,7 +40,7 @@ Run once at the start; replaces reading a glossary.
 
 Input: none.
 
-Output: the harness on the first line, then one line per term with its meaning in this harness.
+Output: the harness on the first line, then one line per term with its meaning in this harness. `auto branch` names the branch the harness generates for a new working copy, which must never be pushed (SKILL.md, Branches).
 ```
 harness     bb
 worker      a child bb thread; spawn it with: harness.sh spawn

@@ -85,6 +85,7 @@ compact     a worker: harness.sh compact <id>; yourself: ask the user to run /co
 permission  inherit; auto instead of accept-edits; denials become blockers
 context     harness.sh context [id]
 spawn cost  a full new session
+auto branch bb/<title>-<thread id>, the branch bb names a new worktree; never push it
 EOF
   ;;
   claude-code) cat <<'EOF'
@@ -101,6 +102,7 @@ compact     ask the user to run /compact, or let auto-compaction run
 permission  inherit
 context     unknown
 spawn cost  ~19K tokens
+auto branch the branch an isolated worktree is created with; never push it
 EOF
   ;;
   codex) cat <<'EOF'
@@ -117,6 +119,7 @@ compact     ask the user to run /compact, or let auto-compaction run
 permission  inherit sandbox and approval policy
 context     unknown
 spawn cost  a new session
+auto branch none
 EOF
   ;;
   *) cat <<'EOF'
@@ -133,6 +136,7 @@ compact     start a fresh session from the handoff note
 permission  none
 context     unknown
 spawn cost  none
+auto branch none
 EOF
   ;;
   esac
