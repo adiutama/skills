@@ -1,0 +1,6 @@
+policy:
+  allow_implicit_invocation: true
+interface:
+  display_name: "Project template"
+  short_description: "Start a new repo from the user's docs-as-blueprint setup"
+  default_prompt: "Use $project-template to start a new project about a habit tracker."

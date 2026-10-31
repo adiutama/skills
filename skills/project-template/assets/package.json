@@ -1,0 +1,22 @@
+{
+  "name": "<project-name>",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "<one-line pitch>",
+  "license": "MIT",
+  "scripts": {
+    "check": "npm run lint && npm run typecheck && npm run test && npm run check:specs",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:specs": "node scripts/check-specs.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}
