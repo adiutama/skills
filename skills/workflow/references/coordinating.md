@@ -97,7 +97,7 @@ Before the first spawn, set your own title: `harness.sh title "<goal>"`. Thread 
 ### Steps
 
 1. Create `<storage>/workers/<role>-<slice>/` and write the brief there as `brief.md`.
-2. `harness.sh spawn --role <Role> --tier <tier> --effort <effort> --brief <that file> --slice <slice>`; add `--isolated` when the worker needs its own working copy. The script sets the model and **permission** for your harness. Without **isolation**, parallel workers share one working directory: only disjoint writes.
+2. `harness.sh spawn --role <Role> --effort <effort> --brief <that file> --slice <slice>`; add `--isolated` when the worker needs its own working copy. The script takes the tier from the role card and sets the model and **permission** for your harness. A tier above the card (an Implementer on deep) needs `--why "<reason>"`: it goes into the brief and `<storage>/tier-overrides.log`, and is the exception, not the default. A Reviewer runs on the vendor other than the code's author; pass `--author codex` when Codex wrote the diff. Without **isolation**, parallel workers share one working directory: only disjoint writes.
 3. The harness links the worker to you; its `Parent:` line is text. Never detach a worker to silence its notifications: that link is what delivers its failures.
 
 A worker without write tools returns its artifact in its final message; never brief it to write a file. Spawn a whole step in one turn, then end the turn.

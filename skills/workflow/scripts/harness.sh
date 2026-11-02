@@ -9,7 +9,9 @@
 #   harness.sh storage                    this agent's storage directory
 #   harness.sh context [id]               context reading (self, or a worker's)
 #   harness.sh title "<goal>"             set this thread's title to the goal, before the first spawn
-#   harness.sh spawn --role R --tier T --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P]
+#   harness.sh spawn --role R [--tier T --why W] --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P] [--author P]
+#       tier defaults to the role card; above it needs --why (appended to the brief, logged in storage)
+#       bb Reviewer: the vendor other than --author (default: the hosted agent). WORKFLOW_DRY_RUN=1 prints the bb command
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
@@ -73,7 +75,8 @@ terms() {
   case $h in
   bb) cat <<'EOF'
 worker      a child bb thread; spawn it with: harness.sh spawn
-spawn       harness.sh spawn --role R --tier T --effort E --brief FILE [--slice S] [--isolated]; the harness links it to you as parent
+spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer runs on the vendor other than --author (default: you); the harness links it to you as parent
+helper      a read-only lookup of your own with the Agent tool (Claude Code hosted): subagent_type "Explore", model "haiku"
 wait        end your turn: each child's turn end wakes you with its result (harness.sh wait <id> only within the shell time limit)
 read        harness.sh read <id>
 tell        harness.sh tell <id> <message|->
@@ -91,7 +94,7 @@ EOF
   ;;
   claude-code) cat <<'EOF'
 worker      a subagent (Agent tool)
-spawn       harness.sh spawn ... prints the Agent tool parameters; the brief's contents are the prompt
+spawn       harness.sh spawn ... prints the Agent tool parameters (Explorer: Explore subagent on haiku); the tier comes from the role card; the brief's contents are the prompt
 wait        a foreground Agent call, or its completion notification
 read        the agent's final message
 tell        SendMessage to the agent ID
@@ -146,8 +149,30 @@ EOF
   esac
 }
 
+# role_tiers <role> → "<card tier> <highest tier allowed without --why>"; empty for roles without a card.
+role_tiers() {
+  case $(lower "$1") in
+    explorer) echo "fast fast" ;;
+    implementer|tester) echo "fast balanced" ;;
+    researcher|prototyper) echo "balanced balanced" ;;
+    architect|designer|reviewer) echo "deep deep" ;;
+    consultant) echo "consultant consultant" ;;
+  esac
+}
+
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+rank() {
+  case $1 in
+    fast) echo 1 ;; balanced) echo 2 ;; deep) echo 3 ;; consultant) echo 4 ;;
+    *) die "unknown tier '$1' (fast | balanced | deep | consultant)" ;;
+  esac
+}
+
+other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
+
 spawn() {
-  role= tier= effort= brief= slice= goal= isolated= prov=
+  role= tier= effort= brief= slice= goal= isolated= prov= why= author=
   while [ $# -gt 0 ]; do
     case $1 in
       --role) role=$2; shift ;;
@@ -157,12 +182,21 @@ spawn() {
       --slice) slice=$2; shift ;;
       --goal) goal=$2; shift ;;
       --provider) prov=$2; shift ;;
+      --author) author=$2; shift ;;
+      --why) why=$2; shift ;;
       --isolated) isolated=1 ;;
       *) die "spawn: unknown argument $1" ;;
     esac; shift
   done
-  [ -n "$role" ] && [ -n "$tier" ] && [ -n "$effort" ] && [ -n "$brief" ] || die "spawn: --role --tier --effort --brief are required"
+  [ -n "$role" ] && [ -n "$effort" ] && [ -n "$brief" ] || die "spawn: --role --effort --brief are required"
   [ -f "$brief" ] || die "spawn: brief file not found: $brief"
+  card=$(role_tiers "$role")
+  card_tier=${card% *}; max_tier=${card#* }
+  if [ -z "$tier" ]; then
+    [ -n "$card" ] || die "spawn: --tier is required for role '$role' (no role card)"
+    tier=$card_tier
+  fi
+  rank "$tier" >/dev/null
   [ -n "$slice" ] || slice=$(basename "$(dirname "$brief")")
   h=$(detect)
   if [ -z "$goal" ]; then
@@ -172,22 +206,42 @@ spawn() {
     [ -n "$goal" ] || goal=${WORKFLOW_TASK:-}
   fi
   if [ -n "$goal" ]; then title="$goal › $role · $slice"; else title="$role · $slice"; fi
+  # Above the card's tier costs more on every turn: allowed, but only with a written reason.
+  if [ -n "$card" ] && [ "$(rank "$tier")" -gt "$(rank "$max_tier")" ]; then
+    [ -n "$why" ] || die "spawn: the $role card is $card_tier (up to $max_tier without a reason); --tier $tier needs --why \"<reason>\""
+    printf "\nTier override: %s, above the card's %s — %s\n" "$tier" "$max_tier" "$why" >> "$brief"
+    d=$(storage); mkdir -p "$d"
+    printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$title" "$tier" "$why" >> "$d/tier-overrides.log"
+    printf 'note: tier override logged to %s/tier-overrides.log\n' "$d" >&2
+  fi
   case $h in
   bb)
-    p=$(provider bb); [ -n "$prov" ] && p=$prov
+    p=$(provider bb)
+    if [ -n "$prov" ]; then p=$prov
+    elif [ "$(lower "$role")" = reviewer ]; then
+      # Cross-vendor review: fresh eyes from the vendor other than the code's author.
+      a=${author:-$(provider bb)}; p=$(other_provider "$a")
+      if ! bb provider list 2>/dev/null | grep -qw "$p"; then
+        printf "note: provider %s unavailable; the Reviewer runs on the author's vendor %s (say so in the classification)\n" "$p" "$a" >&2
+        p=$a
+      fi
+    fi
     m=$(model "$tier" "$p")
     project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
     set -- bb thread spawn --project "$project" --parent-self --provider "$p" --model "$m" \
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
     if [ -n "$isolated" ]; then set -- "$@" --new-environment worktree
     else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
-    "$@"
+    if [ -n "$WORKFLOW_DRY_RUN" ]; then printf '%s\n' "$*"; else "$@"; fi
     ;;
   claude-code)
     m=$(model "$tier" claude-code)
+    st=
+    if [ "$(lower "$role")" = explorer ]; then st='
+  subagent_type: "Explore"'; fi
     cat <<EOF
 Call the Agent tool with:
-  description: "$title"
+  description: "$title"$st
   model: "$m"
   effort: "$effort"
   isolation: $( [ -n "$isolated" ] && echo '"worktree"' || echo 'omit' )

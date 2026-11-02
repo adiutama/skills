@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -16,7 +16,7 @@ harness.sh storage                     your storage directory
 harness.sh context                     your context reading, or unknown
 harness.sh model <tier>                the model id for a tier
 harness.sh title "<goal>"              before the first spawn: name your thread by the goal
-harness.sh spawn --role R --tier T --effort E --brief FILE --slice S [--isolated]
+harness.sh spawn --role R --effort E --brief FILE --slice S [--isolated]   tier from the role card; above it: --tier T --why "<reason>"
 harness.sh wait | read | compact <id> · harness.sh tell <id> "<message>"
 ```
 
