@@ -20,9 +20,10 @@ storage():                                      AbsolutePath
 context(id?: Id):                               TokenReading | "unknown"
 title(goal: string):                            bb ? BbOutput : ToolCall      // rename this thread; run before the first spawn
 spawn(opts: {
-  role: string; tier: Tier; effort: Effort; brief: FilePath;
+  role: string; effort: Effort; brief: FilePath;
+  tier?: Tier; why?: string;                                       // tier: default the role card's; above it, why is required
   slice?: string; goal?: string;                                   // title = "<goal> › <Role> · <slice>"
-  isolated?: boolean; provider?: Provider                          // provider: bb only
+  isolated?: boolean; provider?: Provider; author?: Provider       // bb only; a Reviewer defaults to the vendor other than author
 }):                                             bb ? BbSpawnOutput /* names the new thr_ id */ : ToolCall
 wait(id: Id):                                   bb ? BbOutput : ToolCall
 read(id: Id):                                   bb ? LatestReply : ToolCall
@@ -44,7 +45,8 @@ Output: the harness on the first line, then one line per term with its meaning i
 ```
 harness     bb
 worker      a child bb thread; spawn it with: harness.sh spawn
-spawn       harness.sh spawn --role R --tier T --effort E --brief FILE [--isolated]; the harness links it to you as parent
+spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer runs on the vendor other than --author (default: you); the harness links it to you as parent
+helper      a read-only lookup of your own with the Agent tool (Claude Code hosted): subagent_type "Explore", model "haiku"
 wait        end your turn: each child's turn end wakes you with its result ...
 ...
 ```
@@ -110,16 +112,22 @@ Run it once, before the first spawn, and do not rename afterwards: workers copy 
 
 ## spawn
 
-`spawn({ role, tier, effort, brief, slice?, goal?, isolated?, provider? }): bb ? BbSpawnOutput : ToolCall`
+`spawn({ role, tier?, why?, effort, brief, slice?, goal?, isolated?, provider?, author? }): bb ? BbSpawnOutput : ToolCall`
 
-Input, all four required: `--role <Role>` · `--tier <tier>` · `--effort <level>` · `--brief <file>` (write it first: coordinating.md, Spawn). Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <claude-code | codex>` (bb only; default the hosted agent).
+Input, required: `--role <Role>` · `--effort <level>` · `--brief <file>` (write it first: coordinating.md, Spawn).
+
+Tier: `--tier <tier>` defaults to the role card (Explorer fast · Implementer, Tester fast, up to balanced · Researcher, Prototyper balanced · Architect, Designer, Reviewer deep · Consultant consultant); a role without a card must pass it. Above the card's highest tier → `--why "<reason>"` is required; the script appends `Tier override: <tier>, above the card's <max> — <reason>` to the brief and a line to `<storage>/tier-overrides.log`.
+
+Reviewer, bb only: runs on the vendor other than `--author <claude-code | codex>` (default: the hosted agent), so the review gets a second vendor's eyes; that vendor missing from `bb provider list` → the author's vendor, with a note to put in the classification. `--provider` overrides.
+
+Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <claude-code | codex>` (bb only; default the hosted agent, or the other vendor for a Reviewer) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
 
 Output, by harness:
 
 The title is `<goal> › <Role> · <slice>`, e.g. `cost sheet accuracy › Implementer · totals row`, so threads sort and read by goal.
 
 - bb: runs `bb thread spawn --project $BB_PROJECT_ID --parent-self --provider <p> --model <id> --reasoning-level <effort> --title "<goal> › <Role> · <slice>" --prompt-file <brief> --permission-mode auto` with `--environment $BB_ENVIRONMENT_ID`, or `--new-environment worktree` when isolated. Prints bb's own output, which names the new thread id. The harness links the worker to you as parent; the brief's `Parent:` line is only text.
-- Claude Code: prints the tool call, then you make it:
+- Claude Code: prints the tool call, then you make it (an Explorer adds `subagent_type: "Explore"` and runs on `haiku`):
   ```
   Call the Agent tool with:
     description: "auth › Reviewer · whole diff"
@@ -138,7 +146,7 @@ The title is `<goal> › <Role> · <slice>`, e.g. `cost sheet accuracy › Imple
   ```
 - none: `spawn: no workers in this harness; play the role yourself from <brief>`, exit 1.
 
-Errors: `spawn: --role --tier --effort --brief are required` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>`.
+Errors: `spawn: --role --effort --brief are required` · `spawn: --tier is required for role '<role>' (no role card)` · `spawn: the <Role> card is <tier> (up to <max> without a reason); --tier <t> needs --why "<reason>"` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>`.
 
 ## wait, read, tell, compact
 
