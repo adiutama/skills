@@ -6,6 +6,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 
 | Skill | Version | Description |
 |---|---|---|
+| [dream](skills/dream/SKILL.md) | 1.0.0 | Turn past days of work into bb memory in two scheduled jobs: `dream` records signals from each day's prompts via a collector script, `deep-sleep` applies them to memory with a journal for undo. bb only. |
 | [evidence](skills/evidence/SKILL.md) | 1.0.0 | Capture screenshots and HTTP requests with responses as proof of work — redacted, stamped with commit, stored outside the repo — and pack them into a paste-ready PR Evidence block. Manual only. |
 | [orchestration](skills/orchestration/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
 | [pr-review](skills/pr-review/SKILL.md) | 1.0.0 | Review a GitHub PR in an isolated worktree as one visual report (change map, behavior diff, blast radius, pinned findings); submit only on request. |
