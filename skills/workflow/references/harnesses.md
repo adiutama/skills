@@ -198,8 +198,14 @@ Under bb, prefer ending your turn to `wait`: each child's turn end wakes you wit
 
 ## Spawn guard
 
-Claude Code only, optional. [`scripts/spawn-guard.sh`](../scripts/spawn-guard.sh) is a PreToolUse hook for Bash. It blocks (exit 2, message on stderr) a command that runs `bb thread spawn` or `bb thread create` unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It allows everything else and fails open when the hook input cannot be parsed. Needs `jq`. In `~/.claude/settings.json`, with `<dir>` = the installed skill folder, add after the existing Bash hooks:
+Optional. It blocks a command that runs `bb thread spawn` or `bb thread create` unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It fails open (unreadable input → allow). It is a reminder, not a security boundary.
 
-```json
-{ "hooks": { "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "sh <dir>/scripts/spawn-guard.sh" }] }] } }
-```
+One step for a new machine: `sh <dir>/scripts/harness.sh install-guards` (`<dir>` = the installed skill folder). It installs all three guards below, can be run twice safely, backs up each file it edits, and skips an agent that is not installed. It needs `jq`; Codex trust needs `python3`.
+
+[`scripts/spawn-check.sh`](../scripts/spawn-check.sh) holds the check (command string in, exit 2 to block). Each agent has a thin adapter:
+
+| Agent | Adapter | Registered in |
+|---|---|---|
+| Claude Code | `scripts/spawn-guard.sh` (hook JSON on stdin, exit 2 blocks) | `~/.claude/settings.json`: `hooks.PreToolUse` entry `{"matcher":"Bash","hooks":[{"type":"command","command":"sh <dir>/scripts/spawn-guard.sh"}]}` |
+| Codex | the same `scripts/spawn-guard.sh` (same stdin shape, same exit 2) | `~/.codex/hooks.json`: same entry plus `"async":false`; Codex runs a hook only once it is trusted (`hooks.state` in `config.toml`, written through Codex's app-server `config/batchWrite`). Not covered: a different `CODEX_HOME` such as bb's provider home |
+| opencode | `scripts/opencode-spawn-guard.ts`, a plugin whose `ctx.tool.hook("execute.before")` throws for the `shell` tool | `~/.config/opencode/plugins/workflow-spawn-guard.ts` (loaded automatically; `__SPAWN_CHECK__` is replaced by the path of `spawn-check.sh`) |
