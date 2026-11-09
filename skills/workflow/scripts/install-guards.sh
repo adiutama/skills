@@ -21,9 +21,14 @@ guard="sh $guard_path"
 stamp=$(date +%Y%m%d-%H%M%S)
 
 say() { printf '%s\n' "$*"; }
-# Backup names carry the file's full path, so two files with the same basename (two Codex homes) never overwrite each other.
-bakname() { printf '%s.bak.%s' "$(printf '%s' "$1" | sed 's|^/||; s|[^A-Za-z0-9._-]|_|g')" "$stamp"; }
-bak() { [ -f "$1" ] || return 0; mkdir -p "$backup"; n=$(bakname "$1"); cp -p "$1" "$backup/$n"; say "  backup: $backup/$n"; }
+# Backup names are <basename>.<checksum of the full path>.bak.<stamp>, with a counter if that name already exists,
+# so two files with the same basename (two Codex homes) never share or overwrite a backup.
+bakpath() {
+  b="$backup/$(basename "$1").$(printf '%s' "$1" | cksum | cut -d' ' -f1).bak.$stamp"; n=$b; i=0
+  while [ -e "$n" ]; do i=$((i + 1)); n=$b.$i; done
+  printf '%s' "$n"
+}
+bak() { [ -f "$1" ] || return 0; mkdir -p "$backup"; n=$(bakpath "$1"); cp -p "$1" "$n"; say "  backup: $n"; }
 
 # Copy the guard scripts to the fixed folder; refresh a copy that differs.
 mkdir -p "$guard_dir"
@@ -61,7 +66,7 @@ if command -v codex >/dev/null 2>&1 || [ -d "$codex_dir" ]; then
     # Codex runs a hook only after it is trusted; trust ours through Codex's own app-server API.
     [ -f "$codex_dir/config.toml" ] || : > "$codex_dir/config.toml"
     if command -v python3 >/dev/null 2>&1 && command -v codex >/dev/null 2>&1; then
-      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" "$backup/$(bakname "$codex_dir/config.toml")" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
+      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" "$(bakpath "$codex_dir/config.toml")" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
 import json, os, shutil, subprocess, sys
 d, bak = sys.argv[1], sys.argv[2]
 p = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
@@ -100,8 +105,9 @@ say "opencode:"
 if command -v opencode >/dev/null 2>&1 || [ -d "$opencode_dir" ]; then
   dst=$opencode_dir/plugins/workflow-spawn-guard.ts
   new=$(mktemp)
-  esc=$(printf '%s' "$guard_dir/spawn-check.sh" | sed 's/[\\&|"]/\\&/g')
-  sed "s|__SPAWN_CHECK__|$esc|" "$here/opencode-spawn-guard.ts" > "$new"
+  # Escape the path for a JavaScript string, then insert it with awk (no sed replacement rules apply).
+  js=$(printf '%s' "$guard_dir/spawn-check.sh" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  JS=$js awk '{ i = index($0, "__SPAWN_CHECK__"); if (i) $0 = substr($0, 1, i - 1) ENVIRON["JS"] substr($0, i + 15); print }' "$here/opencode-spawn-guard.ts" > "$new"
   if [ -f "$dst" ] && cmp -s "$new" "$dst"; then say "  already installed: $dst"
   else bak "$dst"; mkdir -p "$(dirname "$dst")"; mv "$new" "$dst"; say "  updated: $dst"; fi
   rm -f "$new"

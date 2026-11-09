@@ -200,7 +200,7 @@ Under bb, prefer ending your turn to `wait`: each child's turn end wakes you wit
 
 Optional. It blocks a command that runs `bb thread spawn` or `bb thread create` unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It fails open (unreadable input → allow). It is a reminder, not a security boundary.
 
-One step for a new machine: `sh <dir>/scripts/harness.sh install-guards` (`<dir>` = the installed skill folder). It installs all three guards below, can be run twice safely, backs up each file it edits (the backup name carries the file's full path, so two Codex homes never share a backup), and skips an agent that is not installed.
+One step for a new machine: `sh <dir>/scripts/harness.sh install-guards` (`<dir>` = the installed skill folder). It installs all three guards below, can be run twice safely, backs up each file it edits (the backup name carries a checksum of the file's full path, so two Codex homes never share a backup), and skips an agent that is not installed.
 
 The guard scripts do not run from the skill folder. The installer copies `spawn-guard.sh` and `spawn-check.sh` to `~/.local/share/workflow-guard/` (override with `WORKFLOW_GUARD_DIR`) and every hook and plugin points there, so moving or updating the skill never breaks a guard. After a skill update, run `install-guards` again: it refreshes the copies that differ and replaces an entry that still points at an old path, leaving one entry per config. It needs `jq`; Codex trust needs `python3`.
 
