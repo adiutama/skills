@@ -72,7 +72,13 @@ reviewer.never                        <provider> …           never a Reviewer
 fallback                              <from>><to> …          on <from>'s usage limit, move that work to <to>
 ```
 
-A coordinator turns a line into `--provider <provider> --model <model>` on `spawn`. Provider or model missing from `providers` → the roster is stale.
+A coordinator turns a line into `--provider <provider> --model <model>` on `spawn`. A provider or model missing from `providers` → the roster is stale. `reviewer.never` entries are exclusions, not providers: skip them in this check.
+
+## roster
+
+`roster(): string` and `roster-save(rules: stdin)`
+
+`roster` prints the rules above. Under bb it reads the `agent-roster` memory (`bb memory search`, `bb memory get`); elsewhere it prints `none: …` and the caller uses the built-in defaults. `roster-save` writes the rules from stdin as that memory under bb (global, pinned); elsewhere it prints `not stored`.
 
 ## model
 

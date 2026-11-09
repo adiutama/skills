@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.4.0"
+  version: "1.4.1"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -16,6 +16,8 @@ harness.sh storage                     your storage directory
 harness.sh context                     your context reading, or unknown
 harness.sh model <tier>                the built-in model id for a tier
 harness.sh providers                   enabled providers and their model ids
+harness.sh roster                      the user's agent roster, or `none` (then built-in defaults)
+harness.sh roster-save                 save the agreed roster rules from stdin
 harness.sh title "<goal>"              before the first spawn: name your thread by the goal
 harness.sh spawn --role R --effort E --brief FILE --slice S [--isolated] [--provider P --model ID]   tier from the role card; above it: --tier T --why "<reason>"
 harness.sh wait | read | compact <id> · harness.sh tell <id> "<message>"
@@ -71,8 +73,9 @@ Tiers: **fast** (cheapest, mechanical) · **balanced** · **deep** (strongest ev
 
 The user's agent roster says which provider and model each tier, role and Reviewer uses ([format](references/harnesses.md#roster-memory)). Without it, spawns use the built-in Claude Code and Codex defaults.
 
-- Planning a delegation: read the global memory `agent-roster` (`bb memory search agent-roster --scope all --json`, then `bb memory get <id>`). Check each provider it names against `bb provider list` and each model against `bb provider models <id>`.
-- Missing or stale: run `harness.sh providers`, then suggest a roster with a recommended default ("I suggest … ok?"). Save it with `bb memory add --scope global --pinned` only after the user agrees; until then use the built-in defaults.
+- Planning a delegation: run `harness.sh roster`. `none` → no roster here: spawn with the built-in defaults (`harness.sh model <tier>`), and do not ask the user to create one.
+- Check each provider the roster names against `harness.sh providers`, and each model against that provider's listed ids. `reviewer.never` entries are exclusions, not providers: do not check them.
+- Stale, or missing where `providers` discovers providers: suggest a roster with a recommended default ("I suggest … ok?"). Save it with `harness.sh roster-save` (rules on stdin) only after the user agrees; until then use the built-in defaults.
 - Pick provider and model from the roster and pass them to `spawn` as `--provider` and `--model`.
 
 ## 3. Delegate or do it myself

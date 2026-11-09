@@ -7,6 +7,8 @@
 #   harness.sh terms                      the harness, then every term with its meaning here
 #   harness.sh model <tier> [provider]    tier → model id (fast | balanced | deep | consultant)
 #   harness.sh providers                  enabled providers and their model ids (built-in defaults outside bb)
+#   harness.sh roster                     the user's agent roster (bb: the agent-roster memory; elsewhere: none, use built-in defaults)
+#   harness.sh roster-save                save the roster from stdin (bb: global pinned memory agent-roster; elsewhere: not stored)
 #   harness.sh storage                    this agent's storage directory
 #   harness.sh context [id]               context reading (self, or a worker's)
 #   harness.sh title "<goal>"             set this thread's title to the goal, before the first spawn
@@ -70,6 +72,25 @@ providers() {
     printf '%s\n' "$id"
     bb provider models "$id" --json 2>/dev/null | sed -n 's/^    "id": "\(.*\)",*$/  \1/p'
   done
+}
+
+roster() {
+  if [ "$(detect)" != bb ]; then
+    echo "none: no roster storage here; use the built-in defaults (harness.sh model <tier>)"
+    return
+  fi
+  id=$(bb memory search agent-roster --scope all --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p' | head -1)
+  if [ -z "$id" ]; then echo "none: no agent-roster memory; use the built-in defaults"; return; fi
+  bb memory get "$id" --json | sed -n 's/^    "details": "\(.*\)",*$/\1/p' | sed 's/\\n/\n/g'
+}
+
+roster_save() {
+  if [ "$(detect)" != bb ]; then echo "not stored: no roster storage here"; return; fi
+  body=$(cat)
+  [ -n "$body" ] || die "roster-save reads the roster rules on stdin"
+  bb memory add --scope global --pinned --kind preference --tag workflow,models,routing --importance 80 \
+    --name agent-roster --summary "User's agent roster: which provider/model each tier, role and Reviewer uses, plus fallback providers; read by the workflow skill at planning." \
+    --details "$body" --reason "The workflow skill routes workers by this roster."
 }
 
 storage() {
@@ -292,6 +313,8 @@ case ${1:-} in
   terms) terms ;;
   model) shift; model "$@" ;;
   providers) providers ;;
+  roster) roster ;;
+  roster-save) roster_save ;;
   storage) storage ;;
   context) shift; context "$@" ;;
   title) [ -n "$2" ] || die 'title "<goal>"'; bb_or_print "no thread title here; export WORKFLOW_TASK='$2' so spawn titles carry the goal" update --self --title "$2" ;;
@@ -303,6 +326,6 @@ case ${1:-} in
         if [ "$3" = - ]; then bb_or_print "$msg" tell "$2" --message-file -; else bb_or_print "$msg" tell "$2" "$3"; fi ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,21p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,23p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
