@@ -97,7 +97,7 @@ Before the first spawn, set your own title: `harness.sh title "<goal>"`. Thread 
 ### Steps
 
 1. Create `<storage>/workers/<role>-<slice>/` and write the brief there as `brief.md`.
-2. `harness.sh spawn --role <Role> --effort <effort> --brief <that file> --slice <slice>`; add `--isolated` when the worker needs its own working copy. The script takes the tier from the role card and sets the model and **permission** for your harness. A tier above the card (an Implementer on deep) needs `--why "<reason>"`: it goes into the brief and `<storage>/tier-overrides.log`, and is the exception, not the default. A Reviewer runs on the vendor other than the code's author; pass `--author codex` when Codex wrote the diff. Without **isolation**, parallel workers share one working directory: only disjoint writes.
+2. `harness.sh spawn --role <Role> --effort <effort> --brief <that file> --slice <slice>`; add `--isolated` when the worker needs its own working copy. The script takes the tier from the role card and sets **permission** for your harness; the model is the built-in one for the tier unless the roster named one: then pass `--provider <p> --model <id>` from the roster (SKILL.md, Roster). A tier above the card (an Implementer on deep) needs `--why "<reason>"`: it goes into the brief and `<storage>/tier-overrides.log`, and is the exception, not the default. A Reviewer runs on the vendor other than the code's author; pass `--author codex` when Codex wrote the diff. Without **isolation**, parallel workers share one working directory: only disjoint writes.
 3. The harness links the worker to you; its `Parent:` line is text. Never detach a worker to silence its notifications: that link is what delivers its failures.
 
 A worker without write tools returns its artifact in its final message; never brief it to write a file. Spawn a whole step in one turn, then end the turn.
@@ -115,7 +115,7 @@ Inputs:      <file paths: spec, design, handoff note, relevant code>
 Scope:       <files or areas it may change; what it must not touch — the "where" in working.md>
 Branch:      <type>/<scope>-<topic> the worker commits and pushes on; none for a worker that doesn't commit
 Constraints: <decisions already made, with reasons; `budget: <tier>` if routed down>
-Running on:  <tier · model · effort you spawned it with; model from harness.sh model <tier>>
+Running on:  <tier · model · effort you spawned it with; model from the roster, else harness.sh model <tier>>
 ```
 
 Skill not installed for the worker → drop the "Load" line and append this, with the Report and Handoff blocks pasted in full from SKILL.md and working.md:

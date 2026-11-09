@@ -8,7 +8,7 @@ Path: `<skill folder>/scripts/harness.sh`. Needs `sh`; under bb also the `bb` CL
 
 ```ts
 type Harness  = "bb" | "claude-code" | "codex" | "none"
-type Provider = "claude-code" | "codex"
+type Provider = string   // built-in ids: "claude-code" | "codex"; under bb any provider in `bb provider list` (e.g. "acp-opencode")
 type Tier     = "fast" | "balanced" | "deep" | "consultant"
 type Effort   = "low" | "medium" | "high" | "xhigh" | "max" | "ultra"   // ultra: codex only
 type Id       = string            // bb: thr_…; Claude Code / Codex: the agent id
@@ -16,6 +16,7 @@ type ToolCall = string            // printed instructions: the exact tool call t
 
 terms():                                        { harness: Harness; [term: string]: string }   // one line each
 model(tier: Tier, provider?: Provider):         ModelId                                       // e.g. "opus"
+providers():                                    string                                        // enabled providers and their model ids
 storage():                                      AbsolutePath
 context(id?: Id):                               TokenReading | "unknown"
 title(goal: string):                            bb ? BbOutput : ToolCall      // rename this thread; run before the first spawn
@@ -23,7 +24,7 @@ spawn(opts: {
   role: string; effort: Effort; brief: FilePath;
   tier?: Tier; why?: string;                                       // tier: default the role card's; above it, why is required
   slice?: string; goal?: string;                                   // title = "<goal> › <Role> · <slice>"
-  isolated?: boolean; provider?: Provider; author?: Provider       // bb only; a Reviewer defaults to the vendor other than author
+  isolated?: boolean; provider?: Provider; model?: ModelId; author?: Provider   // bb only; model overrides the tier-derived id; a Reviewer defaults to the vendor other than author
 }):                                             bb ? BbSpawnOutput /* names the new thr_ id */ : ToolCall
 wait(id: Id):                                   bb ? BbOutput : ToolCall
 read(id: Id):                                   bb ? LatestReply : ToolCall
@@ -53,11 +54,37 @@ wait        end your turn: each child's turn end wakes you with its result ...
 
 First line `none` but you are Codex (your system prompt or tool list says so) → Codex sets no variable; run `export WORKFLOW_HARNESS=codex` and start again. The variable overrides detection for every command. Under bb the hosted agent is Claude Code when `CLAUDECODE=1`, else Codex; `spawn` and `model` use that provider's model ids. Your tool list lacks the spawn mechanism `terms` names → you have no workers: treat spawn, wait, read, tell, and isolation as none.
 
+## providers
+
+`providers(): string`
+
+Under bb: for each provider in `bb provider list`, its id then its model ids (`bb provider models <id> --json`), one per line, indented. Elsewhere: the built-in defaults per tier, after a note that they were not discovered. Use it to build or check the roster ([SKILL.md, Roster](../SKILL.md#roster)).
+
+### Roster memory
+
+The roster is a global, pinned bb memory named `agent-roster`, a preference with tags `workflow,models,routing`. Its details start with `Fixed format read by the workflow skill; do not merge or reword.`, then one rule per line:
+
+```
+tier.<fast|balanced|deep|consultant>  <provider>:<model> …   model per provider for a tier
+role.<role>                           <provider>:<model>     overrides the tier for that role
+reviewer.order                        <provider>:<model> …   Reviewer candidates, first preferred; the author's vendor is skipped
+reviewer.never                        <provider> …           never a Reviewer
+fallback                              <from>><to> …          on <from>'s usage limit, move that work to <to>
+```
+
+A coordinator turns a line into `--provider <provider> --model <model>` on `spawn`. A provider or model missing from `providers` → the roster is stale. `reviewer.never` entries are exclusions, not providers: skip them in this check.
+
+## roster
+
+`roster(): string` and `roster-save(rules: stdin)`
+
+`roster` prints the rules above. Under bb it reads the `agent-roster` memory (`bb memory search`, `bb memory get`); elsewhere it prints `none: …` and the caller uses the built-in defaults. `roster-save` writes the rules from stdin as that memory under bb (global, pinned): it updates the global memory when it exists (version-checked; project memories of the same name are ignored) and adds it only when absent; elsewhere it prints `not stored`.
+
 ## model
 
 `model(tier: Tier, provider?: Provider): ModelId`
 
-Input: a tier, `fast | balanced | deep | consultant`; optionally a provider, `claude-code | codex` (default: the one you run on).
+Input: a tier, `fast | balanced | deep | consultant`; optionally a built-in provider, `claude-code | codex` (default: the one you run on). Any other provider has no built-in table: `model` fails and `spawn` needs `--model`.
 
 Output: one model id.
 
@@ -70,6 +97,7 @@ Output: one model id.
 
 ```
 harness.sh model deep          → opus
+harness.sh providers           → claude-code, codex, acp-opencode, each followed by its model ids (bb)
 harness.sh model deep codex    → gpt-6.1-sol
 harness.sh model nope          → unknown tier 'nope' (fast | balanced | deep | consultant)   exit 1
 ```
@@ -112,7 +140,7 @@ Run it once, before the first spawn, and do not rename afterwards: workers copy 
 
 ## spawn
 
-`spawn({ role, tier?, why?, effort, brief, slice?, goal?, isolated?, provider?, author? }): bb ? BbSpawnOutput : ToolCall`
+`spawn({ role, tier?, why?, effort, brief, slice?, goal?, isolated?, provider?, model?, author? }): bb ? BbSpawnOutput : ToolCall`
 
 Input, required: `--role <Role>` · `--effort <level>` · `--brief <file>` (write it first: coordinating.md, Spawn).
 
@@ -120,7 +148,7 @@ Tier: `--tier <tier>` defaults to the role card (Explorer fast · Implementer, T
 
 Reviewer, bb only: runs on the vendor other than `--author <claude-code | codex>` (default: the hosted agent), so the review gets a second vendor's eyes; that vendor missing from `bb provider list` → the author's vendor, with a note to put in the classification. `--provider` overrides.
 
-Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <claude-code | codex>` (bb only; default the hosted agent, or the other vendor for a Reviewer) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
+Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <id>` (bb only; any listed provider, e.g. `acp-opencode`; default the hosted agent, or the other vendor for a Reviewer) · `--model <id>` (replaces the tier-derived id; required for a provider without a built-in table; the tier is still checked against the role card) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
 
 Output, by harness:
 
@@ -146,7 +174,7 @@ The title is `<goal> › <Role> · <slice>`, e.g. `cost sheet accuracy › Imple
   ```
 - none: `spawn: no workers in this harness; play the role yourself from <brief>`, exit 1.
 
-Errors: `spawn: --role --effort --brief are required` · `spawn: --tier is required for role '<role>' (no role card)` · `spawn: the <Role> card is <tier> (up to <max> without a reason); --tier <t> needs --why "<reason>"` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>`.
+Errors: `spawn: --role --effort --brief are required` · `spawn: --tier is required for role '<role>' (no role card)` · `spawn: the <Role> card is <tier> (up to <max> without a reason); --tier <t> needs --why "<reason>"` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>` · `no built-in model for provider '<p>'; pass --model <id>`.
 
 ## wait, read, tell, compact
 

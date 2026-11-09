@@ -6,10 +6,14 @@
 #
 #   harness.sh terms                      the harness, then every term with its meaning here
 #   harness.sh model <tier> [provider]    tier → model id (fast | balanced | deep | consultant)
+#   harness.sh providers                  enabled providers and their model ids (built-in defaults outside bb)
+#   harness.sh roster                     the user's agent roster (bb: the agent-roster memory; elsewhere: none, use built-in defaults)
+#   harness.sh roster-save                save the roster from stdin (bb: update the global pinned memory agent-roster, or add it if absent; elsewhere: not stored). WORKFLOW_ROSTER_NAME overrides the memory name (tests)
 #   harness.sh storage                    this agent's storage directory
 #   harness.sh context [id]               context reading (self, or a worker's)
 #   harness.sh title "<goal>"             set this thread's title to the goal, before the first spawn
-#   harness.sh spawn --role R [--tier T --why W] --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P] [--author P]
+#   harness.sh spawn --role R [--tier T --why W] --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P] [--model ID] [--author P]
+#       --provider/--model come from the user's agent roster (SKILL.md, Roster); --model overrides the tier-derived id
 #       tier defaults to the role card; above it needs --why (appended to the brief, logged in storage)
 #       bb Reviewer: the vendor other than --author (default: the hosted agent). WORKFLOW_DRY_RUN=1 prints the bb command
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
@@ -42,7 +46,7 @@ provider() {
 }
 
 model() {
-  tier=$1; p=$(provider "$2")
+  tier=$1; p=${2:-$(provider)}
   case "$p:$tier" in
     claude-code:fast) echo haiku ;;
     claude-code:balanced) echo sonnet ;;
@@ -51,8 +55,60 @@ model() {
     codex:fast) echo gpt-6-luna ;;
     codex:balanced|codex:deep) echo gpt-6.1-sol ;;
     codex:consultant) echo gpt-6-astra ;;
-    *) die "unknown tier '$tier' (fast | balanced | deep | consultant)" ;;
+    claude-code:*|codex:*) die "unknown tier '$tier' (fast | balanced | deep | consultant)" ;;
+    *) die "no built-in model for provider '$p'; pass --model <id> (harness.sh providers lists ids)" ;;
   esac
+}
+
+providers() {
+  if [ "$(detect)" != bb ]; then
+    echo "note: not under bb; these are the built-in defaults, not discovered"
+    for t in fast balanced deep consultant; do
+      printf '%-10s claude-code:%s  codex:%s\n' "$t" "$(model $t claude-code)" "$(model $t codex)"
+    done
+    return
+  fi
+  for id in $(bb provider list | awk 'NR>2 && $1 !~ /^-+$/ {print $1}'); do
+    printf '%s\n' "$id"
+    bb provider models "$id" --json 2>/dev/null | sed -n 's/^    "id": "\(.*\)",*$/  \1/p'
+  done
+}
+
+roster_name=${WORKFLOW_ROSTER_NAME:-agent-roster}
+
+# Prints the memory JSON whose name is exactly the roster name, else nothing.
+roster_find() {
+  for id in $(bb memory search "$roster_name" --scope global --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p'); do
+    j=$(bb memory get "$id" --json 2>/dev/null) || continue
+    if printf '%s\n' "$j" | grep -q "^    \"name\": \"$roster_name\","; then printf '%s\n' "$j"; return; fi
+  done
+}
+
+roster() {
+  if [ "$(detect)" != bb ]; then
+    echo "none: no roster storage here; use the built-in defaults (harness.sh model <tier>)"
+    return
+  fi
+  j=$(roster_find)
+  if [ -z "$j" ]; then echo "none: no $roster_name memory; use the built-in defaults"; return; fi
+  printf '%s\n' "$j" | sed -n 's/^    "details": "\(.*\)",*$/\1/p' | sed 's/\\n/\n/g'
+}
+
+roster_save() {
+  if [ "$(detect)" != bb ]; then echo "not stored: no roster storage here"; return; fi
+  body=$(cat)
+  [ -n "$body" ] || die "roster-save reads the roster rules on stdin"
+  summary="User's agent roster: which provider/model each tier, role and Reviewer uses, plus fallback providers; read by the workflow skill at planning."
+  j=$(roster_find)
+  if [ -n "$j" ]; then
+    id=$(printf '%s\n' "$j" | sed -n 's/^    "id": "\(.*\)",*$/\1/p' | head -1)
+    ver=$(printf '%s\n' "$j" | sed -n 's/^    "version": \([0-9]*\),*$/\1/p' | head -1)
+    bb memory update "$id" --expected-version "$ver" --details "$body" --reason "The user agreed a new roster."
+  else
+    bb memory add --scope global --pinned --kind preference --tag workflow,models,routing --importance 80 \
+      --name "$roster_name" --summary "$summary" \
+      --details "$body" --reason "The workflow skill routes workers by this roster."
+  fi
 }
 
 storage() {
@@ -172,7 +228,7 @@ rank() {
 other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
 
 spawn() {
-  role= tier= effort= brief= slice= goal= isolated= prov= why= author=
+  role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod=
   while [ $# -gt 0 ]; do
     case $1 in
       --role) role=$2; shift ;;
@@ -182,6 +238,7 @@ spawn() {
       --slice) slice=$2; shift ;;
       --goal) goal=$2; shift ;;
       --provider) prov=$2; shift ;;
+      --model) mod=$2; shift ;;
       --author) author=$2; shift ;;
       --why) why=$2; shift ;;
       --isolated) isolated=1 ;;
@@ -226,7 +283,7 @@ spawn() {
         p=$a
       fi
     fi
-    m=$(model "$tier" "$p")
+    m=${mod:-$(model "$tier" "$p")}
     project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
     set -- bb thread spawn --project "$project" --parent-self --provider "$p" --model "$m" \
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
@@ -235,7 +292,7 @@ spawn() {
     if [ -n "$WORKFLOW_DRY_RUN" ]; then printf '%s\n' "$*"; else "$@"; fi
     ;;
   claude-code)
-    m=$(model "$tier" claude-code)
+    m=${mod:-$(model "$tier" claude-code)}
     st=
     if [ "$(lower "$role")" = explorer ]; then st='
   subagent_type: "Explore"'; fi
@@ -249,7 +306,7 @@ Call the Agent tool with:
 EOF
     ;;
   codex)
-    m=$(model "$tier" codex)
+    m=${mod:-$(model "$tier" codex)}
     cat <<EOF
 Call the spawn-agent tool (read its schema first) with:
   model: "$m"
@@ -273,6 +330,9 @@ bb_or_print() {  # $1 = what to do outside bb; the rest = bb thread arguments
 case ${1:-} in
   terms) terms ;;
   model) shift; model "$@" ;;
+  providers) providers ;;
+  roster) roster ;;
+  roster-save) roster_save ;;
   storage) storage ;;
   context) shift; context "$@" ;;
   title) [ -n "$2" ] || die 'title "<goal>"'; bb_or_print "no thread title here; export WORKFLOW_TASK='$2' so spawn titles carry the goal" update --self --title "$2" ;;
@@ -284,6 +344,6 @@ case ${1:-} in
         if [ "$3" = - ]; then bb_or_print "$msg" tell "$2" --message-file -; else bb_or_print "$msg" tell "$2" "$3"; fi ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,19p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,23p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
