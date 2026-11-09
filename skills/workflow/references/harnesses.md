@@ -196,10 +196,10 @@ Output elsewhere: one line saying which tool to use instead, for example `read t
 
 Under bb, prefer ending your turn to `wait`: each child's turn end wakes you with its result.
 
-## Reminder hook
+## Spawn guard
 
-Claude Code only, optional. [`scripts/reminder.sh`](../scripts/reminder.sh) injects a six-line checklist (classify, delegate or follow the brief, role card, compact or handoff, reload, coordinator quiet) before every message, including worker notifications. In `~/.claude/settings.json`, with `<dir>` = the installed skill folder:
+Claude Code only, optional. [`scripts/spawn-guard.sh`](../scripts/spawn-guard.sh) is a PreToolUse hook for Bash. It blocks (exit 2, message on stderr) a command that runs `bb thread spawn` or `bb thread create` unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It allows everything else and fails open when the hook input cannot be parsed. Needs `jq`. In `~/.claude/settings.json`, with `<dir>` = the installed skill folder, add after the existing Bash hooks:
 
 ```json
-{ "hooks": { "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "sh <dir>/scripts/reminder.sh" }] }] } }
+{ "hooks": { "PreToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command", "command": "sh <dir>/scripts/spawn-guard.sh" }] }] } }
 ```

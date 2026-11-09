@@ -19,7 +19,7 @@
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
-#   harness.sh tell <id> <message|->       message a worker (- reads stdin)
+#   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md is missing
 #   harness.sh compact <id>               compact an idle worker (bb: its next wake is a replay)
 #
 # Override detection with WORKFLOW_HARNESS=codex (Codex has no env signal).
@@ -289,7 +289,15 @@ spawn() {
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
     if [ -n "$isolated" ]; then set -- "$@" --new-environment worktree
     else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
-    if [ -n "$WORKFLOW_DRY_RUN" ]; then printf '%s\n' "$*"; else "$@"; fi
+    if [ -n "$WORKFLOW_DRY_RUN" ]; then printf 'WORKFLOW_SPAWN=1 %s\n' "$*"
+    else
+      d=$(storage); mkdir -p "$d"
+      if grep -qxF "$slice" "$d/spawned.log" 2>/dev/null && [ ! -f "$d/workers/$slice/report.md" ]; then
+        printf 'warning: slice %s was spawned before and %s/workers/%s/report.md is missing; the earlier worker did not finish its report\n' "$slice" "$d" "$slice" >&2
+      fi
+      printf '%s\n' "$slice" >> "$d/spawned.log"
+      WORKFLOW_SPAWN=1 "$@"
+    fi
     ;;
   claude-code)
     m=${mod:-$(model "$tier" claude-code)}
@@ -327,6 +335,17 @@ bb_or_print() {  # $1 = what to do outside bb; the rest = bb thread arguments
   esac
 }
 
+# Warns (never blocks) when the worker being told has no report.md in its slice folder.
+warn_no_report() {
+  [ "$(detect)" = bb ] || return 0
+  t=$(bb thread get "$1" --json 2>/dev/null | sed -n 's/^ *"title": "\(.*\)",*$/\1/p' | head -1)
+  s=${t##* · }
+  [ -n "$t" ] && [ "$s" != "$t" ] || return 0
+  d=$(storage)/workers/$s
+  [ -d "$d" ] && [ ! -f "$d/report.md" ] && printf 'warning: %s has no report.md for worker %s (%s); it may not have finished\n' "$d" "$1" "$s" >&2
+  return 0
+}
+
 case ${1:-} in
   terms) terms ;;
   model) shift; model "$@" ;;
@@ -340,6 +359,7 @@ case ${1:-} in
   wait) [ -n "$2" ] || die "wait <id>"; bb_or_print "end your turn; the completion notification wakes you (Claude Code: foreground Agent call; Codex: wait-agent tool)" wait "$2" ;;
   read) [ -n "$2" ] || die "read <id>"; bb_or_print "read the agent's final message" output "$2" ;;
   tell) [ -n "$2" ] && [ -n "$3" ] || die "tell <id> <message|->"
+        warn_no_report "$2"
         msg="send the message with SendMessage (Claude Code) or send-message (Codex) to $2"
         if [ "$3" = - ]; then bb_or_print "$msg" tell "$2" --message-file -; else bb_or_print "$msg" tell "$2" "$3"; fi ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"

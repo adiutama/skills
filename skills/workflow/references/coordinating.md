@@ -152,6 +152,7 @@ Answer in:  ≤ 300 words — verdict, risks missed, what to change
 
 - **Wait** by ending your turn: each worker's turn end wakes you with its result.
 - The ledger is the state, updated at every wake. Fill a row from the worker's report file for the named candidate, not from its latest reply, which may be a question or progress. Never poll a worker for status.
+- `harness.sh tell <id>` warns on stderr when that worker's `report.md` is missing, and `harness.sh spawn` warns when it re-spawns a slice whose `report.md` is missing; both are warnings, not blocks.
 - A wake with nothing to decide → one ledger line, no tool calls, end the turn.
 - Feedback (Tester or Reviewer → Implementer): **tell** the same Implementer the Blocking list only, by finding id, nothing else from the review; the same Tester or Reviewer re-checks the fix, and dependents if an interface changed. Max 2 rounds, then you decide: fix the spec, a stronger tier, or ask the user.
 - Non-blocking findings (the Reviewer's For-user list) never reach the Implementer. They go to the ledger under Open and to the user on the next board as `Needs you?`; the user picks which become new work, each as its own slice with its own brief. Forwarding one, or an Implementer fixing one unasked, is scope creep: revert it.
