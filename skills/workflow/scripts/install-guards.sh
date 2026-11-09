@@ -9,7 +9,12 @@ backup=${BACKUP_DIR:-$HOME/.agents/workflow/backups}
 claude_settings=${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}
 codex_dir=${CODEX_DIR:-$HOME/.codex}
 opencode_dir=${OPENCODE_DIR:-$HOME/.config/opencode}
-guard="sh $here/spawn-guard.sh"
+# Quote the path only when it has characters the shell would split or expand, so plain paths keep their exact command.
+guard_path=$here/spawn-guard.sh
+case $guard_path in
+  *[!A-Za-z0-9_./:@%+=,-]*) guard_path="'$(printf '%s' "$guard_path" | sed "s/'/'\\\\''/g")'" ;;
+esac
+guard="sh $guard_path"
 stamp=$(date +%Y%m%d-%H%M%S)
 
 say() { printf '%s\n' "$*"; }
