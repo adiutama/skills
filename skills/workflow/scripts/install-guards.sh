@@ -45,9 +45,9 @@ if command -v codex >/dev/null 2>&1 || [ -d "$codex_dir" ]; then
     # Codex runs a hook only after it is trusted; trust ours through Codex's own app-server API.
     [ -f "$codex_dir/config.toml" ] || : > "$codex_dir/config.toml"
     if command -v python3 >/dev/null 2>&1 && command -v codex >/dev/null 2>&1; then
-      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
-import json, os, subprocess, sys
-d = sys.argv[1]
+      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" "$backup/config.toml.bak.$stamp" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
+import json, os, shutil, subprocess, sys
+d, bak = sys.argv[1], sys.argv[2]
 p = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 def send(m): p.stdin.write(json.dumps(m) + "\n"); p.stdin.flush()
 def call(i, method, params):
@@ -63,6 +63,9 @@ try:
     if not mine: raise SystemExit(1)
     todo = [h for h in mine if h["trustStatus"] != "trusted"]
     if todo:
+        os.makedirs(os.path.dirname(bak), exist_ok=True)
+        shutil.copy2(d + "/config.toml", bak)
+        print("  backup: " + bak)
         edits = [{"keyPath": "hooks.state", "value": {h["key"]: {"trusted_hash": h["currentHash"]} for h in todo}, "mergeStrategy": "upsert"}]
         r = call(3, "config/batchWrite", {"edits": edits, "filePath": d + "/config.toml", "reloadUserConfig": True})
         if "error" in r: print("  codex error: " + json.dumps(r["error"])); raise SystemExit(1)
