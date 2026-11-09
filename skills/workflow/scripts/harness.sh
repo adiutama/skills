@@ -19,7 +19,8 @@
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
-#   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md is missing
+#   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md or storage folder is missing
+#   harness.sh install-guards            install the spawn guard for Claude Code, Codex and opencode on this machine (idempotent; backs up edited files; skips agents that are not installed)
 #   harness.sh compact <id>               compact an idle worker (bb: its next wake is a replay)
 #
 # Override detection with WORKFLOW_HARNESS=codex (Codex has no env signal).
@@ -342,7 +343,9 @@ warn_no_report() {
   s=${t##* · }
   [ -n "$t" ] && [ "$s" != "$t" ] || return 0
   d=$(storage)/workers/$s
-  [ -d "$d" ] && [ ! -f "$d/report.md" ] && printf 'warning: %s has no report.md for worker %s (%s); it may not have finished\n' "$d" "$1" "$s" >&2
+  if [ ! -d "$d" ]; then printf 'warning: %s does not exist, so worker %s (%s) has no report.md\n' "$d" "$1" "$s" >&2
+  elif [ ! -f "$d/report.md" ]; then printf 'warning: %s has no report.md for worker %s (%s); it may not have finished\n' "$d" "$1" "$s" >&2
+  fi
   return 0
 }
 
@@ -362,8 +365,9 @@ case ${1:-} in
         warn_no_report "$2"
         msg="send the message with SendMessage (Claude Code) or send-message (Codex) to $2"
         if [ "$3" = - ]; then bb_or_print "$msg" tell "$2" --message-file -; else bb_or_print "$msg" tell "$2" "$3"; fi ;;
+  install-guards) BACKUP_DIR=${BACKUP_DIR:-$(storage)/guards-backup} sh "$(dirname "$0")/install-guards.sh" ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,23p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,24p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
