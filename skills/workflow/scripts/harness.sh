@@ -78,7 +78,7 @@ roster_name=${WORKFLOW_ROSTER_NAME:-agent-roster}
 
 # Prints the memory JSON whose name is exactly the roster name, else nothing.
 roster_find() {
-  for id in $(bb memory search "$roster_name" --scope all --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p'); do
+  for id in $(bb memory search "$roster_name" --scope global --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p'); do
     j=$(bb memory get "$id" --json 2>/dev/null) || continue
     if printf '%s\n' "$j" | grep -q "^    \"name\": \"$roster_name\","; then printf '%s\n' "$j"; return; fi
   done
