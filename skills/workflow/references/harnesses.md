@@ -78,7 +78,7 @@ A coordinator turns a line into `--provider <provider> --model <model>` on `spaw
 
 `roster(): string` and `roster-save(rules: stdin)`
 
-`roster` prints the rules above. Under bb it reads the `agent-roster` memory (`bb memory search`, `bb memory get`); elsewhere it prints `none: …` and the caller uses the built-in defaults. `roster-save` writes the rules from stdin as that memory under bb (global, pinned); elsewhere it prints `not stored`.
+`roster` prints the rules above. Under bb it reads the `agent-roster` memory (`bb memory search`, `bb memory get`); elsewhere it prints `none: …` and the caller uses the built-in defaults. `roster-save` writes the rules from stdin as that memory under bb (global, pinned): it updates the memory when it exists (version-checked) and adds it only when absent; elsewhere it prints `not stored`.
 
 ## model
 

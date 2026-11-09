@@ -8,7 +8,7 @@
 #   harness.sh model <tier> [provider]    tier → model id (fast | balanced | deep | consultant)
 #   harness.sh providers                  enabled providers and their model ids (built-in defaults outside bb)
 #   harness.sh roster                     the user's agent roster (bb: the agent-roster memory; elsewhere: none, use built-in defaults)
-#   harness.sh roster-save                save the roster from stdin (bb: global pinned memory agent-roster; elsewhere: not stored)
+#   harness.sh roster-save                save the roster from stdin (bb: update the global pinned memory agent-roster, or add it if absent; elsewhere: not stored). WORKFLOW_ROSTER_NAME overrides the memory name (tests)
 #   harness.sh storage                    this agent's storage directory
 #   harness.sh context [id]               context reading (self, or a worker's)
 #   harness.sh title "<goal>"             set this thread's title to the goal, before the first spawn
@@ -74,23 +74,41 @@ providers() {
   done
 }
 
+roster_name=${WORKFLOW_ROSTER_NAME:-agent-roster}
+
+# Prints the memory JSON whose name is exactly the roster name, else nothing.
+roster_find() {
+  for id in $(bb memory search "$roster_name" --scope all --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p'); do
+    j=$(bb memory get "$id" --json 2>/dev/null) || continue
+    if printf '%s\n' "$j" | grep -q "^    \"name\": \"$roster_name\","; then printf '%s\n' "$j"; return; fi
+  done
+}
+
 roster() {
   if [ "$(detect)" != bb ]; then
     echo "none: no roster storage here; use the built-in defaults (harness.sh model <tier>)"
     return
   fi
-  id=$(bb memory search agent-roster --scope all --json 2>/dev/null | sed -n 's/^      "id": "\(.*\)",*$/\1/p' | head -1)
-  if [ -z "$id" ]; then echo "none: no agent-roster memory; use the built-in defaults"; return; fi
-  bb memory get "$id" --json | sed -n 's/^    "details": "\(.*\)",*$/\1/p' | sed 's/\\n/\n/g'
+  j=$(roster_find)
+  if [ -z "$j" ]; then echo "none: no $roster_name memory; use the built-in defaults"; return; fi
+  printf '%s\n' "$j" | sed -n 's/^    "details": "\(.*\)",*$/\1/p' | sed 's/\\n/\n/g'
 }
 
 roster_save() {
   if [ "$(detect)" != bb ]; then echo "not stored: no roster storage here"; return; fi
   body=$(cat)
   [ -n "$body" ] || die "roster-save reads the roster rules on stdin"
-  bb memory add --scope global --pinned --kind preference --tag workflow,models,routing --importance 80 \
-    --name agent-roster --summary "User's agent roster: which provider/model each tier, role and Reviewer uses, plus fallback providers; read by the workflow skill at planning." \
-    --details "$body" --reason "The workflow skill routes workers by this roster."
+  summary="User's agent roster: which provider/model each tier, role and Reviewer uses, plus fallback providers; read by the workflow skill at planning."
+  j=$(roster_find)
+  if [ -n "$j" ]; then
+    id=$(printf '%s\n' "$j" | sed -n 's/^    "id": "\(.*\)",*$/\1/p' | head -1)
+    ver=$(printf '%s\n' "$j" | sed -n 's/^    "version": \([0-9]*\),*$/\1/p' | head -1)
+    bb memory update "$id" --expected-version "$ver" --details "$body" --reason "The user agreed a new roster."
+  else
+    bb memory add --scope global --pinned --kind preference --tag workflow,models,routing --importance 80 \
+      --name "$roster_name" --summary "$summary" \
+      --details "$body" --reason "The workflow skill routes workers by this roster."
+  fi
 }
 
 storage() {
