@@ -2,7 +2,9 @@
 # install-guards.sh — installs the spawn guard for Claude Code, Codex and opencode on this machine.
 # Idempotent: a second run changes nothing. Backs up each file before editing it (into $BACKUP_DIR).
 # Skips an agent that is not installed. JSON is built in a temp file, validated, then moved into place.
-# Called by `harness.sh install-guards`. Test overrides: CLAUDE_SETTINGS, CODEX_DIR, OPENCODE_DIR, BACKUP_DIR.
+# The guard scripts are copied to a fixed per-user folder ($WORKFLOW_GUARD_DIR, default ~/.local/share/workflow-guard)
+# and every hook/plugin points there, so moving or updating the skill folder never breaks a guard. Re-run to refresh the copies.
+# Called by `harness.sh install-guards`. Test overrides: CLAUDE_SETTINGS, CODEX_DIR, OPENCODE_DIR, BACKUP_DIR, WORKFLOW_GUARD_DIR.
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 backup=${BACKUP_DIR:-$HOME/.agents/workflow/backups}
@@ -10,7 +12,8 @@ claude_settings=${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}
 codex_dir=${CODEX_DIR:-$HOME/.codex}
 opencode_dir=${OPENCODE_DIR:-$HOME/.config/opencode}
 # Quote the path only when it has characters the shell would split or expand, so plain paths keep their exact command.
-guard_path=$here/spawn-guard.sh
+guard_dir=${WORKFLOW_GUARD_DIR:-$HOME/.local/share/workflow-guard}
+guard_path=$guard_dir/spawn-guard.sh
 case $guard_path in
   *[!A-Za-z0-9_./:@%+=,-]*) guard_path="'$(printf '%s' "$guard_path" | sed "s/'/'\\\\''/g")'" ;;
 esac
@@ -18,7 +21,15 @@ guard="sh $guard_path"
 stamp=$(date +%Y%m%d-%H%M%S)
 
 say() { printf '%s\n' "$*"; }
-bak() { [ -f "$1" ] || return 0; mkdir -p "$backup"; cp -p "$1" "$backup/$(basename "$1").bak.$stamp"; say "  backup: $backup/$(basename "$1").bak.$stamp"; }
+# Backup names carry the file's full path, so two files with the same basename (two Codex homes) never overwrite each other.
+bakname() { printf '%s.bak.%s' "$(printf '%s' "$1" | sed 's|^/||; s|[^A-Za-z0-9._-]|_|g')" "$stamp"; }
+bak() { [ -f "$1" ] || return 0; mkdir -p "$backup"; n=$(bakname "$1"); cp -p "$1" "$backup/$n"; say "  backup: $backup/$n"; }
+
+# Copy the guard scripts to the fixed folder; refresh a copy that differs.
+mkdir -p "$guard_dir"
+for f in spawn-guard.sh spawn-check.sh; do
+  if [ -f "$guard_dir/$f" ] && cmp -s "$here/$f" "$guard_dir/$f"; then :; else cp "$here/$f" "$guard_dir/$f"; say "guard script updated: $guard_dir/$f"; fi
+done
 
 # add_hook <json file> <default json>: put one PreToolUse Bash guard entry in the file. Prints changed|same.
 add_hook() {
@@ -50,7 +61,7 @@ if command -v codex >/dev/null 2>&1 || [ -d "$codex_dir" ]; then
     # Codex runs a hook only after it is trusted; trust ours through Codex's own app-server API.
     [ -f "$codex_dir/config.toml" ] || : > "$codex_dir/config.toml"
     if command -v python3 >/dev/null 2>&1 && command -v codex >/dev/null 2>&1; then
-      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" "$backup/config.toml.bak.$stamp" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
+      CODEX_HOME=$codex_dir python3 -I - "$codex_dir" "$backup/$(bakname "$codex_dir/config.toml")" <<'PY' || say "  note: could not trust the hook; open Codex and trust it in /hooks"
 import json, os, shutil, subprocess, sys
 d, bak = sys.argv[1], sys.argv[2]
 p = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
@@ -89,7 +100,8 @@ say "opencode:"
 if command -v opencode >/dev/null 2>&1 || [ -d "$opencode_dir" ]; then
   dst=$opencode_dir/plugins/workflow-spawn-guard.ts
   new=$(mktemp)
-  sed "s|__SPAWN_CHECK__|$here/spawn-check.sh|" "$here/opencode-spawn-guard.ts" > "$new"
+  esc=$(printf '%s' "$guard_dir/spawn-check.sh" | sed 's/[\\&|"]/\\&/g')
+  sed "s|__SPAWN_CHECK__|$esc|" "$here/opencode-spawn-guard.ts" > "$new"
   if [ -f "$dst" ] && cmp -s "$new" "$dst"; then say "  already installed: $dst"
   else bak "$dst"; mkdir -p "$(dirname "$dst")"; mv "$new" "$dst"; say "  updated: $dst"; fi
   rm -f "$new"
