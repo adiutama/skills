@@ -10,6 +10,16 @@ ok() { if [ "$1" = 0 ]; then echo "ok   $2"; else echo "FAIL $2"; fail=1; fi; }
 has() { printf '%s\n' "$1" | grep -qF -- "$2"; }
 hasnt() { ! has "$1" "$2"; }
 
+# fake bb: project kind lookup only
+mkdir -p "$t/bin"
+cat > "$t/bin/bb" <<'FAKE'
+#!/bin/sh
+if [ "$1 $2" = "project show" ]; then
+  if [ "$3" = proj_personal ]; then k=personal; else k=standard; fi
+  printf '{\n  "id": "%s",\n  "kind": "%s",\n  "name": "x"\n}\n' "$3" "$k"
+fi
+FAKE
+chmod +x "$t/bin/bb"; PATH=$t/bin:$PATH
 # A1
 c=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice s1 --isolated); has "$c" "--parent-self"; ok $? "A1 child has --parent-self"
 s=$($H spawn --mode spin-off --goal G --provider claude-code --model sonnet --effort high --brief "$t/b.md" --slice sp); hasnt "$s" "--parent-self" && has "$s" "--new-environment worktree" && has "$s" "--title G"; ok $? "A1 spin-off top-level, worktree, title=goal"
@@ -33,6 +43,10 @@ printf 'Goal: x\nContext: from the origin\n' > "$t/ctx.md"
 $H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/ctx.md" --slice cx --context none >/dev/null 2>&1; [ $? != 0 ]; ok $? "W2 none rejects Context: brief"
 # W5: fresh always names the origin
 $H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice fo --context none --wait-go >/dev/null; has "$(cat "$t/st/briefs/fo-fresh.md")" "@thread:thr_origin"; ok $? "W5 fresh names origin"
+# Personal project: personal workspace, not worktree
+pp=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice pp --project proj_personal); has "$pp" "--new-environment personal" && hasnt "$pp" "worktree"; ok $? "personal project uses --new-environment personal"
+pf=$($H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice pf --project proj_personal); has "$pf" "--new-environment personal"; ok $? "personal project, fresh"
+pi=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice pi --isolated --project proj_personal); has "$pi" "--new-environment personal"; ok $? "personal project, isolated child"
 # W4: quoting and --json
 mkdir -p "$t/sp ace"; echo x > "$t/sp ace/b.md"
 q=$(BB_THREAD_STORAGE="$t/st x" $H spawn --mode spin-off --goal "Fix queued status" --tier balanced --effort high --brief "$t/sp ace/b.md" --slice qs); has "$q" "--title 'Fix queued status'" && has "$q" "--json" && has "$q" "--prompt-file '$t/st x/briefs/qs-spin-off.md'"; ok $? "W4 dry-run quotes args, has --json"

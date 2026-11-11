@@ -242,6 +242,18 @@ rank() {
 
 other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
 
+# new_env_kind <project id>: the --new-environment kind the project supports.
+# A Personal project (bb project show --json: "kind": "personal") has no git source, so bb accepts only
+# a personal workspace there; every other project gets a git worktree.
+new_env_kind() {
+  k=$(bb project show "$1" --json 2>/dev/null | sed -n 's/^ *"kind": "\([^"]*\)".*$/\1/p' | head -1)
+  case $k in
+    personal) echo personal ;;
+    standard) echo worktree ;;
+    *) printf 'note: could not read the kind of project %s; assuming a worktree\n' "$1" >&2; echo worktree ;;
+  esac
+}
+
 # brief_extra: the harness-owned part appended to a composed brief (modes, hold, context).
 brief_extra() {
   printf '\n---\nThread setup (added by harness.sh; do not edit)\n\n'
@@ -382,10 +394,10 @@ spawn() {
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
     if [ "$mode" = child ]; then
       set -- "$@" --parent-self
-      if [ -n "$isolated" ]; then set -- "$@" --new-environment worktree
+      if [ -n "$isolated" ]; then set -- "$@" --new-environment "$(new_env_kind "$project")"
       else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
     else
-      set -- "$@" --new-environment worktree
+      set -- "$@" --new-environment "$(new_env_kind "$project")"
     fi
     case $mode in
       child) word=Delegated place=child; rule="reports once when done, and on failure" ;;

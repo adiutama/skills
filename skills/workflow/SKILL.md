@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.7.0"
+  version: "1.7.1"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -103,8 +103,8 @@ Every new thread is one of three verbs, which fix where it sits and whether it r
 | Verb | `--mode` | Placement | Tells this thread |
 |---|---|---|---|
 | delegate | `child` (default) | child of this thread, brief starts `Role:` | one final report, plus failures |
-| spin off | `spin-off` | top-level, own worktree | one message each on DONE, BLOCKED, FAILED; nothing else |
-| start fresh | `fresh` | top-level, own worktree | never; this thread is re-parented under the new one, silenced |
+| spin off | `spin-off` | top-level, own workspace | one message each on DONE, BLOCKED, FAILED; nothing else |
+| start fresh | `fresh` | top-level, own workspace | never; this thread is re-parented under the new one, silenced |
 
 - **Settle both questions:** top-level or child, and whether it reports back. Plain wording that settles both is accepted ("work on issue x on a top-level thread so we can wrap this thread up" = start fresh). If either is open, ask in suggestion form: "I suggest spin off because <reason> — ok?". Never guess.
 - **Modifiers**, combinable with any verb: `--wait-go` (read and plan only until the user says "go" in that thread, or this thread relays it) · `--after <thread id>` (same, released when that thread is done: this thread relays "go" when it receives that thread's done message if it is in your `spin-offs.md`, else the script tells that thread once to send "go") · `--context none|this|<thread id>` (the brief carries only the goal | goal plus relevant context, the default | goal plus a pointer to that thread; reviews and risk checks the user calls objective or fresh use `none`) · `--report-after-merge` (spin off only: DONE is sent after the PR merges) · a named model or effort, else the roster and tier rules.
