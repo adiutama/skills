@@ -23,7 +23,7 @@ CONFIG = os.path.join(HOME, "config.json")
 JOURNAL = os.path.join(HOME, "journal.jsonl")
 BATCHES = os.path.join(HOME, "batches")
 BATCH_BYTES = 100_000
-MAX_THREAD_BYTES = 40_000
+MAX_THREAD_BYTES = 40_000  # one thread block; longer threads are split into parts
 FIRST_RUN_LOOKBACK_MS = 24 * 3600 * 1000
 LOCK_MAX_AGE_S = 3 * 3600
 KEEP_RUN_STATS = 60
@@ -68,6 +68,11 @@ def load_config():
 def load_state():
     return read_json(STATE) or {
         "cursorMs": int(time.time() * 1000) - FIRST_RUN_LOOKBACK_MS, "lastSeq": {}, "dreamThreads": []}
+
+
+def state_committed(state, run):
+    """Whether state.json already holds this run's cursor (lastCommittedRun covers older state files)."""
+    return run in state.get("committedRuns", []) or state.get("lastCommittedRun") == run
 
 
 def register_me(state):
@@ -147,19 +152,37 @@ def events_after(tid, after):
 
 
 def conversation(evs):
-    lines = []
+    """One string per message, oldest first."""
+    msgs = []
     for e in evs:
         d = e.get("data") or {}
         if e["type"] == "client/turn/requested" and d.get("initiator") == "user":
             who = "AGENT:" + d["senderThreadId"] if d.get("senderThreadId") else "USER"
             text = "\n".join(i.get("text", "") for i in d.get("input", []) if i.get("type") == "text")
             if text.strip():
-                lines.append(f"## {who} (seq {e['seq']})\n{text.strip()}")
+                msgs.append(f"## {who} (seq {e['seq']})\n{text.strip()}")
         elif e["type"] == "item/completed":
             it = d.get("item", d)
             if it.get("type") == "agentMessage" and it.get("text", "").strip():
-                lines.append(f"## ASSISTANT (seq {e['seq']})\n{it['text'].strip()}")
-    return "\n\n".join(lines)
+                msgs.append(f"## ASSISTANT (seq {e['seq']})\n{it['text'].strip()}")
+    return msgs
+
+
+def chunks(msgs, limit=MAX_THREAD_BYTES):
+    """Group messages into chunks of at most `limit` chars; a longer message is cut
+    into parts. Nothing is dropped, so every new message reaches a scanner."""
+    out, cur, size = [], [], 0
+    for m in msgs:
+        parts = [m] if len(m) <= limit else [
+            f"{m[:m.index(chr(10))]} [part {i + 1}/{-(-len(m) // limit)}]\n{m[j:j + limit]}"
+            for i, j in enumerate(range(0, len(m), limit))]
+        for part in parts:
+            if cur and size + len(part) > limit:
+                out.append("\n\n".join(cur)); cur, size = [], 0
+            cur.append(part); size += len(part) + 2
+    if cur:
+        out.append("\n\n".join(cur))
+    return out
 
 
 def collect(run, state, me):
@@ -179,16 +202,16 @@ def collect(run, state, me):
         if not evs:
             continue
         new_seq[t["id"]] = evs[-1]["seq"]
-        text = conversation(evs)
-        if not text:
-            continue
-        if len(text) > MAX_THREAD_BYTES:
-            text = "[...earlier messages truncated...]\n" + text[-MAX_THREAD_BYTES:]
-        block = (f"# THREAD {t['id']} | project {t['projectId']} ({projects.get(t['projectId'])}) "
-                 f"| title: {t.get('title')}\n{text}\n\n")
-        if cur and size + len(block) > BATCH_BYTES:
-            batches.append(cur); cur, size = [], 0
-        cur.append(block); size += len(block); seen.append(t["id"])
+        parts = chunks(conversation(evs))
+        for k, text in enumerate(parts, 1):
+            more = f" | part {k}/{len(parts)}" if len(parts) > 1 else ""
+            block = (f"# THREAD {t['id']} | project {t['projectId']} ({projects.get(t['projectId'])}) "
+                     f"| title: {t.get('title')}{more}\n{text}\n\n")
+            if cur and size + len(block) > BATCH_BYTES:
+                batches.append(cur); cur, size = [], 0
+            cur.append(block); size += len(block)
+        if parts:
+            seen.append(t["id"])
     if cur:
         batches.append(cur)
     names = []
@@ -232,7 +255,11 @@ def begin(run):
     take_lock(run)
     state = load_state()
     me = register_me(state)
-    manifest = read_json(os.path.join(BATCHES, run, "manifest.json"))
+    mpath = os.path.join(BATCHES, run, "manifest.json")
+    manifest = read_json(mpath)
+    if manifest and not manifest["committed"] and state_committed(state, run):
+        manifest["committed"] = True  # crashed between state.json and the manifest: finish the commit
+        write_json(mpath, manifest)
     if manifest and not manifest["committed"] and state["cursorMs"] > manifest["baseCursorMs"]:
         manifest = None  # a later run committed after this one collected: re-collect
     if manifest is None:
@@ -261,12 +288,16 @@ def commit(run):
     if read_json(os.path.join(HOME, "logs", f"{run}.json")) is None:
         sys.exit(f"logs/{run}.json missing or invalid; write the log before committing")
     state = load_state()
-    p = manifest["pending"]
-    state["cursorMs"] = max(state["cursorMs"], p["cursorMs"])
-    for tid, seq in p["lastSeq"].items():
-        state["lastSeq"][tid] = max(state["lastSeq"].get(tid, 0), seq)
-    state["lastCommittedRun"] = run
-    write_json(STATE, state)
+    if not state_committed(state, run):
+        # One atomic state.json write records the cursor and that this run committed,
+        # so a crash before the manifest below is finished by the next begin/commit.
+        p = manifest["pending"]
+        state["cursorMs"] = max(state["cursorMs"], p["cursorMs"])
+        for tid, seq in p["lastSeq"].items():
+            state["lastSeq"][tid] = max(state["lastSeq"].get(tid, 0), seq)
+        state["lastCommittedRun"] = run
+        state["committedRuns"] = (state.get("committedRuns", []) + [run])[-KEEP_RUN_STATS:]
+        write_json(STATE, state)
     manifest["committed"] = True
     write_json(path, manifest)
     print(json.dumps({"run": run, "committed": True}))

@@ -22,20 +22,20 @@ Every unpinned memory gets at most one of these; the rest are left alone.
 - **Rescope**: a global memory naming a project, channel or repo → **add** in that project, **forget** the global one. A project rule seen in other projects → **add** global, **forget** the project ones.
 - **Rename**: a misleading name → **add** under the new name, **forget** the old.
 - **Importance**: raise rules that keep coming up, lower ones that never do → **update**.
-- **Backlog**: an item with evidence this week from a thread it didn't have → decide it now (the bloat guard's exemption applies). Otherwise `waited` + 1; at `config.backlogMaxRuns` drop it and list it under Dropped with its full text.
+- **Backlog**: an item with evidence this week from a thread it didn't have → decide it now (the bloat guard's exemption applies). `deferred` adds never expire: they wait for that evidence, and leave only when decided or invalidated (superseded, contradicted, or rejected by the user → `dropped` with the reason). `backlog` (unsure) and `failed` items: `waited` + 1 per deep sleep without new evidence; at `config.backlogMaxRuns` → `dropped`, listed with full text.
 
 Never edit pinned memories, AGENTS.md or this skill: those go to "Needs you".
 
 **Self-tuning**: change numbers in `config.json` when the week shows they are off (adds deferred every night that the audit found good → raise `addsPerRun`; a store past `memoryLimit` that the organizing can't shrink → say so rather than raise it). At most two keys per week, never `mode`; write via `.tmp` + `mv`, keeping other keys.
 
 ## 4. Write the log
-`<data>/logs/$RUN.json`, as in [nightly.md](nightly.md) §5, plus `why` per proposal (audit, merge, split, unused, stale, contradiction, tighten, rescope, rename, importance, backlog) and, for unused, the search that showed it. Then rewrite `backlog.json`.
+`<data>/logs/$RUN.json`, as in [nightly.md](nightly.md) §5, plus `why` per item (audit, merge, split, unused, stale, contradiction, tighten, rescope, rename, importance, backlog) and, for unused, the search that showed it. Every backlog item whose `waited` changed or that was decided or dropped is in the log with its new status and `waited`, so the backlog update in §6 replays safely.
 
 ## 5. Needs you
 Collect for the report, each item one line: pinned-memory changes; rules that belong in an AGENTS.md (target file + text to add); procedures grown large or spread over many memories that should become a skill; edits to this skill's files suggested by the week's rejections and dropped lists. Keep it short; omit empty groups.
 
 ## 6. Apply
-As [nightly.md](nightly.md) §7 steps 2–4, without `commit` (deep sleep moves no cursor): adds before the forgets they replace.
+As [nightly.md](nightly.md) §6 steps 2–6, without `commit` (deep sleep moves no cursor): adds before the forgets they replace.
 
 ## 7. Report
-As [nightly.md](nightly.md) §8, with a `why` column, the memory count before → after, any week's run that forgot more than `config.forgetAlert` under Problems, config changes (old → new, why), and "Needs you" last before the link. A forget is undone with `revert dream $RUN #n`: it re-adds the memory from the journal under a new id.
+As [nightly.md](nightly.md) §7, with a `why` column, the memory count before → after, any week's run that forgot more than `config.forgetAlert` under Problems, config changes (old → new, why), and "Needs you" last before the link. A forget is undone with `revert dream $RUN #n`: it re-adds the memory from the journal under a new id.

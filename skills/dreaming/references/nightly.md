@@ -4,9 +4,9 @@ You are the judge. Scanner helpers read the threads; you decide what becomes mem
 
 ## 1. Begin
 **run script** `dream.py begin $RUN` → status JSON: `batches`, `scanned` per batch, `memoryDump`, `logWritten`, `committed`, `config`, `guard`. Exit 3 = another attempt is running: reply with that and stop.
-- `committed`, and nothing left `proposed` in `<data>/logs/$RUN.json` (or `config.mode` = `propose`) → reply with the report (§8) and stop.
-- Otherwise `logWritten` → go to §7.
-- No batches → write `[]` to `$RUN.json`, then go to §7.
+- `committed`, `<data>/logs/$RUN.md` exists, and nothing is left `proposed` in `$RUN.json` (or `config.mode` = `propose`) → reply with that report and stop.
+- Otherwise `logWritten` → go to §6.
+- No batches → write `[]` to `$RUN.json`, then go to §6.
 
 Then recover the journal as in the SKILL.md rules.
 
@@ -18,7 +18,7 @@ For each batch not yet `scanned`, fill [scan.md](scan.md) (`{BATCH}` = batch pat
 - `<data>/backlog.json` (missing = `[]`), every `<data>/logs/*-rejected.md`, and proposals still `proposed` in earlier `logs/*.json` (skip `*superseded*`).
 
 ## 4. Judge
-Merge candidates that describe the same thing across batches and with backlog items. For each decide **add**, **update** (existing id: merge in the new evidence, sharpen wording), **forget** (evidence shows it is now wrong), **backlog** (unsure: note what evidence would settle it), or **drop**. Write only what passes all of:
+Merge candidates that describe the same thing across batches and with backlog items. For each decide **add**, **update** (existing id: merge in the new evidence, sharpen wording), **forget** (evidence shows it is now wrong), **backlog** (unsure: note what evidence would settle it), or **drop**. A backlog item without new evidence stays as it is (leave it out of the log). Write only what passes all of:
 - Durable: still true next month; not task status or a one-off.
 - Actionable: changes what a future agent does.
 - Evidenced: a preference needs `explicit` strength or evidence from 2+ threads (a backlog item's threads count); a fact needs a confirmed outcome, not an assistant guess.
@@ -32,24 +32,24 @@ Pinned memories: suggest the change in the report, never write. Importance 40–
 **Bloat guard** (adds only): taking adds most important first, an add waits in the backlog (`deferred`) once adds this run reach `config.addsPerRun`, or the store count (dump count + adds − forgets this run) reaches `config.memoryLimit`. Exempt: an explicit "remember this", and a deferred backlog item that gained evidence from a thread it didn't have. Updates and forgets never wait.
 
 ## 5. Write the log
-`<data>/logs/$RUN.json` (written last; its presence marks judging done): an array of proposals `{n, op, action, scope, projectId, id?, version?, name, summary, details, kind, tags, importance, reason, evidence, status: "proposed"}`, fields matching `memory.py write`; `op` = `$RUN:<n>:<action>:<name>`. Deferred and backlogged items are not proposals.
+`<data>/logs/$RUN.json`, written last: its presence marks judging done, so it carries every outcome that must survive a crash. An array of items `{n, op, action, scope, projectId, id?, version?, name, summary, details, kind, tags, importance, reason, evidence, status}`, fields matching `memory.py write`, `op` = `$RUN:<n>:<action>:<name>`:
+- `status: "proposed"`: a write.
+- `status: "deferred"` (held by the bloat guard) or `"backlog"` (unsure; add `note`: what evidence would settle it): goes to the backlog, with `since` and `waited` carried from an existing backlog item (new: `since: $RUN`, `waited: 0`).
+- `status: "dropped"` for a backlog item this run settled without a write, with the reason.
 
-## 6. Backlog
-Rewrite `<data>/backlog.json`: add new `deferred` and `unsure` items `{name, action, scope, projectId, id?, why, note, proposal, evidence, since, waited: 0}`; remove items this run turned into proposals or drops. Deep sleep ages and drops items.
-
-## 7. Commit and apply
+## 6. Commit and apply
 1. **run script** `dream.py commit $RUN` (safe to repeat).
-2. `config.mode` = `apply`, in log order (adds before the forgets they replace): **run script** `memory.py write --op <op> [--project <projectId>] -- <action> …` with the proposal's fields (`update`/`forget` pass `--expected-version` and `--reason`). A done op prints "already applied". A version conflict: re-read with **memory read**, re-merge, retry once with the same op. Still failing → backlog it as `failed`. Exit 3 or `uncertain` → resolve it now (SKILL.md rules); if you can't, stop writing.
-3. Set each proposal's `status` from **run script** `memory.py history --run $RUN` (the journal is the truth): `applied` with `memoryId`, or `failed` with the error. Save the JSON.
-4. **run script** `dream.py record $RUN --memories <store count after>`, then `dream.py release $RUN`. Delete `<data>/batches/` entries older than `config.keepBatchesDays`, except any whose `manifest.json` has `committed: false`.
+2. **Backlog** from the log (replayable, so a crash anywhere repeats it safely): in `<data>/backlog.json` (missing = `[]`), remove every item whose `name` appears in this log, then add the log's `deferred` and `backlog` items. Write via `.tmp` + `mv`.
+3. **Legacy log** (an item has no `op`: written before the journal): give each item `op` = `$RUN:<n>:<action>:<name>` and save the log before any write. Keep every status other than `proposed`. For a `proposed` one, first check whether it already took effect: add → **memory read** of its name returns the proposal's summary; update → the memory already holds the proposal's summary and details; forget → **memory read** says not found. If so, mark it `applied` with the memory id and don't write.
+4. `config.mode` = `apply`: each `proposed` item in log order (adds before the forgets they replace): **run script** `memory.py write --op <op> [--project <projectId>] -- <action> …` with its fields (`update`/`forget` pass `--expected-version` and `--reason`). A done op prints "already applied". A version conflict: re-read with **memory read**, re-merge, retry once with the same op. Still failing → mark it `failed` and add it to the backlog as `failed`. Exit 3 or `uncertain` → resolve it now (SKILL.md rules); if you can't, stop writing.
+5. Set the `status` of every item still `proposed` from **run script** `memory.py history --run $RUN` (the journal is the truth): `applied` with `memoryId`, or `failed` with the error. Save the log.
+6. **run script** `dream.py record $RUN --memories <store count after>`, then `dream.py release $RUN`. Delete `<data>/batches/` entries older than `config.keepBatchesDays`, except any whose `manifest.json` has `committed: false`.
 
-## 8. Report
-Write it to `<data>/logs/$RUN.md` and print the same text as the final reply; the user reads the run in the thread.
-1. One line: threads, candidates, writes by action, mode (`propose` → "nothing applied").
-2. **Problems** (omit when none): scanner or write failures, unresolved journal ops, more than `config.forgetAlert` forgets, deferred adds (name each).
-3. A table of every proposal: `#`, action, scope (project name or global), name, one-line summary, memory id, outcome. Bold borderline ones, with the reason under the table.
-4. "Dropped": the count plus up to 5 notable ones, one line each; "New evidence for open proposals", if any.
+## 7. Report
+Write it to `<data>/logs/$RUN.md` and print the same text as the final reply; the user reads the run in the thread. Never shorten it.
+1. **Problems** first (omit when none): scanner or write failures, unresolved journal ops, more than `config.forgetAlert` forgets, deferred adds (name each).
+2. One line: threads, candidates, writes by action, mode (`propose` → "nothing applied").
+3. A table of every written or proposed item: `#`, action, scope (project name or global), name, one-line summary, memory id, outcome, undo (`revert dream $RUN #n`). Bold borderline ones, with the reason under the table.
+4. "Backlog": deferred and unsure items, one line each. "Dropped": the count plus up to 5 notable ones; "New evidence for open proposals", if any.
 5. How to correct: `revert dream $RUN #n`, or say "#n is wrong because …". In `propose`: `apply dream $RUN, accept …; reject … (reason)`.
 6. Last line: a **file link** to `logs/$RUN.md`.
-
-Over ~40 proposals: table the 40 most important and say how many more are in the log.
