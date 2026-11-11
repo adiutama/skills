@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dreaming"
+  short_description: "Consolidate thread history into durable bb memory (nightly run, weekly deep sleep)"
+  default_prompt: "Use $dreaming for the nightly run."
