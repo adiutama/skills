@@ -17,6 +17,9 @@
 #       tier defaults to the role card; above it needs --why (appended to the brief, logged in storage)
 #       bb Reviewer: the vendor other than --author (default: the hosted agent). WORKFLOW_DRY_RUN=1 prints the bb command
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
+#       --mode child|spin-off|fresh (default child): spin-off and fresh make a top-level thread in its own worktree (no --role; need --goal, and --tier or --provider/--model)
+#       --wait-go · --after <thread id> · --context none|this|<thread id> · --report-after-merge (spin-off) · --force (re-spawn a slice with no report.md) · --project <id>
+#       prints the receipt line; WORKFLOW_DRY_RUN=1 prints the commands for every mode
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
 #   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md or storage folder is missing
@@ -217,6 +220,17 @@ role_tiers() {
   esac
 }
 
+# q: print args as one POSIX-shell-quoted command line.
+q() {
+  for a in "$@"; do
+    case $a in
+      ''|*[!A-Za-z0-9_./:=@%+,-]*) printf "'%s' " "$(printf '%s' "$a" | sed "s/'/'\\\\''/g")" ;;
+      *) printf '%s ' "$a" ;;
+    esac
+  done
+  printf '\n'
+}
+
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 rank() {
@@ -228,8 +242,39 @@ rank() {
 
 other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
 
+# brief_extra: the harness-owned part appended to a composed brief (modes, hold, context).
+brief_extra() {
+  printf '\n---\nThread setup (added by harness.sh; do not edit)\n\n'
+  case $mode in
+  spin-off)
+    printf 'Origin: @thread:%s spun this thread off.\n' "$origin"
+    if [ -n "$after_merge" ]; then
+      printf 'Reporting: send the origin ONE message with `bb thread tell %s --message-file -` (your Report block on stdin) on each of these, and nothing else (no progress, no thanks):\n- DONE: only after your PR has merged, not when the work finishes.\n- BLOCKED: as soon as you are blocked.\n- FAILED: as soon as you fail.\n' "$origin"
+    else
+      printf 'Reporting: send the origin ONE message with `bb thread tell %s --message-file -` (your Report block on stdin) on each of these, and nothing else (no progress, no thanks):\n- DONE: when your work is finished.\n- BLOCKED: as soon as you are blocked.\n- FAILED: as soon as you fail.\n' "$origin"
+    fi ;;
+  fresh)
+    printf 'Origin: @thread:%s started this thread.\n' "$origin"
+    printf 'Reporting: none. Do not message the thread that started you; it is reference context and is not woken by you.\n' ;;
+  esac
+  case $ctx in
+    none) ;;
+    this) printf 'Context: the relevant context from @thread:%s is in the goal above; read that thread only if something is missing.\n' "$origin" ;;
+    *) printf 'Context: reference only: @thread:%s. Read it for background; do not message it.\n' "$ctx" ;;
+  esac
+  if [ -n "$after" ]; then
+    printf 'Hold: read and plan only; make no changes (no edits, commits, pushes or new threads) until you receive "go". It is released when @thread:%s is done: ' "$after"
+    if [ -n "$after_tracked" ]; then printf '@thread:%s relays "go" to you.\n' "$origin"
+    else printf '@thread:%s tells you "go" directly.\n' "$after"; fi
+  elif [ -n "$wait_go" ]; then
+    printf 'Hold: read and plan only; make no changes (no edits, commits, pushes or new threads) until the user says "go" in this thread'
+    if [ "$mode" = fresh ]; then printf '.\n'; else printf ', or @thread:%s relays "go".\n' "$origin"; fi
+  fi
+}
+
 spawn() {
   role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod=
+  mode=child wait_go= after= ctx=this after_merge= force= project=
   while [ $# -gt 0 ]; do
     case $1 in
       --role) role=$2; shift ;;
@@ -242,35 +287,82 @@ spawn() {
       --model) mod=$2; shift ;;
       --author) author=$2; shift ;;
       --why) why=$2; shift ;;
+      --mode) mode=$2; shift ;;
+      --after) after=$2; shift ;;
+      --context) ctx=$2; shift ;;
+      --project) project=$2; shift ;;
+      --wait-go) wait_go=1 ;;
+      --report-after-merge) after_merge=1 ;;
+      --force) force=1 ;;
       --isolated) isolated=1 ;;
       *) die "spawn: unknown argument $1" ;;
     esac; shift
   done
-  [ -n "$role" ] && [ -n "$effort" ] && [ -n "$brief" ] || die "spawn: --role --effort --brief are required"
+  case $mode in child|spin-off|fresh) ;; *) die "spawn: --mode is child | spin-off | fresh" ;; esac
+  [ -z "$after_merge" ] || [ "$mode" = spin-off ] || die "spawn: --report-after-merge is for --mode spin-off only"
+  [ -n "$effort" ] && [ -n "$brief" ] || die "spawn: --effort --brief are required"
   [ -f "$brief" ] || die "spawn: brief file not found: $brief"
-  card=$(role_tiers "$role")
-  card_tier=${card% *}; max_tier=${card#* }
-  if [ -z "$tier" ]; then
-    [ -n "$card" ] || die "spawn: --tier is required for role '$role' (no role card)"
-    tier=$card_tier
+  h=$(detect)
+  if [ "$mode" = child ]; then
+    [ -n "$role" ] || die "spawn: --role --effort --brief are required"
+    card=$(role_tiers "$role")
+    card_tier=${card% *}; max_tier=${card#* }
+    if [ -z "$tier" ]; then
+      [ -n "$card" ] || die "spawn: --tier is required for role '$role' (no role card)"
+      tier=$card_tier
+    fi
+  else
+    [ "$h" = bb ] || die "spawn: --mode $mode needs bb (top-level threads exist only there)"
+    [ -n "$goal" ] || die "spawn: --mode $mode needs --goal \"<goal>\" (it becomes the thread title)"
+    [ -n "$tier" ] || [ -n "$mod" ] || die "spawn: --mode $mode needs --tier T or --provider P --model ID (from the roster)"
+    card=
+    [ -n "$tier" ] || tier=balanced
   fi
   rank "$tier" >/dev/null
   [ -n "$slice" ] || slice=$(basename "$(dirname "$brief")")
-  h=$(detect)
-  if [ -z "$goal" ]; then
-    case $h in
-      bb) goal=$(bb status --json 2>/dev/null | sed -n 's/^ *"title": "\(.*\)",*$/\1/p' | head -1) ;;
-    esac
-    [ -n "$goal" ] || goal=${WORKFLOW_TASK:-}
+  if [ "$mode" = child ]; then
+    if [ -z "$goal" ]; then
+      case $h in
+        bb) goal=$(bb status --json 2>/dev/null | sed -n 's/^ *"title": "\(.*\)",*$/\1/p' | head -1) ;;
+      esac
+      [ -n "$goal" ] || goal=${WORKFLOW_TASK:-}
+    fi
+    if [ -n "$goal" ]; then title="$goal › $role · $slice"; else title="$role · $slice"; fi
+  else
+    title=$goal
   fi
-  if [ -n "$goal" ]; then title="$goal › $role · $slice"; else title="$role · $slice"; fi
+  d=$(storage)
+  # A slice spawned before whose report.md is missing is retried, not re-spawned (a duplicate thread).
+  if [ "$mode" = child ] && [ -z "$force" ] && [ ! -f "$d/workers/$slice/report.md" ]; then
+    prev=$(awk -F'\t' -v s="$slice" '$1 == s { id = $2; f = 1 } END { if (f) print (id == "" ? "-" : id) }' "$d/spawned.log" 2>/dev/null || true)
+    if [ -n "$prev" ]; then
+      [ "$prev" != - ] || prev='<id>'
+      die "spawn: slice '$slice' was spawned before ($prev) and $d/workers/$slice/report.md is missing; run \`bb thread retry $prev\` on the earlier worker (--force spawns a new one anyway)"
+    fi
+  fi
   # Above the card's tier costs more on every turn: allowed, but only with a written reason.
   if [ -n "$card" ] && [ "$(rank "$tier")" -gt "$(rank "$max_tier")" ]; then
     [ -n "$why" ] || die "spawn: the $role card is $card_tier (up to $max_tier without a reason); --tier $tier needs --why \"<reason>\""
     printf "\nTier override: %s, above the card's %s — %s\n" "$tier" "$max_tier" "$why" >> "$brief"
-    d=$(storage); mkdir -p "$d"
+    mkdir -p "$d"
     printf '%s\t%s\t%s\t%s\n' "$(date '+%F %T')" "$title" "$tier" "$why" >> "$d/tier-overrides.log"
     printf 'note: tier override logged to %s/tier-overrides.log\n' "$d" >&2
+  fi
+  origin=${BB_THREAD_ID:-}
+  after_tracked=
+  if [ -n "$after" ]; then
+    [ "$mode" != fresh ] && grep -qF "| @thread:$after |" "$d/spin-offs.md" 2>/dev/null && after_tracked=1
+  fi
+  if [ "$ctx" = none ] && grep -Eqi '^[#*[:space:]-]*(context|reference)s?([*]*:|[[:space:]]*$)' "$brief"; then
+    die "spawn: --context none, but $brief has a Context:/Reference: section; remove it (the goal only) or use --context this"
+  fi
+  # A composed brief = the agent's brief + the harness-owned setup block.
+  if [ "$mode" != child ] || [ -n "$wait_go$after" ] || [ "$ctx" != this ]; then
+    [ "$h" != bb ] || [ -n "$origin" ] || die "spawn: BB_THREAD_ID unset"
+    mkdir -p "$d/briefs"
+    sent=$d/briefs/$slice-$mode.md
+    { cat "$brief"; brief_extra; } > "$sent"
+    brief=$sent
   fi
   case $h in
   bb)
@@ -285,20 +377,55 @@ spawn() {
       fi
     fi
     m=${mod:-$(model "$tier" "$p")}
-    project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
-    set -- bb thread spawn --project "$project" --parent-self --provider "$p" --model "$m" \
+    [ -n "$project" ] || project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
+    set -- bb thread spawn --project "$project" --provider "$p" --model "$m" \
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
-    if [ -n "$isolated" ]; then set -- "$@" --new-environment worktree
-    else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
-    if [ -n "$WORKFLOW_DRY_RUN" ]; then printf 'WORKFLOW_SPAWN=1 %s\n' "$*"
+    if [ "$mode" = child ]; then
+      set -- "$@" --parent-self
+      if [ -n "$isolated" ]; then set -- "$@" --new-environment worktree
+      else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
     else
-      d=$(storage); mkdir -p "$d"
-      if grep -qxF "$slice" "$d/spawned.log" 2>/dev/null && [ ! -f "$d/workers/$slice/report.md" ]; then
-        printf 'warning: slice %s was spawned before and %s/workers/%s/report.md is missing; the earlier worker did not finish its report\n' "$slice" "$d" "$slice" >&2
-      fi
-      printf '%s\n' "$slice" >> "$d/spawned.log"
-      WORKFLOW_SPAWN=1 "$@"
+      set -- "$@" --new-environment worktree
     fi
+    case $mode in
+      child) word=Delegated place=child; rule="reports once when done, and on failure" ;;
+      spin-off) word='Spun off' place=top-level
+        if [ -n "$after_merge" ]; then rule="tells you DONE after merge, BLOCKED, FAILED"; else rule="tells you DONE, BLOCKED, FAILED"; fi ;;
+      fresh) word='Started fresh' place=top-level; rule="never reports back" ;;
+    esac
+    case $ctx in none) cx='context: none' ;; this) cx='context: this thread' ;; *) cx="context: @thread:$ctx" ;; esac
+    hold=
+    if [ -n "$after" ]; then hold=" · after @thread:$after"
+    elif [ -n "$wait_go" ]; then hold=" · waiting for your go"; fi
+    if [ -n "$WORKFLOW_DRY_RUN" ]; then
+      printf 'WORKFLOW_SPAWN=1 '; q "$@" --json
+      [ "$mode" = child ] || printf 'brief: %s\n' "$brief"
+      id='<new>'
+      [ "$mode" != fresh ] || { printf 'WORKFLOW_SPAWN=1 '; q bb thread update "$origin" --parent-thread "$id" --parent-notifications off; }
+      if [ -n "$after" ] && [ -z "$after_tracked" ]; then
+        q bb thread tell "$after" "When your work is done, tell @thread:$id go"
+      fi
+      [ "$mode" != spin-off ] || printf 'ledger row (%s/spin-offs.md): %s\n' "$d" "| @thread:$id | $title | $(date '+%F %T') | $([ -n "$after_merge" ] && echo 'after merge' || echo done) | ${after:--} | running | - |"
+    else
+      mkdir -p "$d"
+      out=$(WORKFLOW_SPAWN=1 "$@" --json)
+      id=$(printf '%s\n' "$out" | sed -n 's/^ *"id": "\([^"]*\)".*$/\1/p' | head -1)
+      if [ -z "$id" ]; then printf '%s\n' "$out"; die "spawn: could not read the new thread id from bb's output"; fi
+      if [ "$mode" = child ]; then printf '%s\t%s\n' "$slice" "$id" >> "$d/spawned.log"; fi
+      if [ "$mode" = fresh ]; then
+        WORKFLOW_SPAWN=1 bb thread update "$origin" --parent-thread "$id" --parent-notifications off >/dev/null
+      fi
+      if [ -n "$after" ] && [ -z "$after_tracked" ]; then
+        bb thread tell "$after" "When your work is done, tell @thread:$id go" >/dev/null
+      fi
+      if [ "$mode" = spin-off ]; then
+        if [ ! -f "$d/spin-offs.md" ]; then
+          printf '# Spin-offs\n\n| thread | title | started | trigger | waiting-on | status | last milestone |\n|---|---|---|---|---|---|---|\n' > "$d/spin-offs.md"
+        fi
+        printf '| @thread:%s | %s | %s | %s | %s | running | - |\n' "$id" "$title" "$(date '+%F %T')" "$([ -n "$after_merge" ] && echo 'after merge' || echo done)" "${after:--}" >> "$d/spin-offs.md"
+      fi
+    fi
+    printf '%s → @thread:%s · %s · %s/%s · %s · %s%s · %s\n' "$word" "$id" "$place" "$p" "$m" "$effort" "$rule" "$hold" "$cx"
     ;;
   claude-code)
     m=${mod:-$(model "$tier" claude-code)}
@@ -368,6 +495,6 @@ case ${1:-} in
   install-guards) BACKUP_DIR=${BACKUP_DIR:-$(storage)/guards-backup} sh "$(dirname "$0")/install-guards.sh" ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,24p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,29p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
