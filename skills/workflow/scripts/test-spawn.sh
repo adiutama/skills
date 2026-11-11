@@ -12,8 +12,8 @@ hasnt() { ! has "$1" "$2"; }
 
 # A1
 c=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice s1 --isolated); has "$c" "--parent-self"; ok $? "A1 child has --parent-self"
-s=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice sp); hasnt "$s" "--parent-self" && has "$s" "--new-environment worktree" && has "$s" "--title G"; ok $? "A1 spin-off top-level, worktree, title=goal"
-f=$($H spawn --mode fresh --goal G --provider codex --model gpt-6.1-sol --effort high --brief "$t/b.md" --slice fr); hasnt "$f" "--parent-self" && has "$f" "bb thread update thr_origin --parent-thread <new> --parent-notifications off"; ok $? "A1 fresh re-parents origin"
+s=$($H spawn --mode spin-off --goal G --provider claude-code --model sonnet --effort high --brief "$t/b.md" --slice sp); hasnt "$s" "--parent-self" && has "$s" "--new-environment worktree" && has "$s" "--title G"; ok $? "A1 spin-off top-level, worktree, title=goal"
+f=$($H spawn --mode fresh --goal G --provider codex --model gpt-6.1-sol --effort high --brief "$t/b.md" --slice fr); hasnt "$f" "--parent-self" && has "$f" "bb thread update thr_origin --parent-thread '<new>' --parent-notifications off"; ok $? "A1 fresh re-parents origin"
 # A2
 b=$(cat "$t/st/briefs/sp-spin-off.md"); has "$b" "@thread:thr_origin" && has "$b" "DONE" && has "$b" "BLOCKED" && has "$b" "FAILED" && has "$b" "bb thread tell thr_origin"; ok $? "A2 spin-off brief reporting"
 $H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice sm --report-after-merge >/dev/null; has "$(cat "$t/st/briefs/sm-spin-off.md")" "only after your PR has merged"; ok $? "A2 after-merge trigger"
@@ -24,6 +24,18 @@ printf '| @thread:thr_y | t |\n' > "$t/st/spin-offs.md"
 a=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice ay --after thr_y); hasnt "$a" "bb thread tell thr_y"; ok $? "A3 --after tracked: no tell"
 # A4
 $H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice nc --context none >/dev/null; hasnt "$(cat "$t/st/briefs/nc-spin-off.md")" "Context:"; ok $? "A4 --context none"
+# W1: waiting-on column must not count as tracked
+printf '| @thread:thr_z | t | d | done | thr_w | running | - |\n' > "$t/st/spin-offs.md"
+a=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice wz --after thr_w); has "$a" "bb thread tell thr_w" && has "$(cat "$t/st/briefs/wz-spin-off.md")" "tells you \"go\" directly"; ok $? "W1 waiting-on is not tracked"
+printf '| @thread:thr_y | t |\n' > "$t/st/spin-offs.md"
+# W2: none rejects a brief with a Context section
+printf 'Goal: x\nContext: from the origin\n' > "$t/ctx.md"
+$H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/ctx.md" --slice cx --context none >/dev/null 2>&1; [ $? != 0 ]; ok $? "W2 none rejects Context: brief"
+# W5: fresh always names the origin
+$H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice fo --context none --wait-go >/dev/null; has "$(cat "$t/st/briefs/fo-fresh.md")" "@thread:thr_origin"; ok $? "W5 fresh names origin"
+# W4: quoting and --json
+mkdir -p "$t/sp ace"; echo x > "$t/sp ace/b.md"
+q=$(BB_THREAD_STORAGE="$t/st x" $H spawn --mode spin-off --goal "Fix queued status" --tier balanced --effort high --brief "$t/sp ace/b.md" --slice qs); has "$q" "--title 'Fix queued status'" && has "$q" "--json" && has "$q" "--prompt-file '$t/st x/briefs/qs-spin-off.md'"; ok $? "W4 dry-run quotes args, has --json"
 # A5
 for r in "$c" "$s" "$f"; do has "$r" " → @thread:<new> · " && printf '%s\n' "$r" | grep -Eq 'high|medium' ; [ $? = 0 ] || fail=1; done
 has "$s" "Spun off → @thread:<new> · top-level · " && has "$s" "claude-code/sonnet · high"; ok $? "A5 receipt line"

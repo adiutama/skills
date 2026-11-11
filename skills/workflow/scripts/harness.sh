@@ -220,6 +220,17 @@ role_tiers() {
   esac
 }
 
+# q: print args as one POSIX-shell-quoted command line.
+q() {
+  for a in "$@"; do
+    case $a in
+      ''|*[!A-Za-z0-9_./:=@%+,-]*) printf "'%s' " "$(printf '%s' "$a" | sed "s/'/'\\\\''/g")" ;;
+      *) printf '%s ' "$a" ;;
+    esac
+  done
+  printf '\n'
+}
+
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 rank() {
@@ -243,6 +254,7 @@ brief_extra() {
       printf 'Reporting: send the origin ONE message with `bb thread tell %s --message-file -` (your Report block on stdin) on each of these, and nothing else (no progress, no thanks):\n- DONE: when your work is finished.\n- BLOCKED: as soon as you are blocked.\n- FAILED: as soon as you fail.\n' "$origin"
     fi ;;
   fresh)
+    printf 'Origin: @thread:%s started this thread.\n' "$origin"
     printf 'Reporting: none. Do not message the thread that started you; it is reference context and is not woken by you.\n' ;;
   esac
   case $ctx in
@@ -339,7 +351,10 @@ spawn() {
   origin=${BB_THREAD_ID:-}
   after_tracked=
   if [ -n "$after" ]; then
-    [ "$mode" != fresh ] && grep -qF "$after" "$d/spin-offs.md" 2>/dev/null && after_tracked=1
+    [ "$mode" != fresh ] && grep -qF "| @thread:$after |" "$d/spin-offs.md" 2>/dev/null && after_tracked=1
+  fi
+  if [ "$ctx" = none ] && grep -Eqi '^[#*[:space:]-]*(context|reference)s?([*]*:|[[:space:]]*$)' "$brief"; then
+    die "spawn: --context none, but $brief has a Context:/Reference: section; remove it (the goal only) or use --context this"
   fi
   # A composed brief = the agent's brief + the harness-owned setup block.
   if [ "$mode" != child ] || [ -n "$wait_go$after" ] || [ "$ctx" != this ]; then
@@ -383,12 +398,12 @@ spawn() {
     if [ -n "$after" ]; then hold=" · after @thread:$after"
     elif [ -n "$wait_go" ]; then hold=" · waiting for your go"; fi
     if [ -n "$WORKFLOW_DRY_RUN" ]; then
-      printf 'WORKFLOW_SPAWN=1 %s\n' "$*"
+      printf 'WORKFLOW_SPAWN=1 '; q "$@" --json
       [ "$mode" = child ] || printf 'brief: %s\n' "$brief"
       id='<new>'
-      [ "$mode" != fresh ] || printf 'WORKFLOW_SPAWN=1 bb thread update %s --parent-thread %s --parent-notifications off\n' "$origin" "$id"
+      [ "$mode" != fresh ] || { printf 'WORKFLOW_SPAWN=1 '; q bb thread update "$origin" --parent-thread "$id" --parent-notifications off; }
       if [ -n "$after" ] && [ -z "$after_tracked" ]; then
-        printf 'bb thread tell %s "When your work is done, tell @thread:%s go"\n' "$after" "$id"
+        q bb thread tell "$after" "When your work is done, tell @thread:$id go"
       fi
       [ "$mode" != spin-off ] || printf 'ledger row (%s/spin-offs.md): %s\n' "$d" "| @thread:$id | $title | $(date '+%F %T') | $([ -n "$after_merge" ] && echo 'after merge' || echo done) | ${after:--} | running | - |"
     else
