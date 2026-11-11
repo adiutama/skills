@@ -2,7 +2,7 @@
 name: dreaming
 description: "Consolidate thread history into durable agent memory (\"dreaming\") and keep the memory store tidy. Use to run the nightly run or weekly deep sleep, re-run a failed one, undo or correct what a dream changed (e.g. \"revert dream 2026-11-04 #3\", \"#2 is wrong because …\"), apply proposals when dreaming is in propose mode, or tune what dreams keep."
 metadata:
-  version: "1.0.2"
+  version: "1.0.3"
   related: ""
 ---
 

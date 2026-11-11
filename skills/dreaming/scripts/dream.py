@@ -333,21 +333,47 @@ def log_path(run):
     return os.path.join(HOME, "logs", f"{run}.json")
 
 
+def tags_of(value):
+    if isinstance(value, str):
+        value = value.split(",")
+    return sorted(t.strip() for t in (value or []) if t.strip())
+
+
+def holds(item, cur):
+    """Whether a memory already holds every field the proposal sets."""
+    if item.get("scope") is not None and cur.get("scope") != item["scope"]:
+        return False
+    if item.get("scope") == "project" and item.get("projectId") and cur.get("projectId") != item["projectId"]:
+        return False
+    for k in ("summary", "details", "kind"):
+        if item.get(k) is not None and cur.get(k) != item[k]:
+            return False
+    if item.get("importance") is not None and cur.get("importance") != int(item["importance"]):
+        return False
+    if item.get("tags") is not None and tags_of(cur.get("tags")) != tags_of(item["tags"]):
+        return False
+    return True
+
+
+SETS = ("summary", "details", "kind", "tags", "importance")
+
+
 def took_effect(item):
-    """The memory id if a proposal is already true in memory, else None. Read errors
-    other than bb's not-found are raised, so nothing is saved on a partial pass."""
+    """The memory id if a proposal is already true in memory, else None. Every field the
+    proposal sets must match, or it stays proposed. Read errors other than bb's
+    not-found are raised, so nothing is saved on a partial pass."""
     m = mem()
     project = item.get("projectId") if item.get("scope") == "project" else None
-    fields = [k for k in ("summary", "details") if item.get(k) is not None]
     if item["action"] == "add":
         cur = m.get_or_none(item["name"], project, item.get("scope"))
-        return cur["id"] if cur and all(cur.get(k) == item[k] for k in fields) else None
+        return cur["id"] if cur and holds(item, cur) else None
     if not item.get("id"):
         return None
     cur = m.get_or_none(item["id"], project)
     if item["action"] == "forget":
         return item["id"] if cur is None else None
-    return cur["id"] if cur and fields and all(cur.get(k) == item[k] for k in fields) else None
+    sets_something = any(item.get(k) is not None for k in SETS)
+    return cur["id"] if cur and sets_something and holds(item, cur) else None
 
 
 def reconcile(run):

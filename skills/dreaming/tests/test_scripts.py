@@ -310,6 +310,20 @@ class Dream(unittest.TestCase):
         items = d.read_json(d.log_path(run))
         self.assertEqual([(i["status"], i.get("memoryId")) for i in items], [("applied", "mem_test"), ("proposed", None), ("rejected", None)])
 
+    def test_reconcile_update_needs_every_field_to_match(self):  # W9 round 3
+        d, run = self.d, "2026-11-11"
+        m = d.mem()
+        m.bb = FakeStore(m, dict(BASE, tags=["a", "b"], importance=50, kind="procedure"))
+        same_text = dict(action="update", scope="global", id="mem_test", name="rule", summary="original", details="original detail")
+        self.log(run, [dict(same_text, n=1, kind="preference", status="proposed"),
+                       dict(same_text, n=2, tags=["a", "c"], status="proposed"),
+                       dict(same_text, n=3, importance=70, status="proposed"),
+                       dict(same_text, n=4, scope="project", projectId="P", status="proposed"),
+                       dict(same_text, n=5, kind="procedure", tags=["b", "a"], importance=50, status="proposed")])
+        quiet(d.reconcile, run)
+        self.assertEqual([i["status"] for i in d.read_json(d.log_path(run))],
+                         ["proposed", "proposed", "proposed", "proposed", "applied"])
+
     def test_reconcile_legacy_log_is_atomic(self):  # W9: a crash mid-pass saves nothing
         d, run = self.d, "2026-11-11"
         m = d.mem()
