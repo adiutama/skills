@@ -58,6 +58,14 @@ printf 's1\tthr_old\n' > "$t/st/spawned.log"
 e=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice s1 2>&1); r=$?
 [ $r != 0 ] && has "$e" "bb thread retry thr_old"; ok $? "A6 re-spawn refused"
 $H spawn --role Implementer --effort medium --brief "$t/b.md" --slice s1 --force >/dev/null 2>&1; ok $? "A6 --force passes"
+# host passthrough
+hh=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice hh --host mac1); has "$hh" "--host mac1"; ok $? "host passed to bb thread spawn"
+hn=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice hn); hasnt "$hn" "--host"; ok $? "no --host by default"
+# adopt
+ad=$($H adopt thr_x); has "$ad" "bb thread update thr_x --parent-thread thr_origin --parent-notifications auto" && has "$ad" "Adopted → @thread:thr_x · child · reports every outcome"; ok $? "adopt re-parents, notifications auto"
+aq=$($H adopt thr_x --quiet); has "$aq" "--parent-notifications off" && has "$aq" "reports off"; ok $? "adopt --quiet"
+$H adopt thr_origin >/dev/null 2>&1; [ $? != 0 ]; ok $? "adopt refuses self"
+ac=$(WORKFLOW_HARNESS=claude-code $H adopt thr_x); has "$ac" "adopt needs bb"; ok $? "adopt outside bb prints instruction"
 # A7
 $C "bb thread spawn --help" 2>/dev/null; ok $? "A7 spawn --help allowed"
 $C "bb thread create -h" 2>/dev/null; ok $? "A7 create -h allowed"

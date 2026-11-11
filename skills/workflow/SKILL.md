@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.7.1"
+  version: "1.8.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -20,7 +20,8 @@ harness.sh roster                      the user's agent roster, or `none` (then 
 harness.sh roster-save                 save the agreed roster rules from stdin
 harness.sh title "<goal>"              before the first spawn: name your thread by the goal
 harness.sh spawn --role R --effort E --brief FILE --slice S [--isolated] [--provider P --model ID]   tier from the role card; above it: --tier T --why "<reason>"
-harness.sh spawn --mode spin-off|fresh --goal G --tier T|--provider P --model ID --effort E --brief FILE [--wait-go] [--after ID] [--context none|this|ID] [--report-after-merge]   top-level thread (Creating threads)
+harness.sh spawn --mode spin-off|fresh --goal G --tier T|--provider P --model ID --effort E --brief FILE [--wait-go] [--after ID] [--context none|this|ID] [--report-after-merge] [--host H]   top-level thread (Creating threads)
+harness.sh adopt <id> [--quiet]        make an existing thread a child of this thread (Creating threads)
 harness.sh wait | read | compact <id> · harness.sh tell <id> "<message>"
 ```
 
@@ -98,16 +99,19 @@ Delegating → read [coordinating.md](references/coordinating.md) first and foll
 
 ## Creating threads
 
-Every new thread is one of three verbs, which fix where it sits and whether it reports back. Create it only with `harness.sh spawn --mode child|spin-off|fresh`; never a raw thread-creation command, and never set `WORKFLOW_SPAWN=1` yourself (it is for the harness script only).
+Every thread you create is one of three verbs, which fix where it sits and whether it reports back; a fourth, adopt, creates none. Create threads only with `harness.sh spawn --mode child|spin-off|fresh`; never a raw thread-creation command, and never set `WORKFLOW_SPAWN=1` yourself (it is for the harness script only).
 
 | Verb | `--mode` | Placement | Tells this thread |
 |---|---|---|---|
 | delegate | `child` (default) | child of this thread, brief starts `Role:` | one final report, plus failures |
 | spin off | `spin-off` | top-level, own workspace | one message each on DONE, BLOCKED, FAILED; nothing else |
 | start fresh | `fresh` | top-level, own workspace | never; this thread is re-parented under the new one, silenced |
+| adopt | `harness.sh adopt <id> [--quiet]` | an existing thread becomes a child of this thread; it keeps its project, workspace and history | like a child: wakes this thread on every outcome; `--quiet` ("adopt quietly") sets notifications off |
 
 - **Settle both questions:** top-level or child, and whether it reports back. Plain wording that settles both is accepted ("work on issue x on a top-level thread so we can wrap this thread up" = start fresh). If either is open, ask in suggestion form: "I suggest spin off because <reason> — ok?". Never guess.
 - **Modifiers**, combinable with any verb: `--wait-go` (read and plan only until the user says "go" in that thread, or this thread relays it) · `--after <thread id>` (same, released when that thread is done: this thread relays "go" when it receives that thread's done message if it is in your `spin-offs.md`, else the script tells that thread once to send "go") · `--context none|this|<thread id>` (the brief carries only the goal | goal plus relevant context, the default | goal plus a pointer to that thread; reviews and risk checks the user calls objective or fresh use `none`) · `--report-after-merge` (spin off only: DONE is sent after the PR merges) · a named model or effort, else the roster and tier rules.
+- **Adopt** is the reverse of start fresh and the only verb that creates no thread: "make that thread a child of this thread" = adopt. It is not "absorb" (copying a thread's findings into this one and archiving it), which is a different verb that this skill does not define. Copy the receipt `Adopted → @thread:<id> · child · reports <every outcome|off>`; the reuse check, modifiers and spin-off ledger do not apply.
+- **Machine:** `spawn --host <id-or-name>` runs the new thread on that machine (needed when the target project's only source is on another one; without it bb answers "HTTP 409: No project source configured for this host").
 - **Reuse check, before a top-level thread:** search threads (use the harness's thread search) and list the open ones in the target project. A clear open match → offer it: "@thread:X already works on this — I suggest telling it instead — ok?". Not needed for delegate.
 - **Receipt:** `spawn` prints one line, `<Delegated|Spun off|Started fresh> → @thread:<id> · <child|top-level> · <provider/model · effort> · <reporting rule> [· waiting for your go | after @thread:X] · context: …`. Copy it to the user; never compose it from memory.
 - **Spin-off ledger:** each spin off adds a row to `<storage>/spin-offs.md`. "How are the spin-offs?" → one table, thread (link) | status | last milestone, what the user should look at first on top, no description column; status from the thread's status plus its latest milestone message. A spin-off that crashed without sending FAILED shows as `error` there.
