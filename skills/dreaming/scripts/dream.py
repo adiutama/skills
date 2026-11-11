@@ -8,6 +8,14 @@
   dream.py record <run> --memories <n>
                           after applying: store the memory count and this run's journaled
                           writes in state.json (the bloat guard reads them)
+  dream.py reconcile <run>
+                          before applying: give log items without an op their op id, and mark
+                          every `proposed` item with no journal history that already took
+                          effect as `applied` (legacy logs, or a crash before the write was
+                          journaled). One atomic save; safe to repeat.
+  dream.py backlog <run>  after applying: rebuild backlog.json from the run's log. Items are
+                          keyed by scope + projectId + name; every key in the log is replaced
+                          by the log's deferred, backlog and failed items. Safe to repeat.
   dream.py release <run>  drop the lock
 
 state.json only moves forward in `commit`, so a run that fails before then can
@@ -15,13 +23,14 @@ be re-run and sees the same messages. A rerun reuses the run's batches; if a
 later run committed meanwhile, the stale batches are discarded and re-collected.
 Exit 3 from begin/lock: another live attempt holds the lock.
 """
-import glob, json, os, shutil, subprocess, sys, time
+import glob, importlib.util, json, os, shutil, subprocess, sys, time
 
 HOME = os.path.expanduser(os.environ.get("DREAMING_HOME", "~/.bb/dreaming"))  # data, not code
 STATE = os.path.join(HOME, "state.json")
 CONFIG = os.path.join(HOME, "config.json")
 JOURNAL = os.path.join(HOME, "journal.jsonl")
 BATCHES = os.path.join(HOME, "batches")
+BACKLOG_STATUSES = ("deferred", "backlog", "failed")
 BATCH_BYTES = 100_000
 MAX_THREAD_BYTES = 40_000  # one thread block; longer threads are split into parts
 FIRST_RUN_LOOKBACK_MS = 24 * 3600 * 1000
@@ -83,20 +92,27 @@ def register_me(state):
     return me
 
 
+_mem = None
+
+
+def mem():
+    """memory.py from this folder (python3 -I does not put it on sys.path)."""
+    global _mem
+    if _mem is None:
+        spec = importlib.util.spec_from_file_location(
+            "dreaming_memory", os.path.join(os.path.dirname(os.path.abspath(__file__)), "memory.py"))
+        _mem = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_mem)
+    return _mem
+
+
 def run_ops(run):
     """Final status per journaled op of this run: {op: (action, status)}."""
     ops = {}
-    try:
-        with open(JOURNAL) as f:
-            for line in f:
-                if not line.strip():
-                    continue
-                e = json.loads(line)
-                if e.get("op", "").startswith(f"{run}:"):
-                    action = (e.get("command") or [None])[0] or ops.get(e["op"], (None,))[0]
-                    ops[e["op"]] = (action, e.get("status"))
-    except FileNotFoundError:
-        pass
+    for e in mem().journal_lines(JOURNAL):
+        if e.get("op", "").startswith(f"{run}:"):
+            action = (e.get("command") or [None])[0] or ops.get(e["op"], (None,))[0]
+            ops[e["op"]] = (action, e.get("status"))
     return ops
 
 
@@ -313,6 +329,70 @@ def record(run, memories):
     print(json.dumps({"run": run, **runs[run]}))
 
 
+def log_path(run):
+    return os.path.join(HOME, "logs", f"{run}.json")
+
+
+def took_effect(item):
+    """The memory id if a proposal is already true in memory, else None. Read errors
+    other than bb's not-found are raised, so nothing is saved on a partial pass."""
+    m = mem()
+    project = item.get("projectId") if item.get("scope") == "project" else None
+    fields = [k for k in ("summary", "details") if item.get(k) is not None]
+    if item["action"] == "add":
+        cur = m.get_or_none(item["name"], project, item.get("scope"))
+        return cur["id"] if cur and all(cur.get(k) == item[k] for k in fields) else None
+    if not item.get("id"):
+        return None
+    cur = m.get_or_none(item["id"], project)
+    if item["action"] == "forget":
+        return item["id"] if cur is None else None
+    return cur["id"] if cur and fields and all(cur.get(k) == item[k] for k in fields) else None
+
+
+def reconcile(run):
+    items = read_json(log_path(run))
+    if items is None:
+        sys.exit(f"logs/{run}.json missing or invalid")
+    journaled = {e.get("op") for e in mem().journal_lines(JOURNAL)}
+    changed = []
+    for idx, item in enumerate(items, 1):
+        if not item.get("op"):
+            item["op"] = f"{run}:{item.get('n', idx)}:{item['action']}:{item['name']}"
+            changed.append(item["op"])
+        if item.get("status") != "proposed" or item["op"] in journaled:
+            continue
+        mid = took_effect(item)
+        if mid:
+            item.update(status="applied", memoryId=mid, reconciled=True)
+            changed.append(item["op"])
+    if changed:
+        write_json(log_path(run), items)  # op ids and reconciled statuses land together
+    print(json.dumps({"run": run, "changed": sorted(set(changed)),
+                      "applied": [i["op"] for i in items if i.get("reconciled")]}))
+
+
+def backlog_key(item):
+    scope = item.get("scope")
+    return (scope, item.get("projectId") if scope == "project" else None, item.get("name"))
+
+
+def backlog(run):
+    items = read_json(log_path(run))
+    if items is None:
+        sys.exit(f"logs/{run}.json missing or invalid")
+    keys = {backlog_key(i) for i in items}
+    kept = [b for b in (read_json(os.path.join(HOME, "backlog.json")) or []) if backlog_key(b) not in keys]
+    added = []
+    for i in items:
+        if i.get("status") in BACKLOG_STATUSES:
+            entry = {k: v for k, v in i.items() if k not in ("n", "op", "status")}
+            entry.update(why=i["status"], since=i.get("since", run), waited=i.get("waited", 0), lastRun=run)
+            added.append(entry)
+    write_json(os.path.join(HOME, "backlog.json"), kept + added)
+    print(json.dumps({"run": run, "backlog": len(kept) + len(added), "fromLog": len(added)}))
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -327,6 +407,10 @@ def main():
         if len(sys.argv) != 5 or sys.argv[3] != "--memories":
             sys.exit("usage: dream.py record <run> --memories <n>")
         record(run, int(sys.argv[4]))
+    elif cmd == "reconcile":
+        reconcile(run)
+    elif cmd == "backlog":
+        backlog(run)
     elif cmd == "release":
         lp = lock_path(run)
         if os.path.exists(lp):

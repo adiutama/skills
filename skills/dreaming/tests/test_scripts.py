@@ -158,6 +158,20 @@ class Memory(unittest.TestCase):
         self.assertEqual(self.m.op_state(self.j, op), "failed")
         self.assertTrue(list(Path(self.tmp.name).glob("journal.jsonl.torn-*")))
 
+    def test_torn_multibyte_character_keeps_recovery_working(self):  # W2 round 2
+        self.m.bb = FakeStore(self.m, BASE)
+        op = "r:1:forget:rule"
+        self.m.append(self.j, dict(op=op, status="intent", command=["forget", "mem_test", "--expected-version", "1"], before=BASE, project=None))
+        with open(self.j, "ab") as f:  # crash inside 🛑 (4 bytes in UTF-8)
+            f.write(b'{"op":"r:1:forget:rule","status":"done","note":"' + "🛑".encode()[:2])
+        self.assertEqual([e["status"] for e in self.m.journal_lines(self.j)], ["intent"])
+        self.assertEqual(json.loads(quiet(self.m.pending, NS(journal=self.j)))["status"], "intent")
+        quiet(self.m.resolve, NS(journal=self.j, op=op, status="failed", note="still there 🛑", id=None))
+        self.assertEqual([e["status"] for e in self.m.journal_lines(self.j)], ["intent", "failed"])
+        torn = list(Path(self.tmp.name).glob("journal.jsonl.torn-*"))
+        self.assertEqual(len(torn), 1)
+        self.assertTrue(torn[0].read_bytes().endswith("🛑".encode()[:2]))
+
     def test_corrupt_middle_line_stops(self):  # W2
         Path(self.j).write_text('{"op":"a","status":"done"}\n{broken\n{"op":"b","status":"done"}\n')
         with self.assertRaises(RuntimeError):
@@ -257,6 +271,68 @@ class Dream(unittest.TestCase):
             self.assertIn(needle, text)
         self.assertEqual(text.count("x"), 41000)
         self.assertEqual(manifest["pending"]["lastSeq"]["thr"], 3)
+
+    def log(self, run, items):
+        self.d.write_json(str(Path(self.tmp.name) / "logs" / f"{run}.json"), items)
+
+    def backlog(self):
+        return self.d.read_json(str(Path(self.tmp.name) / "backlog.json"))
+
+    def test_failed_item_survives_backlog_replay(self):  # W5 trace 1
+        d, run = self.d, "2026-11-11"
+        failed = dict(n=1, op=f"{run}:1:add:rule", action="add", name="rule", scope="project", projectId="A", status="failed", error="conflict")
+        self.log(run, [failed])
+        quiet(d.backlog, run)
+        quiet(d.backlog, run)  # crash before the report, then the rerun replays step 5
+        self.assertEqual([(b["name"], b["why"], b["projectId"]) for b in self.backlog()], [("rule", "failed", "A")])
+
+    def test_backlog_replay_keys_by_scope_and_project(self):  # W5 trace 2
+        d, run = self.d, "2026-11-11"
+        deferred = dict(name="build-command", scope="project", projectId="A", why="deferred", since="2026-11-10", waited=0)
+        d.write_json(str(Path(self.tmp.name) / "backlog.json"), [deferred])
+        self.log(run, [dict(n=1, op=f"{run}:1:add:build-command", action="add", name="build-command", scope="project", projectId="B", status="applied"),
+                       dict(n=2, op=f"{run}:2:add:build-command", action="add", name="build-command", scope="global", projectId="A", status="applied")])
+        quiet(d.backlog, run)
+        self.assertEqual(self.backlog(), [deferred])
+        self.log(run, [dict(n=1, op=f"{run}:1:add:build-command", action="add", name="build-command", scope="project", projectId="A", status="applied")])
+        quiet(d.backlog, run)
+        self.assertEqual(self.backlog(), [])
+
+    def test_reconcile_after_crash_between_op_assignment_and_check(self):  # W9
+        d, run = self.d, "2026-11-11"
+        m = d.mem()
+        m.bb = FakeStore(m, dict(BASE, name="rule", summary="already effective"))
+        # The state the reviewer reproduced: op ids saved, reconciliation never ran.
+        self.log(run, [dict(n=1, op=f"{run}:1:add:rule", action="add", scope="global", name="rule", summary="already effective", status="proposed"),
+                       dict(n=2, op=f"{run}:2:add:other", action="add", scope="global", name="other", summary="new", status="proposed"),
+                       dict(n=3, op=f"{run}:3:add:old", action="add", scope="global", name="old", summary="x", status="rejected")])
+        quiet(d.reconcile, run)
+        items = d.read_json(d.log_path(run))
+        self.assertEqual([(i["status"], i.get("memoryId")) for i in items], [("applied", "mem_test"), ("proposed", None), ("rejected", None)])
+
+    def test_reconcile_legacy_log_is_atomic(self):  # W9: a crash mid-pass saves nothing
+        d, run = self.d, "2026-11-11"
+        m = d.mem()
+        store = m.bb = FakeStore(m, dict(BASE, name="rule", summary="already effective"))
+        legacy = [dict(n=1, action="add", scope="global", name="rule", summary="already effective", status="proposed"),
+                  dict(n=2, action="forget", scope="global", id="mem_gone", name="gone", status="proposed"),
+                  dict(n=3, action="update", scope="global", id="mem_test", name="rule", summary="other", status="applied")]
+        self.log(run, legacy)
+
+        def outage(args, project=None):
+            if args[2] == "mem_gone":
+                raise RuntimeError("backend unavailable")
+            return store(args, project)
+        m.bb = outage
+        with self.assertRaises(RuntimeError):
+            quiet(d.reconcile, run)
+        self.assertEqual(d.read_json(d.log_path(run)), legacy)
+        m.bb = store
+        quiet(d.reconcile, run)
+        items = d.read_json(d.log_path(run))
+        self.assertEqual([i["op"] for i in items], [f"{run}:1:add:rule", f"{run}:2:forget:gone", f"{run}:3:update:rule"])
+        self.assertEqual([(i["status"], i.get("memoryId")) for i in items],
+                         [("applied", "mem_test"), ("applied", "mem_gone"), ("applied", None)])
 
     def test_legacy_state_and_config_load(self):
         d = self.d

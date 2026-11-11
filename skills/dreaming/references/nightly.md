@@ -37,12 +37,14 @@ Pinned memories: suggest the change in the report, never write. Importance 40–
 - `status: "deferred"` (held by the bloat guard) or `"backlog"` (unsure; add `note`: what evidence would settle it): goes to the backlog, with `since` and `waited` carried from an existing backlog item (new: `since: $RUN`, `waited: 0`).
 - `status: "dropped"` for a backlog item this run settled without a write, with the reason.
 
+A backlog item is identified by scope + projectId + name; keep those fields as they are in `backlog.json`.
+
 ## 6. Commit and apply
 1. **run script** `dream.py commit $RUN` (safe to repeat).
-2. **Backlog** from the log (replayable, so a crash anywhere repeats it safely): in `<data>/backlog.json` (missing = `[]`), remove every item whose `name` appears in this log, then add the log's `deferred` and `backlog` items. Write via `.tmp` + `mv`.
-3. **Legacy log** (an item has no `op`: written before the journal): give each item `op` = `$RUN:<n>:<action>:<name>` and save the log before any write. Keep every status other than `proposed`. For a `proposed` one, first check whether it already took effect: add → **memory read** of its name returns the proposal's summary; update → the memory already holds the proposal's summary and details; forget → **memory read** says not found. If so, mark it `applied` with the memory id and don't write.
-4. `config.mode` = `apply`: each `proposed` item in log order (adds before the forgets they replace): **run script** `memory.py write --op <op> [--project <projectId>] -- <action> …` with its fields (`update`/`forget` pass `--expected-version` and `--reason`). A done op prints "already applied". A version conflict: re-read with **memory read**, re-merge, retry once with the same op. Still failing → mark it `failed` and add it to the backlog as `failed`. Exit 3 or `uncertain` → resolve it now (SKILL.md rules); if you can't, stop writing.
-5. Set the `status` of every item still `proposed` from **run script** `memory.py history --run $RUN` (the journal is the truth): `applied` with `memoryId`, or `failed` with the error. Save the log.
+2. **run script** `dream.py reconcile $RUN`: gives items without an `op` (a legacy log, written before the journal) their op id, and marks every `proposed` item with no journal history that already took effect as `applied` (`reconciled: true`), in one save. Other statuses are kept. Safe to repeat.
+3. `config.mode` = `apply`: each `proposed` item in log order (adds before the forgets they replace): **run script** `memory.py write --op <op> [--project <projectId>] -- <action> …` with its fields (`update`/`forget` pass `--expected-version` and `--reason`). A done op prints "already applied". A version conflict: re-read with **memory read**, re-merge, retry once with the same op. Exit 3 or `uncertain` → resolve it now (SKILL.md rules); if you can't, stop writing.
+4. Set the `status` of every item still `proposed` from **run script** `memory.py history --run $RUN` (the journal is the truth): `applied` with `memoryId`, or `failed` with the error. Save the log.
+5. **run script** `dream.py backlog $RUN`: rebuilds `backlog.json` from the log, keyed by scope + projectId + name: the log's `deferred`, `backlog` and `failed` items replace any with the same key; every other key in the log leaves the backlog. Safe to repeat.
 6. **run script** `dream.py record $RUN --memories <store count after>`, then `dream.py release $RUN`. Delete `<data>/batches/` entries older than `config.keepBatchesDays`, except any whose `manifest.json` has `committed: false`.
 
 ## 7. Report

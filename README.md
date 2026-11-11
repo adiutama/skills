@@ -6,7 +6,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 
 | Skill | Version | Description |
 |---|---|---|
-| [dreaming](skills/dreaming/SKILL.md) | 1.0.1 | Consolidate thread history into durable bb memory: Haiku scanners read new messages nightly, an Opus judge writes memory through an undo journal, and a weekly deep sleep audits and organizes the store. bb only. |
+| [dreaming](skills/dreaming/SKILL.md) | 1.0.2 | Consolidate thread history into durable bb memory: Haiku scanners read new messages nightly, an Opus judge writes memory through an undo journal, and a weekly deep sleep audits and organizes the store. bb only. |
 | [evidence](skills/evidence/SKILL.md) | 1.0.0 | Capture screenshots and HTTP requests with responses as proof of work — redacted, stamped with commit, stored outside the repo — and pack them into a paste-ready PR Evidence block. Manual only. |
 | [orchestration](skills/orchestration/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
 | [pr-review](skills/pr-review/SKILL.md) | 1.0.0 | Review a GitHub PR in an isolated worktree as one visual report (change map, behavior diff, blast radius, pinned findings); submit only on request. |

@@ -124,23 +124,30 @@ def dump(a):
             print(render(full))
 
 
+def parse_record(raw):
+    """One journal record from its bytes; ValueError if torn or corrupt (bad UTF-8 or JSON)."""
+    return json.loads(raw.decode("utf-8"))
+
+
 def journal_lines(path):
-    """Parsed journal entries. A torn last line (a crash mid-append) is skipped with a
-    warning, so the intent before it stays unresolved; a bad line anywhere else stops."""
+    """Parsed journal entries. Records are split on bytes before decoding, so a crash
+    mid-append (even inside a multibyte character) only spoils the last record: it is
+    skipped with a warning and the intent before it stays unresolved. A bad record
+    anywhere else stops."""
     if not os.path.exists(path):
         return []
-    with open(path) as f:
-        lines = f.read().split("\n")
+    with open(path, "rb") as f:
+        records = f.read().split(b"\n")
     out = []
-    for i, line in enumerate(lines):
-        if not line.strip():
+    for i, raw in enumerate(records):
+        if not raw.strip():
             continue
         try:
-            out.append(json.loads(line))
+            out.append(parse_record(raw))
         except ValueError:
-            if any(rest.strip() for rest in lines[i + 1:]):
+            if any(rest.strip() for rest in records[i + 1:]):
                 raise RuntimeError(f"{path} line {i + 1} is corrupt; repair it by hand before any memory write")
-            print(f"warning: skipping a torn last journal line (crash mid-append): {line[:80]}", file=sys.stderr)
+            print(f"warning: skipping a torn last journal line (crash mid-append): {raw[:80]!r}", file=sys.stderr)
     return out
 
 
@@ -149,22 +156,22 @@ def append(path, entry):
     so it never ends up in the middle of the journal."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "a+b") as f:
-        f.seek(0, os.SEEK_END)
-        size = f.tell()
-        if size:
-            f.seek(0)
-            data = f.read()
-            keep = data.rfind(b"\n") + 1
-            tail = data[keep:]
-            if tail:
-                try:
-                    json.loads(tail)  # a whole record that only lacks its newline
-                    f.write(b"\n")
-                except ValueError:
-                    with open(f"{path}.torn-{int(dt.datetime.now().timestamp())}", "wb") as t:
-                        t.write(tail)
-                    f.truncate(keep)
-        f.seek(0, os.SEEK_END)
+        f.seek(0)
+        data = f.read()
+        keep = data.rfind(b"\n") + 1
+        tail = data[keep:]
+        if tail.strip():
+            try:
+                parse_record(tail)  # a whole record that only lacks its newline
+                f.write(b"\n")
+            except ValueError:
+                with open(f"{path}.torn-{int(dt.datetime.now().timestamp() * 1000)}", "wb") as t:
+                    t.write(tail)
+                    t.flush()
+                    os.fsync(t.fileno())
+                f.truncate(keep)
+        elif tail:
+            f.truncate(keep)
         f.write((json.dumps(entry, ensure_ascii=False) + "\n").encode())
         f.flush()
         os.fsync(f.fileno())

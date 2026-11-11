@@ -29,7 +29,7 @@ Never edit pinned memories, AGENTS.md or this skill: those go to "Needs you".
 **Self-tuning**: change numbers in `config.json` when the week shows they are off (adds deferred every night that the audit found good → raise `addsPerRun`; a store past `memoryLimit` that the organizing can't shrink → say so rather than raise it). At most two keys per week, never `mode`; write via `.tmp` + `mv`, keeping other keys.
 
 ## 4. Write the log
-`<data>/logs/$RUN.json`, as in [nightly.md](nightly.md) §5, plus `why` per item (audit, merge, split, unused, stale, contradiction, tighten, rescope, rename, importance, backlog) and, for unused, the search that showed it. Every backlog item whose `waited` changed or that was decided or dropped is in the log with its new status and `waited`, so the backlog update in §6 replays safely.
+`<data>/logs/$RUN.json`, as in [nightly.md](nightly.md) §5, plus `why` per item (audit, merge, split, unused, stale, contradiction, tighten, rescope, rename, importance, backlog) and, for unused, the search that showed it. Every backlog item whose `waited` changed or that was decided or dropped is in the log with its new status and `waited`, so `dream.py backlog` in §6 replays safely; a `failed` item kept in the backlog stays `failed`.
 
 ## 5. Needs you
 Collect for the report, each item one line: pinned-memory changes; rules that belong in an AGENTS.md (target file + text to add); procedures grown large or spread over many memories that should become a skill; edits to this skill's files suggested by the week's rejections and dropped lists. Keep it short; omit empty groups.
