@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Idempotent run control for dreaming.
+
+  dream.py begin  <run>   lock the run, then collect (or reuse) its batches; prints status
+  dream.py lock   <run>   lock only (deep sleep reads no threads); prints status
+  dream.py status <run>   print status: batches, which steps are done, config, guard
+  dream.py commit <run>   after the log is written: advance state.json (max-merge), mark committed
+  dream.py record <run> --memories <n>
+                          after applying: store the memory count and this run's journaled
+                          writes in state.json (the bloat guard reads them)
+  dream.py release <run>  drop the lock
+
+state.json only moves forward in `commit`, so a run that fails before then can
+be re-run and sees the same messages. A rerun reuses the run's batches; if a
+later run committed meanwhile, the stale batches are discarded and re-collected.
+Exit 3 from begin/lock: another live attempt holds the lock.
+"""
+import glob, json, os, shutil, subprocess, sys, time
+
+HOME = os.path.expanduser(os.environ.get("DREAMING_HOME", "~/.bb/dreaming"))  # data, not code
+STATE = os.path.join(HOME, "state.json")
+CONFIG = os.path.join(HOME, "config.json")
+JOURNAL = os.path.join(HOME, "journal.jsonl")
+BATCHES = os.path.join(HOME, "batches")
+BATCH_BYTES = 100_000
+MAX_THREAD_BYTES = 40_000
+FIRST_RUN_LOOKBACK_MS = 24 * 3600 * 1000
+LOCK_MAX_AGE_S = 3 * 3600
+KEEP_RUN_STATS = 60
+DEFAULTS = {
+    "mode": "apply",               # apply | propose (emergency brake: logs only); only the user changes it
+    "scannerModel": "claude-haiku-5-5",
+    "judgeModel": "claude-opus-5-5",
+    "keepBatchesDays": 14,
+    "addsPerRun": 10,              # bloat guard: adds beyond this in one run wait in the backlog
+    "memoryLimit": 200,            # bloat guard: at or above this store size, new adds wait
+    "forgetAlert": 5,              # a run forgetting more than this is flagged in the report
+    "unusedMinAgeDays": 28,        # deep sleep: a memory younger than this is never "unused"
+    "unusedWeeks": 8,              # deep sleep: no thread updated in this many weeks mentions it
+    "backlogMaxRuns": 4,           # drop a backlog item after this many runs with no new evidence
+}
+
+
+def bb(*args):
+    out = subprocess.run(["bb", *args], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+def read_json(path, default=None):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default
+
+
+def write_json(path, data):
+    tmp = f"{path}.tmp-{os.getpid()}"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, path)
+
+
+def load_config():
+    return {**DEFAULTS, **(read_json(CONFIG) or {})}
+
+
+def load_state():
+    return read_json(STATE) or {
+        "cursorMs": int(time.time() * 1000) - FIRST_RUN_LOOKBACK_MS, "lastSeq": {}, "dreamThreads": []}
+
+
+def register_me(state):
+    me = os.environ.get("BB_THREAD_ID")
+    if me and me not in state.setdefault("dreamThreads", []):
+        state["dreamThreads"] = (state["dreamThreads"] + [me])[-120:]
+        write_json(STATE, state)
+    return me
+
+
+def run_ops(run):
+    """Final status per journaled op of this run: {op: (action, status)}."""
+    ops = {}
+    try:
+        with open(JOURNAL) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                e = json.loads(line)
+                if e.get("op", "").startswith(f"{run}:"):
+                    action = (e.get("command") or [None])[0] or ops.get(e["op"], (None,))[0]
+                    ops[e["op"]] = (action, e.get("status"))
+    except FileNotFoundError:
+        pass
+    return ops
+
+
+def write_counts(run):
+    counts = {}
+    for action, st in run_ops(run).values():
+        key = action if st == "done" else st
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+# ---------- lock ----------
+
+def lock_path(run):
+    return os.path.join(BATCHES, f"{run}.lock")
+
+
+def holder_alive(lock):
+    if time.time() - lock.get("at", 0) > LOCK_MAX_AGE_S:
+        return False
+    tid = lock.get("thread")
+    if not tid or tid == os.environ.get("BB_THREAD_ID"):
+        return False
+    try:
+        return bb("thread", "show", tid, "--json")["thread"]["status"] == "active"
+    except Exception:
+        return False
+
+
+def take_lock(run):
+    os.makedirs(BATCHES, exist_ok=True)
+    path = lock_path(run)
+    lock = read_json(path)
+    if lock and holder_alive(lock):
+        print(json.dumps({"run": run, "locked": True, "holder": lock["thread"],
+                          "hint": "another attempt is still running; stop"}))
+        sys.exit(3)
+    write_json(path, {"thread": os.environ.get("BB_THREAD_ID"), "at": time.time()})
+
+
+# ---------- collect ----------
+
+def events_after(tid, after):
+    evs, cur = [], after
+    while True:
+        page = bb("thread", "log", tid, "--json", "--limit", "500", "--after-seq", str(cur))
+        if not page:
+            return evs
+        evs += page
+        cur = page[-1]["seq"]
+        if len(page) < 500:
+            return evs
+
+
+def conversation(evs):
+    lines = []
+    for e in evs:
+        d = e.get("data") or {}
+        if e["type"] == "client/turn/requested" and d.get("initiator") == "user":
+            who = "AGENT:" + d["senderThreadId"] if d.get("senderThreadId") else "USER"
+            text = "\n".join(i.get("text", "") for i in d.get("input", []) if i.get("type") == "text")
+            if text.strip():
+                lines.append(f"## {who} (seq {e['seq']})\n{text.strip()}")
+        elif e["type"] == "item/completed":
+            it = d.get("item", d)
+            if it.get("type") == "agentMessage" and it.get("text", "").strip():
+                lines.append(f"## ASSISTANT (seq {e['seq']})\n{it['text'].strip()}")
+    return "\n\n".join(lines)
+
+
+def collect(run, state, me):
+    now = int(time.time() * 1000)
+    projects = {p["id"]: p.get("name") for p in bb("project", "list", "--include-personal", "--json")}
+    skip = set(state.get("dreamThreads", [])) | {me}
+    threads = [t for t in bb("thread", "list", "--json")
+               if t["updatedAt"] > state["cursorMs"]
+               and t["id"] not in skip and t.get("parentThreadId") not in skip
+               and not (t.get("title") or "").lower().startswith("dream")]
+    final = os.path.join(BATCHES, run)
+    work = f"{final}.tmp-{os.getpid()}"
+    os.makedirs(work)
+    batches, cur, size, seen, new_seq = [], [], 0, [], {}
+    for t in threads:
+        evs = events_after(t["id"], state["lastSeq"].get(t["id"], 0))
+        if not evs:
+            continue
+        new_seq[t["id"]] = evs[-1]["seq"]
+        text = conversation(evs)
+        if not text:
+            continue
+        if len(text) > MAX_THREAD_BYTES:
+            text = "[...earlier messages truncated...]\n" + text[-MAX_THREAD_BYTES:]
+        block = (f"# THREAD {t['id']} | project {t['projectId']} ({projects.get(t['projectId'])}) "
+                 f"| title: {t.get('title')}\n{text}\n\n")
+        if cur and size + len(block) > BATCH_BYTES:
+            batches.append(cur); cur, size = [], 0
+        cur.append(block); size += len(block); seen.append(t["id"])
+    if cur:
+        batches.append(cur)
+    names = []
+    for i, b in enumerate(batches, 1):
+        name = f"batch-{i:02d}.md"
+        with open(os.path.join(work, name), "w") as f:
+            f.write("".join(b))
+        names.append(name)
+    manifest = {"run": run, "createdAt": now, "baseCursorMs": state["cursorMs"],
+                "pending": {"cursorMs": now, "lastSeq": new_seq},
+                "threads": seen, "batches": names, "committed": False}
+    write_json(os.path.join(work, "manifest.json"), manifest)
+    if os.path.exists(final):  # stale or legacy dir without a usable manifest
+        shutil.move(final, f"{final}.stale-{int(time.time())}")
+    os.rename(work, final)
+    return manifest
+
+
+def status(run, manifest):
+    d = os.path.join(BATCHES, run)
+    manifest = manifest or {}
+    done = {}
+    for b in manifest.get("batches", []):
+        c = os.path.join(d, b.replace("batch-", "candidates-").replace(".md", ".json"))
+        done[b] = read_json(c) is not None
+    log = read_json(os.path.join(HOME, "logs", f"{run}.json"))
+    cfg, state = load_config(), load_state()
+    counts = write_counts(run)
+    dump = os.path.join(d, "memory.md")
+    return {"run": run, "dir": d, "batches": [os.path.join(d, b) for b in manifest.get("batches", [])],
+            "threads": len(manifest.get("threads", [])), "scanned": done,
+            "memoryDump": dump if os.path.exists(dump) and os.path.getsize(dump) > 0 else None,
+            "logWritten": log is not None, "committed": manifest.get("committed", False),
+            "config": cfg,
+            "guard": {"memoryCount": state.get("memoryCount"), "addsDone": counts.get("add", 0),
+                      "addsPerRun": cfg["addsPerRun"], "memoryLimit": cfg["memoryLimit"]},
+            "writes": counts}
+
+
+def begin(run):
+    take_lock(run)
+    state = load_state()
+    me = register_me(state)
+    manifest = read_json(os.path.join(BATCHES, run, "manifest.json"))
+    if manifest and not manifest["committed"] and state["cursorMs"] > manifest["baseCursorMs"]:
+        manifest = None  # a later run committed after this one collected: re-collect
+    if manifest is None:
+        for ext in ("json", "md"):  # a log from an older collection no longer matches
+            old = os.path.join(HOME, "logs", f"{run}.{ext}")
+            if os.path.exists(old):
+                shutil.move(old, os.path.join(HOME, "logs", f"{run}.superseded-{int(time.time())}.{ext}"))
+        manifest = collect(run, state, me)
+    print(json.dumps(status(run, manifest), indent=1))
+
+
+def lock(run):
+    take_lock(run)
+    register_me(load_state())
+    os.makedirs(os.path.join(BATCHES, run), exist_ok=True)
+    print(json.dumps(status(run, None), indent=1))
+
+
+def commit(run):
+    path = os.path.join(BATCHES, run, "manifest.json")
+    manifest = read_json(path)
+    if manifest is None:
+        sys.exit(f"no manifest for {run}")
+    if manifest["committed"]:
+        print(json.dumps({"run": run, "committed": True, "alreadyCommitted": True})); return
+    if read_json(os.path.join(HOME, "logs", f"{run}.json")) is None:
+        sys.exit(f"logs/{run}.json missing or invalid; write the log before committing")
+    state = load_state()
+    p = manifest["pending"]
+    state["cursorMs"] = max(state["cursorMs"], p["cursorMs"])
+    for tid, seq in p["lastSeq"].items():
+        state["lastSeq"][tid] = max(state["lastSeq"].get(tid, 0), seq)
+    state["lastCommittedRun"] = run
+    write_json(STATE, state)
+    manifest["committed"] = True
+    write_json(path, manifest)
+    print(json.dumps({"run": run, "committed": True}))
+
+
+def record(run, memories):
+    state = load_state()
+    state["memoryCount"] = memories
+    runs = state.setdefault("runs", {})
+    runs[run] = {"at": int(time.time() * 1000), "memories": memories, "writes": write_counts(run)}
+    state["runs"] = dict(sorted(runs.items(), key=lambda kv: kv[1]["at"])[-KEEP_RUN_STATS:])
+    write_json(STATE, state)
+    print(json.dumps({"run": run, **runs[run]}))
+
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit(__doc__)
+    cmd, run = sys.argv[1], sys.argv[2]
+    if cmd == "begin":
+        begin(run)
+    elif cmd == "lock":
+        lock(run)
+    elif cmd == "commit":
+        commit(run)
+    elif cmd == "record":
+        if len(sys.argv) != 5 or sys.argv[3] != "--memories":
+            sys.exit("usage: dream.py record <run> --memories <n>")
+        record(run, int(sys.argv[4]))
+    elif cmd == "release":
+        lp = lock_path(run)
+        if os.path.exists(lp):
+            os.remove(lp)
+    elif cmd == "status":
+        m = read_json(os.path.join(BATCHES, run, "manifest.json"))
+        print(json.dumps({**status(run, m), "collected": m is not None}, indent=1))
+    else:
+        sys.exit(__doc__)
+
+
+if __name__ == "__main__":
+    main()

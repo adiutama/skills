@@ -1,4 +1,0 @@
-interface:
-  display_name: "Dream"
-  short_description: "Turn past days of work into durable bb memory (dream, deep-sleep)"
-  default_prompt: "Use $dream to record signals from yesterday's threads."

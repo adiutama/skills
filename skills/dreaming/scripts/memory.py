@@ -6,7 +6,10 @@
       scope. One call replaces a catalog per project plus a get per entry.
       --summaries: one line per memory (id, version, name, summary), no details.
 
-  memory.py write --journal <file.jsonl> --op <op id> [--project <id>] -- add|update|forget <bb memory args...>
+Every journal command takes --journal <file.jsonl>; default: journal.jsonl in the
+data folder ($DREAMING_HOME, else ~/.bb/dreaming).
+
+  memory.py write --op <op id> [--project <id>] -- add|update|forget <bb memory args...>
       Runs `bb memory <args>` (with BB_PROJECT_ID=<id> for project scope).
       1. The op id is already done → prints "already applied", writes nothing.
          Already unresolved (see pending) → exits 3, writes nothing: resolve it first.
@@ -16,17 +19,26 @@
          conflict, not found, invalid input, so nothing changed), or "uncertain"
          (any other error: it may have been applied).
       Every change therefore has its undo record before it happens.
+      Refuses --pinned and any update or forget of a pinned memory.
 
-  memory.py pending --journal <file.jsonl>
+  memory.py pending
       Unresolved ops, one JSON per line: an intent with no outcome (a run crashed
       mid-write) or an uncertain outcome. Check each memory before resolving it.
 
-  memory.py check --journal <file.jsonl> --op <op id>
+  memory.py check --op <op id>
       For an unresolved op: the memory before, the memory now (an add is found by
       its scope and name, since it has no id yet), and a hint whether it happened.
 
-  memory.py resolve --journal <file.jsonl> --op <op id> --status done|failed --note <what you checked>
+  memory.py resolve --op <op id> --status done|failed --note <what you checked>
       Records the outcome of an unresolved op after checking the memory.
+
+  memory.py undo --op <op id> --reason <why>
+      Reverses a done op as a new journaled op "<op id>:undo": an add is forgotten,
+      an update is restored to the memory as it was, a forget is added back.
+
+  memory.py history [--since <YYYY-MM-DD>] [--run <run id>]
+      One JSON line per op (last status, action, project, memory id, name, time):
+      for reports and the weekly audit.
 
 Fails closed: if a scope holds more memories than one catalog call returns, dump
 exits 1 instead of returning part of the store.
@@ -69,13 +81,17 @@ def catalog(scope, project=None):
     return mems
 
 
+def day(ms):
+    return dt.datetime.fromtimestamp(ms / 1000).date()
+
+
 def render(m):
     tags = ", ".join(m.get("tags") or [])
     pin = " · pinned" if m.get("pinned") else ""
     return (
         f"### {m['name']} · `{m['id']}` · v{m['version']}\n"
         f"{m.get('kind')} · importance {m.get('importance')}{pin} · tags: {tags or '-'} · "
-        f"updated {dt.datetime.fromtimestamp(m['updatedAt'] / 1000).date()}\n\n"
+        f"created {day(m['createdAt'])} · updated {day(m['updatedAt'])}\n\n"
         f"**Summary:** {m['summary']}\n\n{m.get('details', '').strip()}\n"
     )
 
@@ -92,7 +108,8 @@ def dump(a):
     for name, project, mems in groups:
         print(f"## {name}\n")
         if a.summaries:
-            print("\n".join(f"- `{c['id']}` v{c['version']} **{c['name']}**: {c['summary']}" for c in mems) + "\n")
+            print("\n".join(f"- `{c['id']}` v{c['version']}{' · pinned' if c.get('pinned') else ''} "
+                             f"**{c['name']}**: {c['summary']}" for c in mems) + "\n")
             continue
         for c in mems:
             full = bb(["memory", "get", c["id"], "--json"], project)["memory"]
@@ -147,33 +164,102 @@ def op_state(path, op):
     return state
 
 
-def write(a):
-    cmd = a.args[1:] if a.args and a.args[0] == "--" else a.args
-    if not cmd or cmd[0] not in ("add", "update", "forget"):
-        sys.exit("usage: memory.py write --journal <file> --op <id> [--project <id>] -- add|update|forget ...")
-    state = op_state(a.journal, a.op)
+def journaled(journal, op, project, cmd):
+    """Run one memory write with its journal entries; returns bb's reply."""
+    if "--pinned" in cmd:
+        sys.exit("refused: dreaming never pins a memory")
+    state = op_state(journal, op)
     if state == "done":
-        print(json.dumps({"ok": True, "skipped": "already applied", "op": a.op}))
-        return
+        return {"ok": True, "skipped": "already applied", "op": op}
     if state in ("intent", "uncertain"):
-        print(f"error: op {a.op} is unresolved; check the memory, then run resolve", file=sys.stderr)
+        print(f"error: op {op} is unresolved; check the memory, then run resolve", file=sys.stderr)
         sys.exit(3)
     before = None
     if cmd[0] in ("update", "forget"):
-        before = bb(["memory", "get", cmd[1], "--json"], a.project)["memory"]
+        before = bb(["memory", "get", cmd[1], "--json"], project)["memory"]
+        if before.get("pinned"):
+            sys.exit(f"refused: {before['name']} is pinned; suggest the change in the report instead")
     args = ["memory", *cmd]
     if "--json" not in args:
         args.append("--json")
-    base = {"op": a.op, "project": a.project, "command": cmd}
-    append(a.journal, {**base, "status": "intent", "time": now(), "before": before})
+    base = {"op": op, "project": project, "command": cmd}
+    append(journal, {**base, "status": "intent", "time": now(), "before": before})
     try:
-        result = bb(args, a.project)
+        result = bb(args, project)
     except RuntimeError as err:
         status = "failed" if rejected(getattr(err, "stdout", None)) else "uncertain"
-        append(a.journal, {**base, "status": status, "time": now(), "error": str(err)})
+        append(journal, {**base, "status": status, "time": now(), "error": str(err)})
         raise
-    append(a.journal, {**base, "status": "done", "time": now(), "result": result})
-    print(json.dumps(result, ensure_ascii=False))
+    append(journal, {**base, "status": "done", "time": now(), "result": result})
+    return result
+
+
+def write(a):
+    cmd = a.args[1:] if a.args and a.args[0] == "--" else a.args
+    if not cmd or cmd[0] not in ("add", "update", "forget"):
+        sys.exit("usage: memory.py write --op <id> [--project <id>] -- add|update|forget ...")
+    print(json.dumps(journaled(a.journal, a.op, a.project, cmd), ensure_ascii=False))
+
+
+def memory_id(entry):
+    """The memory an op touched: the id for update/forget, the new id for a done add."""
+    cmd = entry.get("command") or []
+    if cmd and cmd[0] != "add":
+        return (entry.get("before") or {}).get("id") or cmd[1]
+    return ((entry.get("result") or {}).get("memory") or {}).get("id")
+
+
+def undo(a):
+    lines = journal_lines(a.journal)
+    done = next((e for e in reversed(lines) if e.get("op") == a.op and e.get("status") == "done"), None)
+    if not done:
+        sys.exit(f"op {a.op} is not done; nothing to undo")
+    intent = next((e for e in lines if e.get("op") == a.op and e.get("status") == "intent"), {})
+    cmd, project, before = intent.get("command") or done.get("command"), intent.get("project"), intent.get("before")
+    if not cmd:
+        sys.exit(f"op {a.op} was resolved by hand and has no command; undo it by hand")
+    reason = ["--reason", a.reason[:500]]
+    if cmd[0] == "add":
+        mid = memory_id(done)
+        if not mid:  # resolved "done" after a crash: find it by scope and name
+            scope = flag(cmd, "--scope")
+            mid = next((m["id"] for m in catalog(scope, project if scope == "project" else None)
+                        if m["name"] == flag(cmd, "--name")), None)
+        if not mid:
+            sys.exit(f"the memory added by {a.op} is already gone")
+        cur = bb(["memory", "get", mid, "--json"], project)["memory"]
+        inverse = ["forget", mid, "--expected-version", str(cur["version"]), *reason]
+    elif cmd[0] == "update":
+        cur = bb(["memory", "get", before["id"], "--json"], project)["memory"]
+        inverse = ["update", before["id"], "--expected-version", str(cur["version"]), *reason,
+                   "--summary", before["summary"], "--details", before.get("details", ""),
+                   "--kind", before["kind"], "--importance", str(before["importance"])]
+        if before.get("tags"):
+            inverse += ["--tag", ",".join(before["tags"])]
+    else:
+        inverse = ["add", "--scope", before["scope"], "--name", before["name"], "--summary", before["summary"],
+                   "--details", before.get("details", ""), "--kind", before["kind"],
+                   "--importance", str(before["importance"]), *reason]
+        if before.get("tags"):
+            inverse += ["--tag", ",".join(before["tags"])]
+    print(json.dumps(journaled(a.journal, f"{a.op}:undo", project, inverse), ensure_ascii=False))
+
+
+def history(a):
+    ops = {}
+    for e in journal_lines(a.journal):
+        o = ops.setdefault(e["op"], {"op": e["op"]})
+        if e.get("command"):
+            o.update(action=e["command"][0], project=e.get("project"),
+                     name=flag(e["command"], "--name") or (e.get("before") or {}).get("name"))
+        o.update(status=e.get("status"), time=e.get("time"))
+        o["id"] = memory_id(e) or o.get("id")
+    for o in ops.values():
+        if a.since and (o.get("time") or "") < a.since:
+            continue
+        if a.run and not o["op"].startswith(f"{a.run}:"):
+            continue
+        print(json.dumps(o, ensure_ascii=False))
 
 
 def pending(a):
@@ -227,24 +313,30 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("dump")
     d.add_argument("--summaries", action="store_true")
+    journal = os.path.join(os.path.expanduser(os.environ.get("DREAMING_HOME", "~/.bb/dreaming")), "journal.jsonl")
     w = sub.add_parser("write")
-    w.add_argument("--journal", required=True)
     w.add_argument("--op", required=True)
     w.add_argument("--project")
     pe = sub.add_parser("pending")
-    pe.add_argument("--journal", required=True)
     ck = sub.add_parser("check")
-    ck.add_argument("--journal", required=True)
     ck.add_argument("--op", required=True)
     rs = sub.add_parser("resolve")
-    rs.add_argument("--journal", required=True)
     rs.add_argument("--op", required=True)
     rs.add_argument("--status", required=True, choices=["done", "failed"])
     rs.add_argument("--note", required=True)
+    un = sub.add_parser("undo")
+    un.add_argument("--op", required=True)
+    un.add_argument("--reason", required=True)
+    hi = sub.add_parser("history")
+    hi.add_argument("--since")
+    hi.add_argument("--run")
+    for sp in (w, pe, ck, rs, un, hi):
+        sp.add_argument("--journal", default=journal)
     w.add_argument("args", nargs=argparse.REMAINDER)
     a = p.parse_args()
     try:
-        {"dump": dump, "write": write, "pending": pending, "check": check, "resolve": resolve}[a.cmd](a)
+        {"dump": dump, "write": write, "pending": pending, "check": check, "resolve": resolve,
+         "undo": undo, "history": history}[a.cmd](a)
     except RuntimeError as err:
         print(f"error: {err}", file=sys.stderr)
         sys.exit(1)
