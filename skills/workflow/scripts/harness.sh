@@ -18,8 +18,9 @@
 #       bb Reviewer: the vendor other than --author (default: the hosted agent). WORKFLOW_DRY_RUN=1 prints the bb command
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #       --mode child|spin-off|fresh (default child): spin-off and fresh make a top-level thread in its own worktree (no --role; need --goal, and --tier or --provider/--model)
-#       --wait-go · --after <thread id> · --context none|this|<thread id> · --report-after-merge (spin-off) · --force (re-spawn a slice with no report.md) · --project <id>
+#       --wait-go · --after <thread id> · --context none|this|<thread id> · --report-after-merge (spin-off) · --force (re-spawn a slice with no report.md) · --project <id> · --host <id-or-name> (the machine to run on; passed to bb thread spawn as --host)
 #       prints the receipt line; WORKFLOW_DRY_RUN=1 prints the commands for every mode
+#   harness.sh adopt <id> [--quiet]       make an existing thread a child of this one (bb: bb thread update <id> --parent-thread <this>; --quiet adds --parent-notifications off); prints the receipt. Elsewhere: prints the equivalent instruction
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
 #   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md or storage folder is missing
@@ -286,7 +287,7 @@ brief_extra() {
 
 spawn() {
   role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod=
-  mode=child wait_go= after= ctx=this after_merge= force= project=
+  mode=child wait_go= after= ctx=this after_merge= force= project= host=
   while [ $# -gt 0 ]; do
     case $1 in
       --role) role=$2; shift ;;
@@ -303,6 +304,7 @@ spawn() {
       --after) after=$2; shift ;;
       --context) ctx=$2; shift ;;
       --project) project=$2; shift ;;
+      --host) host=$2; shift ;;
       --wait-go) wait_go=1 ;;
       --report-after-merge) after_merge=1 ;;
       --force) force=1 ;;
@@ -392,6 +394,7 @@ spawn() {
     [ -n "$project" ] || project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
     set -- bb thread spawn --project "$project" --provider "$p" --model "$m" \
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
+    [ -z "$host" ] || set -- "$@" --host "$host"
     if [ "$mode" = child ]; then
       set -- "$@" --parent-self
       if [ -n "$isolated" ]; then set -- "$@" --new-environment "$(new_env_kind "$project")"
@@ -467,6 +470,29 @@ EOF
   esac
 }
 
+# adopt <id> [--quiet]: re-parent an existing thread under this one. It keeps its project, workspace and history; no thread is created.
+adopt() {
+  id= quiet=
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --quiet) quiet=1 ;;
+      -*) die "adopt: unknown argument $1" ;;
+      *) [ -z "$id" ] || die "adopt: one thread id only"; id=$1 ;;
+    esac; shift
+  done
+  [ -n "$id" ] || die "adopt <id> [--quiet]"
+  if [ "$(detect)" = bb ]; then
+    [ -n "$BB_THREAD_ID" ] || die "adopt: BB_THREAD_ID unset"
+    [ "$id" != "$BB_THREAD_ID" ] || die "adopt: a thread cannot adopt itself"
+    n=auto; [ -z "$quiet" ] || n=off
+    if [ -n "$WORKFLOW_DRY_RUN" ]; then q bb thread update "$id" --parent-thread "$BB_THREAD_ID" --parent-notifications "$n"
+    else bb thread update "$id" --parent-thread "$BB_THREAD_ID" --parent-notifications "$n" >/dev/null; fi
+    printf 'Adopted → @thread:%s · child · reports %s\n' "$id" "$([ -n "$quiet" ] && echo off || echo 'every outcome')"
+  else
+    printf 'adopt needs bb (threads and parents exist only there); here, treat %s as a worker you coordinate: ask it for its report and read it\n' "$id"
+  fi
+}
+
 bb_or_print() {  # $1 = what to do outside bb; the rest = bb thread arguments
   msg=$1; shift
   case $(detect) in
@@ -498,6 +524,7 @@ case ${1:-} in
   context) shift; context "$@" ;;
   title) [ -n "$2" ] || die 'title "<goal>"'; bb_or_print "no thread title here; export WORKFLOW_TASK='$2' so spawn titles carry the goal" update --self --title "$2" ;;
   spawn) shift; spawn "$@" ;;
+  adopt) shift; adopt "$@" ;;
   wait) [ -n "$2" ] || die "wait <id>"; bb_or_print "end your turn; the completion notification wakes you (Claude Code: foreground Agent call; Codex: wait-agent tool)" wait "$2" ;;
   read) [ -n "$2" ] || die "read <id>"; bb_or_print "read the agent's final message" output "$2" ;;
   tell) [ -n "$2" ] && [ -n "$3" ] || die "tell <id> <message|->"
@@ -507,6 +534,6 @@ case ${1:-} in
   install-guards) BACKUP_DIR=${BACKUP_DIR:-$(storage)/guards-backup} sh "$(dirname "$0")/install-guards.sh" ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,29p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,30p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
