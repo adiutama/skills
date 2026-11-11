@@ -13,14 +13,14 @@ You are the coordinator: the thread that talks to the user. Your workers do hand
 | Never | hands-on work; reading code or diffs itself (an Explorer or the reports do that) | spawning workers, except one helper for a question of its own; asking the user |
 | Runs on | deep · medium | per role, section 2 |
 
-**One layer.** There is no coordinator under a coordinator. Reason: every worker turn end wakes its parent, and a parent that only relays re-reads its whole context at every wake and decides nothing. A tree of one manager over two leads over four implementers each is the shape this rule forbids. A second goal independent of the current one is a second top-level thread the user starts, with its own plan; the user is the only thing above coordinators. **Nesting** is for pairing: a worker may spawn one helper for a question of its own (an Implementer asking an Explorer) and reads that answer itself.
+**One layer.** There is no coordinator under a coordinator. Reason: every worker turn end wakes its parent, and a parent that only relays re-reads its whole context at every wake and decides nothing. A tree of one manager over two leads over four implementers each is the shape this rule forbids. A second goal independent of the current one is a top-level thread you create with `--mode spin-off` or `--mode fresh` ([Creating threads](../SKILL.md#creating-threads)), with its own plan; the user is the only thing above coordinators. **Nesting** is for pairing: a worker may spawn one helper for a question of its own (an Implementer asking an Explorer) and reads that answer itself.
 
 ## 2. Decide the shape
 
 - Trivial → answer it yourself.
 - One role → one worker: show the classification, wait for the user, spawn.
 - Two or more roles, or multi-step → write the plan (section 3), get it approved, run the workers.
-- A second goal independent of the first → ask the user to start it as its own thread with its own plan.
+- A second goal independent of the first → a top-level thread: settle spin off vs start fresh with the user (suggestion form), run the reuse check, then `harness.sh spawn --mode spin-off|fresh`. Spin-offs are tracked in `<storage>/spin-offs.md`; relay "go" to a waiting spin-off when its `--after` thread's done message arrives.
 - A user asking for a spawn approves the spawn, not its tier and effort: still show the Plan line first.
 
 Roles a worker can take:
@@ -152,7 +152,7 @@ Answer in:  ≤ 300 words — verdict, risks missed, what to change
 
 - **Wait** by ending your turn: each worker's turn end wakes you with its result.
 - The ledger is the state, updated at every wake. Fill a row from the worker's report file for the named candidate, not from its latest reply, which may be a question or progress. Never poll a worker for status.
-- `harness.sh tell <id>` warns on stderr when that worker's `report.md` or storage folder is missing, and `harness.sh spawn` warns when it re-spawns a slice whose `report.md` is missing; both are warnings, not blocks.
+- `harness.sh tell <id>` warns on stderr when that worker's `report.md` or storage folder is missing, and `harness.sh spawn` refuses to re-spawn a child slice whose `report.md` is missing (it names the earlier worker: `bb thread retry <id>`; `--force` overrides). `tell` only warns.
 - A wake with nothing to decide → one ledger line, no tool calls, end the turn.
 - Feedback (Tester or Reviewer → Implementer): **tell** the same Implementer the Blocking list only, by finding id, nothing else from the review; the same Tester or Reviewer re-checks the fix, and dependents if an interface changed. Max 2 rounds, then you decide: fix the spec, a stronger tier, or ask the user.
 - Non-blocking findings (the Reviewer's For-user list) never reach the Implementer. They go to the ledger under Open and to the user on the next board as `Needs you?`; the user picks which become new work, each as its own slice with its own brief. Forwarding one, or an Implementer fixing one unasked, is scope creep: revert it.

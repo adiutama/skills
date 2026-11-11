@@ -148,13 +148,15 @@ Tier: `--tier <tier>` defaults to the role card (Explorer fast · Implementer, T
 
 Reviewer, bb only: runs on the vendor other than `--author <claude-code | codex>` (default: the hosted agent), so the review gets a second vendor's eyes; that vendor missing from `bb provider list` → the author's vendor, with a note to put in the classification. `--provider` overrides.
 
+Modes: `--mode child|spin-off|fresh` (default `child`, as above). `spin-off` and `fresh` (bb only) create a top-level thread: no `--parent-self`, `--new-environment worktree`, title = `--goal` (required), no `Role:` brief, no `--role`; they need `--tier T` or `--model ID` (+ `--provider`), and `--effort`. They write the brief plus a harness-owned setup block (origin link, reporting rule, hold, context line) to `<storage>/briefs/<slice>-<mode>.md` and spawn from that. `fresh` then runs `bb thread update <origin> --parent-thread <new> --parent-notifications off`. Modifiers: `--wait-go` · `--after <thread id>` (untracked in `<storage>/spin-offs.md` or fresh mode → `bb thread tell <that id> "When your work is done, tell @thread:<new> go"` once) · `--context none|this|<thread id>` (`none` adds no `Context:` line) · `--report-after-merge` (spin-off only) · `--force` · `--project <id>`. bb prints a receipt line (`Delegated|Spun off|Started fresh → @thread:<id> · <child|top-level> · <provider/model> · <effort> · <reporting rule> [· waiting for your go | · after @thread:X] · context: …`). A spin-off appends `| thread | title | started | trigger | waiting-on | status | last milestone |` to `<storage>/spin-offs.md`. A child slice already in `<storage>/spawned.log` (`slice<TAB>thread id`) with no `workers/<slice>/report.md` is refused: `run \`bb thread retry <id>\``. `WORKFLOW_DRY_RUN=1` prints every command (spawn, update, tell, ledger row) with `<new>` for the id. `scripts/test-spawn.sh` checks all of this.
+
 Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <id>` (bb only; any listed provider, e.g. `acp-opencode`; default the hosted agent, or the other vendor for a Reviewer) · `--model <id>` (replaces the tier-derived id; required for a provider without a built-in table; the tier is still checked against the role card) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
 
 Output, by harness:
 
 The title is `<goal> › <Role> · <slice>`, e.g. `cost sheet accuracy › Implementer · totals row`, so threads sort and read by goal.
 
-- bb: runs `bb thread spawn --project $BB_PROJECT_ID --parent-self --provider <p> --model <id> --reasoning-level <effort> --title "<goal> › <Role> · <slice>" --prompt-file <brief> --permission-mode auto` with `--environment $BB_ENVIRONMENT_ID`, or `--new-environment worktree` when isolated. Prints bb's own output, which names the new thread id. The harness links the worker to you as parent; the brief's `Parent:` line is only text.
+- bb: runs `bb thread spawn --project $BB_PROJECT_ID --parent-self --provider <p> --model <id> --reasoning-level <effort> --title "<goal> › <Role> · <slice>" --prompt-file <brief> --permission-mode auto` with `--environment $BB_ENVIRONMENT_ID`, or `--new-environment worktree` when isolated. Prints the receipt line (the new thread id is in it). The harness links the worker to you as parent; the brief's `Parent:` line is only text.
 - Claude Code: prints the tool call, then you make it (an Explorer adds `subagent_type: "Explore"` and runs on `haiku`):
   ```
   Call the Agent tool with:
@@ -174,7 +176,7 @@ The title is `<goal> › <Role> · <slice>`, e.g. `cost sheet accuracy › Imple
   ```
 - none: `spawn: no workers in this harness; play the role yourself from <brief>`, exit 1.
 
-Errors: `spawn: --role --effort --brief are required` · `spawn: --tier is required for role '<role>' (no role card)` · `spawn: the <Role> card is <tier> (up to <max> without a reason); --tier <t> needs --why "<reason>"` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>` · `no built-in model for provider '<p>'; pass --model <id>`.
+Errors: `spawn: --role --effort --brief are required` · `spawn: --mode <m> needs --goal …` · `spawn: --mode <m> needs --tier T or --provider P --model ID` · `spawn: --mode <m> needs bb` · `spawn: --tier is required for role '<role>' (no role card)` · `spawn: the <Role> card is <tier> (up to <max> without a reason); --tier <t> needs --why "<reason>"` · `spawn: brief file not found: <path>` · `spawn: unknown argument <x>` · `no built-in model for provider '<p>'; pass --model <id>`.
 
 ## wait, read, tell, compact
 
@@ -198,7 +200,7 @@ Under bb, prefer ending your turn to `wait`: each child's turn end wakes you wit
 
 ## Spawn guard
 
-Optional. It blocks a command that runs `bb thread spawn` or `bb thread create` unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It fails open (unreadable input → allow). It is a reminder, not a security boundary.
+Optional. It blocks a command that runs `bb thread spawn` or `bb thread create` (not `--help`/`-h`, which is read-only) and names `harness.sh spawn --mode child|spin-off|fresh` instead, unless the command goes through `harness.sh` or carries `WORKFLOW_SPAWN=1`; `harness.sh spawn` sets that variable on its own bb call. It fails open (unreadable input → allow). It is a reminder, not a security boundary.
 
 One step for a new machine: `sh <dir>/scripts/harness.sh install-guards` (`<dir>` = the installed skill folder). It installs all three guards below, can be run twice safely, backs up each file it edits (the backup name carries a checksum of the file's full path, so two Codex homes never share a backup), and skips an agent that is not installed.
 
