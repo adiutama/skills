@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.9.0"
+  version: "1.9.1"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -25,7 +25,7 @@ harness.sh adopt <id> [--quiet]        make an existing thread a child of this t
 harness.sh wait | read | compact <id> · harness.sh tell <id> "<message>"
 ```
 
-Under bb each command performs the action; under Claude Code or Codex it prints the exact tool call to make. A term in **bold** means what `terms` says; one reported as none changes the structure, not the rules.
+Where the harness has a CLI each command performs the action; elsewhere it prints the exact tool call to make. A term in **bold** means what `terms` says; one reported as none changes the structure, not the rules.
 
 ## Which reference to read
 
@@ -73,7 +73,7 @@ Tiers: **fast** (cheapest, mechanical) · **balanced** · **deep** (strongest ev
 
 ## Roster
 
-The user's agent roster says which provider and model each tier, role and Reviewer uses ([format](references/harnesses.md#roster-memory)). Without it, spawns use the built-in Claude Code and Codex defaults.
+The user's agent roster says which provider and model each tier, role and Reviewer uses ([format](references/harnesses.md#roster-memory)). Without it, spawns use the built-in defaults (`harness.sh model <tier>`).
 
 - Planning a delegation: run `harness.sh roster`. `none` → no roster here: spawn with the built-in defaults (`harness.sh model <tier>`), and do not ask the user to create one.
 - Check each provider the roster names against `harness.sh providers`, and each model against that provider's listed ids. `reviewer.never` entries are exclusions, not providers: do not check them.
@@ -113,7 +113,7 @@ Every thread you create is one of three verbs, which fix where it sits and wheth
 - **Settle both questions:** top-level or child, and whether it reports back. Plain wording that settles both is accepted ("work on issue x on a top-level thread so we can wrap this thread up" = start fresh). If either is open, ask in suggestion form: "I suggest spin off because <reason> — ok?". Never guess.
 - **Modifiers**, combinable with any verb: `--wait-go` (read and plan only until the user says "go" in that thread, or this thread relays it) · `--after <thread id>` (same, released when that thread is done: this thread relays "go" when it receives that thread's done message if it is in your `spin-offs.md`, else the script tells that thread once to send "go") · `--context none|this|<thread id>` (the brief carries only the goal | goal plus relevant context, the default | goal plus a pointer to that thread; reviews and risk checks the user calls objective or fresh use `none`) · `--report-after-merge` (spin off only: DONE is sent after the PR merges) · a named model or effort, else the roster and tier rules.
 - **Adopt** is the reverse of start fresh and the only verb that creates no thread: "make that thread a child of this thread" = adopt. It is not "absorb" (copying a thread's findings into this one and archiving it), which is a different verb that this skill does not define. Copy the receipt `Adopted → @thread:<id> · child · reports <every outcome|off>`; the reuse check, modifiers and spin-off ledger do not apply.
-- **Machine:** `spawn --host <id-or-name>` runs the new thread on that machine (needed when the target project's only source is on another one; without it bb answers "HTTP 409: No project source configured for this host").
+- **Machine:** `spawn --host <id-or-name>` runs the new thread on that machine (needed when the target project's only source is on another one).
 - **Reuse check, before a top-level thread:** search threads (use the harness's thread search) and list the open ones in the target project. A clear open match → offer it: "@thread:X already works on this — I suggest telling it instead — ok?". Not needed for delegate.
 - **Receipt:** `spawn` prints one line, `<Delegated|Spun off|Started fresh> → @thread:<id> · <child|top-level> · <provider/model · effort> · <reporting rule> [· waiting for your go | after @thread:X] · context: …`. Copy it to the user; never compose it from memory.
 - **Spin-off ledger:** each spin off adds a row to `<storage>/spin-offs.md`. "How are the spin-offs?" → one table, thread (link) | status | last milestone, what the user should look at first on top, no description column; status from the thread's status plus its latest milestone message. A spin-off that crashed without sending FAILED shows as `error` there.
