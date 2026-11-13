@@ -12,10 +12,11 @@
 #   harness.sh storage                    this agent's storage directory
 #   harness.sh context [id]               context reading (self, or a worker's)
 #   harness.sh title "<goal>"             set this thread's title to the goal, before the first spawn
-#   harness.sh spawn --role R [--tier T --why W] --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P] [--model ID] [--author P]
+#   harness.sh spawn --role R [--tier T --why W] --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--provider P] [--model ID] [--author P[:ID]] [--limited P,...]
 #       --provider/--model come from the user's agent roster (SKILL.md, Roster); --model overrides the tier-derived id
 #       tier defaults to the role card; above it needs --why (appended to the brief, logged in storage)
-#       bb Reviewer: the vendor other than --author (default: the hosted agent). WORKFLOW_DRY_RUN=1 prints the bb command
+#       bb Reviewer (no --provider/--model): the first available roster reviewer.order entry, skipping reviewer.never, providers missing or
+#       --limited (at their usage limit), and the --author model (last resort); no order → the vendor other than --author (default: the hosted agent)
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #       --mode child|spin-off|fresh (default child): spin-off and fresh make a top-level thread in its own worktree (no --role; need --goal, and --tier or --provider/--model)
 #       --wait-go · --after <thread id> · --context none|this|<thread id> · --report-after-merge (spin-off) · --force (re-spawn a slice with no report.md) · --project <id> · --host <id-or-name> (the machine to run on; passed to bb thread spawn as --host)
@@ -136,8 +137,8 @@ terms() {
   case $h in
   bb) cat <<'EOF'
 worker      a child bb thread; spawn it with: harness.sh spawn
-spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer runs on the vendor other than --author (default: you); the harness links it to you as parent
-helper      a read-only lookup of your own with the Agent tool (Claude Code hosted): subagent_type "Explore", model "haiku"
+spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer is the first available roster reviewer.order entry, the author's model only as the last resort (--author P:ID; --limited P,... for usage limits; no order: the vendor other than the author); the harness links it to you as parent
+helper      the Agent tool (Claude Code hosted), only for a read-only lookup of your own: subagent_type "Explore", model "haiku"; any other job is a worker
 wait        end your turn: each child's turn end wakes you with its result (harness.sh wait <id> only within the shell time limit)
 read        harness.sh read <id>
 tell        harness.sh tell <id> <message|->
@@ -243,6 +244,36 @@ rank() {
 
 other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
 
+# roster_rule <key>: the entries of that roster line (bb only), else nothing.
+roster_rule() {
+  [ "$(detect)" = bb ] || return 0
+  roster 2>/dev/null | awk -v k="$1" '$1 == k { $1 = ""; sub(/^ +/, ""); print; exit }'
+}
+
+# pick_reviewer <author provider[:model]> <reviewer.order entries>: sets pick=<provider>:<model>.
+# Walks the order; skips reviewer.never, providers missing from bb provider list or passed in --limited,
+# and the author's model (the author's vendor when its model is unknown), which is the last resort.
+pick_reviewer() {
+  ap=${1%%:*}; am=; case $1 in *:*) am=${1#*:} ;; esac
+  never=" $(roster_rule reviewer.never) "
+  have=" $(bb provider list 2>/dev/null | awk 'NR>2 && $1 !~ /^-+$/ {printf "%s ", $1}') "
+  lim=" $(printf '%s' "$limited" | tr ',' ' ') "
+  pick= last= out=
+  [ -n "$am" ] || printf "note: --author has no model; the author's vendor %s counts as its model\n" "$ap" >&2
+  for e in $2; do
+    ep=${e%%:*}
+    case "$never$lim" in *" $ep "*) out="$out $e"; continue ;; esac
+    case $have in *" $ep "*) ;; *) out="$out $e"; continue ;; esac
+    if { [ -n "$am" ] && [ "${e#*:}" = "$am" ]; } || { [ -z "$am" ] && [ "$ep" = "$ap" ]; }; then
+      [ -n "$last" ] || last=$e; continue
+    fi
+    pick=$e; return
+  done
+  [ -n "$last" ] || die "spawn: no reviewer.order entry is available (unavailable:$out); wait for a reset, or pass --provider P --model ID"
+  printf "note: every other Reviewer is unavailable (%s); the Reviewer runs on the author's %s (last resort; say so in the classification)\n" "${out# }" "$last" >&2
+  pick=$last
+}
+
 # new_env_kind <project id>: the --new-environment kind the project supports.
 # A Personal project (bb project show --json: "kind": "personal") has no git source, so bb accepts only
 # a personal workspace there; every other project gets a git worktree.
@@ -286,7 +317,7 @@ brief_extra() {
 }
 
 spawn() {
-  role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod=
+  role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod= limited=
   mode=child wait_go= after= ctx=this after_merge= force= project= host=
   while [ $# -gt 0 ]; do
     case $1 in
@@ -299,6 +330,7 @@ spawn() {
       --provider) prov=$2; shift ;;
       --model) mod=$2; shift ;;
       --author) author=$2; shift ;;
+      --limited) limited=$2; shift ;;
       --why) why=$2; shift ;;
       --mode) mode=$2; shift ;;
       --after) after=$2; shift ;;
@@ -382,12 +414,18 @@ spawn() {
   bb)
     p=$(provider bb)
     if [ -n "$prov" ]; then p=$prov
-    elif [ "$(lower "$role")" = reviewer ]; then
-      # Cross-vendor review: fresh eyes from the vendor other than the code's author.
-      a=${author:-$(provider bb)}; p=$(other_provider "$a")
-      if ! bb provider list 2>/dev/null | grep -qw "$p"; then
-        printf "note: provider %s unavailable; the Reviewer runs on the author's vendor %s (say so in the classification)\n" "$p" "$a" >&2
-        p=$a
+    elif [ "$(lower "$role")" = reviewer ] && [ -z "$mod" ]; then
+      a=${author:-$(provider bb)}
+      order=$(roster_rule reviewer.order)
+      if [ -n "$order" ]; then
+        pick_reviewer "$a" "$order"; p=${pick%%:*}; mod=${pick#*:}
+      else
+        # No roster order: fresh eyes from the vendor other than the code's author.
+        a=${a%%:*}; p=$(other_provider "$a")
+        if ! bb provider list 2>/dev/null | grep -qw "$p"; then
+          printf "note: provider %s unavailable; the Reviewer runs on the author's vendor %s (say so in the classification)\n" "$p" "$a" >&2
+          p=$a
+        fi
       fi
     fi
     m=${mod:-$(model "$tier" "$p")}
@@ -534,6 +572,6 @@ case ${1:-} in
   install-guards) BACKUP_DIR=${BACKUP_DIR:-$(storage)/guards-backup} sh "$(dirname "$0")/install-guards.sh" ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,30p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,31p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac

@@ -24,7 +24,7 @@ spawn(opts: {
   role: string; effort: Effort; brief: FilePath;
   tier?: Tier; why?: string;                                       // tier: default the role card's; above it, why is required
   slice?: string; goal?: string;                                   // title = "<goal> › <Role> · <slice>"
-  isolated?: boolean; provider?: Provider; model?: ModelId; author?: Provider   // bb only; model overrides the tier-derived id; a Reviewer defaults to the vendor other than author
+  isolated?: boolean; provider?: Provider; model?: ModelId; author?: Provider | `${Provider}:${ModelId}`; limited?: Provider[]   // bb only; model overrides the tier-derived id; author, limited: Reviewer pick (spawn)
 }):                                             bb ? BbSpawnOutput /* names the new thr_ id */ : ToolCall
 wait(id: Id):                                   bb ? BbOutput : ToolCall
 read(id: Id):                                   bb ? LatestReply : ToolCall
@@ -46,8 +46,8 @@ Output: the harness on the first line, then one line per term with its meaning i
 ```
 harness     bb
 worker      a child bb thread; spawn it with: harness.sh spawn
-spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer runs on the vendor other than --author (default: you); the harness links it to you as parent
-helper      a read-only lookup of your own with the Agent tool (Claude Code hosted): subagent_type "Explore", model "haiku"
+spawn       harness.sh spawn --role R --effort E --brief FILE [--slice S] [--isolated]; the tier comes from the role card (above it: --tier T --why "<reason>"); a Reviewer is the first available roster reviewer.order entry, the author's model only as the last resort (--author P:ID; --limited P,... for usage limits; no order: the vendor other than the author); the harness links it to you as parent
+helper      the Agent tool (Claude Code hosted), only for a read-only lookup of your own: subagent_type "Explore", model "haiku"; any other job is a worker
 wait        end your turn: each child's turn end wakes you with its result ...
 ...
 ```
@@ -67,7 +67,7 @@ The roster is a global, pinned bb memory named `agent-roster`, a preference with
 ```
 tier.<fast|balanced|deep|consultant>  <provider>:<model> …   model per provider for a tier
 role.<role>                           <provider>:<model>     overrides the tier for that role
-reviewer.order                        <provider>:<model> …   Reviewer candidates, first preferred; the author's vendor is skipped
+reviewer.order                        <provider>:<model> …   Reviewer candidates, walked in order; the author's model only as the last resort
 reviewer.never                        <provider> …           never a Reviewer
 fallback                              <from>><to> …          on <from>'s usage limit, move that work to <to>
 ```
@@ -146,11 +146,11 @@ Input, required: `--role <Role>` · `--effort <level>` · `--brief <file>` (writ
 
 Tier: `--tier <tier>` defaults to the role card (Explorer fast · Implementer, Tester fast, up to balanced · Researcher, Prototyper balanced · Architect, Designer, Reviewer deep · Consultant consultant); a role without a card must pass it. Above the card's highest tier → `--why "<reason>"` is required; the script appends `Tier override: <tier>, above the card's <max> — <reason>` to the brief and a line to `<storage>/tier-overrides.log`.
 
-Reviewer, bb only: runs on the vendor other than `--author <claude-code | codex>` (default: the hosted agent), so the review gets a second vendor's eyes; that vendor missing from `bb provider list` → the author's vendor, with a note to put in the classification. `--provider` overrides.
+Reviewer, bb only, without `--provider`/`--model`: the first available entry of the roster's `reviewer.order`, walked in order. Unavailable: in `reviewer.never`, missing from `bb provider list`, or in `--limited <provider,…>` (at its usage limit). The entry with the author's model (`--author <provider>:<model>`, the id as the roster names it) is skipped, and taken only when every other entry is unavailable, with a note to put in the classification; the author's vendor on another model is fine. `--author <provider>` alone → that vendor counts as the author's model. Nothing available → exit 1. No `reviewer.order` → the vendor other than `--author` (default: the hosted agent); that vendor missing → the author's vendor, with a note.
 
 Modes: `--mode child|spin-off|fresh` (default `child`, as above). `spin-off` and `fresh` (bb only) create a top-level thread: no `--parent-self`, `--new-environment <kind>` (`worktree`; `personal` when `bb project show <id> --json` says `"kind": "personal"`, the Personal project, which bb rejects worktrees in; the same kind is used for `--isolated`), title = `--goal` (required), no `Role:` brief, no `--role`; they need `--tier T` or `--model ID` (+ `--provider`), and `--effort`. They write the brief plus a harness-owned setup block (origin link, reporting rule, hold, context line) to `<storage>/briefs/<slice>-<mode>.md` and spawn from that. `fresh` then runs `bb thread update <origin> --parent-thread <new> --parent-notifications off`. Modifiers: `--wait-go` · `--after <thread id>` (untracked in `<storage>/spin-offs.md` or fresh mode → `bb thread tell <that id> "When your work is done, tell @thread:<new> go"` once) · `--context none|this|<thread id>` (`none` adds no `Context:` line) · `--report-after-merge` (spin-off only) · `--force` · `--project <id>` · `--host <id-or-name>` (bb only; passed to `bb thread spawn --host`, for a project whose source is on another machine). bb prints a receipt line (`Delegated|Spun off|Started fresh → @thread:<id> · <child|top-level> · <provider/model> · <effort> · <reporting rule> [· waiting for your go | · after @thread:X] · context: …`). A spin-off appends `| thread | title | started | trigger | waiting-on | status | last milestone |` to `<storage>/spin-offs.md`. A child slice already in `<storage>/spawned.log` (`slice<TAB>thread id`) with no `workers/<slice>/report.md` is refused: `run \`bb thread retry <id>\``. `WORKFLOW_DRY_RUN=1` prints every command (spawn, update, tell, ledger row) with `<new>` for the id. `scripts/test-spawn.sh` checks all of this.
 
-Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <id>` (bb only; any listed provider, e.g. `acp-opencode`; default the hosted agent, or the other vendor for a Reviewer) · `--model <id>` (replaces the tier-derived id; required for a provider without a built-in table; the tier is still checked against the role card) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
+Optional: `--slice <name>` (default: the brief's folder name) · `--goal <name>` (default: this thread's title under bb, else `WORKFLOW_TASK`) · `--isolated` (own working copy: bb a new worktree, Claude Code `isolation: "worktree"`, Codex unavailable) · `--provider <id>` (bb only; any listed provider, e.g. `acp-opencode`; default the hosted agent, or the Reviewer pick above) · `--model <id>` (replaces the tier-derived id; required for a provider without a built-in table; the tier is still checked against the role card) · `WORKFLOW_DRY_RUN=1` (bb: print the command instead of running it).
 
 Output, by harness:
 
