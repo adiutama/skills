@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, routes it to a model tier, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "1.8.0"
+  version: "1.9.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -78,11 +78,13 @@ The user's agent roster says which provider and model each tier, role and Review
 - Planning a delegation: run `harness.sh roster`. `none` → no roster here: spawn with the built-in defaults (`harness.sh model <tier>`), and do not ask the user to create one.
 - Check each provider the roster names against `harness.sh providers`, and each model against that provider's listed ids. `reviewer.never` entries are exclusions, not providers: do not check them.
 - Stale, or missing where `providers` discovers providers: suggest a roster with a recommended default ("I suggest … ok?"). Save it with `harness.sh roster-save` (rules on stdin) only after the user agrees; until then use the built-in defaults.
-- Pick provider and model from the roster and pass them to `spawn` as `--provider` and `--model`.
+- Pick provider and model from the roster and pass them to `spawn` as `--provider` and `--model`. A Reviewer: pass neither; `spawn` walks `reviewer.order`, skipping the author's model unless nothing else is available ([coordinating.md](references/coordinating.md#steps), step 2).
 
 ## 3. Delegate or do it myself
 
 One question, asked about the whole job (not its first step; "one grep" that leads to reading 50 files is a 50-file job): **does this work strengthen my context or pollute it?** It strengthens when I need what I'd read for the decisions still ahead. It pollutes when I'd pay for it on every later turn and never use it again. Pollution goes to a **worker** that returns a conclusion; the rest I do myself.
+
+A **helper** (an in-process subagent) is only for a read-only lookup on the fast tier; every other delegated job, any edit included, is a **worker**, made only with `harness.sh spawn`.
 
 What pollutes:
 - Reading for a conclusion: > ~5 files, big logs, a wide sweep (many places, same pattern) when my thread is deep.

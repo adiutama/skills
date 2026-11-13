@@ -10,14 +10,21 @@ ok() { if [ "$1" = 0 ]; then echo "ok   $2"; else echo "FAIL $2"; fail=1; fi; }
 has() { printf '%s\n' "$1" | grep -qF -- "$2"; }
 hasnt() { ! has "$1" "$2"; }
 
-# fake bb: project kind lookup only
+# fake bb: project kind, provider list ($FAKE_PROVIDERS), roster memory ($FAKE_ROSTER file, absent = no roster)
 mkdir -p "$t/bin"
 cat > "$t/bin/bb" <<'FAKE'
 #!/bin/sh
-if [ "$1 $2" = "project show" ]; then
-  if [ "$3" = proj_personal ]; then k=personal; else k=standard; fi
-  printf '{\n  "id": "%s",\n  "kind": "%s",\n  "name": "x"\n}\n' "$3" "$k"
-fi
+case "$1 $2" in
+  "project show")
+    if [ "$3" = proj_personal ]; then k=personal; else k=standard; fi
+    printf '{\n  "id": "%s",\n  "kind": "%s",\n  "name": "x"\n}\n' "$3" "$k" ;;
+  "provider list")
+    printf 'ID    Name\n----  ----\n'; for p in ${FAKE_PROVIDERS-claude-code codex acp-opencode}; do printf '%s  x\n------  ----\n' "$p"; done ;;
+  "memory search")
+    [ -f "$FAKE_ROSTER" ] && printf '{\n  "memories": [\n    {\n      "id": "mem_r",\n    }\n  ]\n}\n' ;;
+  "memory get")
+    [ -f "$FAKE_ROSTER" ] && printf '{\n  "memory": {\n    "id": "mem_r",\n    "name": "agent-roster",\n    "details": "%s",\n    "version": 1\n  }\n}\n' "$(awk '{printf "%s\\n", $0}' "$FAKE_ROSTER")" ;;
+esac
 FAKE
 chmod +x "$t/bin/bb"; PATH=$t/bin:$PATH
 # A1
@@ -66,6 +73,23 @@ ad=$($H adopt thr_x); has "$ad" "bb thread update thr_x --parent-thread thr_orig
 aq=$($H adopt thr_x --quiet); has "$aq" "--parent-notifications off" && has "$aq" "reports off"; ok $? "adopt --quiet"
 $H adopt thr_origin >/dev/null 2>&1; [ $? != 0 ]; ok $? "adopt refuses self"
 ac=$(WORKFLOW_HARNESS=claude-code $H adopt thr_x); has "$ac" "adopt needs bb"; ok $? "adopt outside bb prints instruction"
+# Reviewer: walks the roster's reviewer.order, skipping the author's model except as the last resort
+printf 'tier.deep  claude-code:claude-opus-5-5\nreviewer.order   codex:gpt-6.1-sol  acp-opencode:opencode-go/grok-4.7  claude-code:claude-fable-5-2  claude-code:claude-opus-5-5\nreviewer.never   gemini\n' > "$t/roster"
+rv() { n=$1 rf=$2; shift 2; FAKE_ROSTER=$rf $H spawn --role Reviewer --effort medium --brief "$t/b.md" --slice "rv$n" --force "$@" 2>"$t/rv.err"; }
+r=$(rv 1 $t/roster --author claude-code:claude-opus-5-5); has "$r" "--provider codex --model gpt-6.1-sol"; ok $? "R1 first order entry"
+r=$(rv 2 $t/roster --author codex:gpt-6.1-sol); has "$r" "--provider acp-opencode --model opencode-go/grok-4.7"; ok $? "R2 author's model skipped"
+r=$(rv 3 $t/roster --author claude-code:claude-opus-5-5 --limited codex,acp-opencode); has "$r" "--provider claude-code --model claude-fable-5-2"; ok $? "R3 same vendor, other model reviews"
+r=$(FAKE_PROVIDERS="claude-code acp-opencode" rv 4 $t/roster --author claude-code:claude-opus-5-5 --limited acp-opencode); has "$r" "--model claude-fable-5-2"; ok $? "R4 missing provider skipped"
+r=$(rv 5 $t/roster --author claude-code:claude-fable-5-2 --limited codex,acp-opencode); has "$r" "--model claude-opus-5-5"; ok $? "R5 Fable-authored: Opus reviews"
+printf 'reviewer.order   codex:gpt-6.1-sol  claude-code:claude-opus-5-5\n' > "$t/roster2"
+r=$(rv 6 $t/roster2 --author claude-code:claude-opus-5-5 --limited codex); has "$r" "--provider claude-code --model claude-opus-5-5" && has "$(cat "$t/rv.err")" "last resort"; ok $? "R6 author's model as last resort, noted"
+e=$(rv 7 $t/roster2 --author codex:gpt-6.1-sol --limited claude-code,codex 2>&1); [ $? != 0 ] && has "$(cat "$t/rv.err")" "no reviewer.order entry is available"; ok $? "R7 nothing available fails"
+r=$(rv 8 $t/roster --author claude-code); has "$r" "--provider codex --model gpt-6.1-sol"; ok $? "R8 author without model: its vendor skipped"
+r=$(rv 9 $t/roster --author claude-code --limited codex,acp-opencode); has "$r" "--model claude-fable-5-2" && has "$(cat "$t/rv.err")" "last resort"; ok $? "R9 author without model: its vendor is the last resort"
+printf 'reviewer.order   gemini:g-3  codex:gpt-6.1-sol\nreviewer.never   gemini\n' > "$t/roster3"
+r=$(rv 10 $t/roster3 --author claude-code:claude-opus-5-5); has "$r" "--provider codex"; ok $? "R10 reviewer.never skipped"
+r=$(rv 11 none --author codex); has "$r" "--provider claude-code --model opus"; ok $? "R11 no roster: the other vendor"
+r=$(rv 12 $t/roster --author claude-code:claude-opus-5-5 --provider acp-opencode --model opencode-go/glm-5.3); has "$r" "--provider acp-opencode --model opencode-go/glm-5.3"; ok $? "R12 --provider/--model override"
 # A7
 $C "bb thread spawn --help" 2>/dev/null; ok $? "A7 spawn --help allowed"
 $C "bb thread create -h" 2>/dev/null; ok $? "A7 create -h allowed"
