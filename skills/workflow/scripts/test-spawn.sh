@@ -52,14 +52,14 @@ $H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/ctx.
 $H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice fo --context none --wait-go >/dev/null; has "$(cat "$t/st/briefs/fo-fresh.md")" "@thread:thr_origin"; ok $? "W5 fresh names origin"
 # Personal project: personal workspace, not worktree
 pp=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice pp --project proj_personal); has "$pp" "--new-environment personal" && hasnt "$pp" "worktree"; ok $? "personal project uses --new-environment personal"
-pf=$($H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice pf --project proj_personal); has "$pf" "--new-environment personal"; ok $? "personal project, fresh"
+pf=$($H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice pf --project proj_personal --env new); has "$pf" "--new-environment personal"; ok $? "personal project, fresh"
 pi=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice pi --isolated --project proj_personal); has "$pi" "--new-environment personal"; ok $? "personal project, isolated child"
 # W4: quoting and --json
 mkdir -p "$t/sp ace"; echo x > "$t/sp ace/b.md"
 q=$(BB_THREAD_STORAGE="$t/st x" $H spawn --mode spin-off --goal "Fix queued status" --tier balanced --effort high --brief "$t/sp ace/b.md" --slice qs); has "$q" "--title 'Fix queued status'" && has "$q" "--json" && has "$q" "--prompt-file '$t/st x/briefs/qs-spin-off.md'"; ok $? "W4 dry-run quotes args, has --json"
 # A5
 for r in "$c" "$s" "$f"; do has "$r" " → @thread:<new> · " && printf '%s\n' "$r" | grep -Eq 'high|medium' ; [ $? = 0 ] || fail=1; done
-has "$s" "Spun off → @thread:<new> · top-level · " && has "$s" "claude-code/sonnet · high"; ok $? "A5 receipt line"
+has "$s" "Spun off → @thread:<new> · top-level · " && has "$s" "claude-code/claude-sonnet-5-5 · high"; ok $? "A5 receipt line"
 # A6
 printf 's1\tthr_old\n' > "$t/st/spawned.log"
 e=$($H spawn --role Implementer --effort medium --brief "$t/b.md" --slice s1 2>&1); r=$?
@@ -73,6 +73,20 @@ ad=$($H adopt thr_x); has "$ad" "bb thread update thr_x --parent-thread thr_orig
 aq=$($H adopt thr_x --quiet); has "$aq" "--parent-notifications off" && has "$aq" "reports off"; ok $? "adopt --quiet"
 $H adopt thr_origin >/dev/null 2>&1; [ $? != 0 ]; ok $? "adopt refuses self"
 ac=$(WORKFLOW_HARNESS=claude-code $H adopt thr_x); has "$ac" "adopt needs bb"; ok $? "adopt outside bb prints instruction"
+# release
+rl=$($H release thr_x); has "$rl" "bb thread update thr_x --clear-parent-thread" && has "$rl" "Released → @thread:thr_x · top-level"; ok $? "release clears the parent"
+$H release thr_origin >/dev/null 2>&1; [ $? != 0 ]; ok $? "release refuses self"
+rc=$(WORKFLOW_HARNESS=claude-code $H release thr_x); has "$rc" "release needs bb"; ok $? "release outside bb prints instruction"
+# environment: fresh reuses this one by default, spin-off gets a new one, child takes --isolated not --env
+has "$f" "--environment env_1" && hasnt "$f" "--new-environment" && has "$f" "env: reused"; ok $? "fresh reuses this environment by default"
+has "$s" "--new-environment worktree" && hasnt "$s" "--environment env_1" && has "$s" "env: new"; ok $? "spin-off gets a new environment by default"
+eh=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice eh --env this); has "$eh" "--environment env_1" && hasnt "$eh" "--new-environment" && has "$eh" "env: reused"; ok $? "spin-off --env this reuses"
+en=$($H spawn --mode fresh --goal G --tier balanced --effort high --brief "$t/b.md" --slice en --env new); has "$en" "--new-environment worktree" && has "$en" "env: new"; ok $? "fresh --env new"
+ei=$($H spawn --mode spin-off --goal G --tier balanced --effort high --brief "$t/b.md" --slice ei --env env_9); has "$ei" "--environment env_9" && has "$ei" "env: env_9"; ok $? "--env <id>"
+$H spawn --role Implementer --effort medium --brief "$t/b.md" --slice ec --force --env new >/dev/null 2>&1; [ $? != 0 ]; ok $? "--env rejected on child"
+hasnt "$c" "env:"; ok $? "child receipt has no env field"
+# model ids: bb gets full ids, not aliases
+has "$($H spawn --mode spin-off --goal G --tier deep --effort high --brief "$t/b.md" --slice md)" "--model claude-opus-5-5"; ok $? "tier deep maps to the full model id"
 # Reviewer: walks the roster's reviewer.order, skipping the author's model except as the last resort
 printf 'tier.deep  claude-code:claude-opus-5-5\nreviewer.order   codex:gpt-6.1-sol  acp-opencode:opencode-go/grok-4.7  claude-code:claude-fable-5-2  claude-code:claude-opus-5-5\nreviewer.never   gemini\n' > "$t/roster"
 rv() { n=$1 rf=$2; shift 2; FAKE_ROSTER=$rf $H spawn --role Reviewer --effort medium --brief "$t/b.md" --slice "rv$n" --force "$@" 2>"$t/rv.err"; }
@@ -88,7 +102,7 @@ r=$(rv 8 $t/roster --author claude-code); has "$r" "--provider codex --model gpt
 r=$(rv 9 $t/roster --author claude-code --limited codex,acp-opencode); has "$r" "--model claude-fable-5-2" && has "$(cat "$t/rv.err")" "last resort"; ok $? "R9 author without model: its vendor is the last resort"
 printf 'reviewer.order   gemini:g-3  codex:gpt-6.1-sol\nreviewer.never   gemini\n' > "$t/roster3"
 r=$(rv 10 $t/roster3 --author claude-code:claude-opus-5-5); has "$r" "--provider codex"; ok $? "R10 reviewer.never skipped"
-r=$(rv 11 none --author codex); has "$r" "--provider claude-code --model opus"; ok $? "R11 no roster: the other vendor"
+r=$(rv 11 none --author codex); has "$r" "--provider claude-code --model claude-opus-5-5"; ok $? "R11 no roster: the other vendor"
 r=$(rv 12 $t/roster --author claude-code:claude-opus-5-5 --provider acp-opencode --model opencode-go/glm-5.3); has "$r" "--provider acp-opencode --model opencode-go/glm-5.3"; ok $? "R12 --provider/--model override"
 # A7
 $C "bb thread spawn --help" 2>/dev/null; ok $? "A7 spawn --help allowed"

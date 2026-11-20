@@ -19,9 +19,11 @@
 #       --limited (at their usage limit), and the --author model (last resort); no order → the vendor other than --author (default: the hosted agent)
 #       title = "<goal> › <Role> · <slice>"; goal defaults to this thread's title (bb) or $WORKFLOW_TASK; slice to the brief folder
 #       --mode child|spin-off|fresh (default child): spin-off and fresh make a top-level thread in its own worktree (no --role; need --goal, and --tier or --provider/--model)
+#       --env this|new|<environment id> (spin-off, fresh): this = $BB_ENVIRONMENT_ID, new = a new worktree/personal workspace; default fresh=this, spin-off=new; child uses --isolated instead
 #       --wait-go · --after <thread id> · --context none|this|<thread id> · --report-after-merge (spin-off) · --force (re-spawn a slice with no report.md) · --project <id> · --host <id-or-name> (the machine to run on; passed to bb thread spawn as --host)
 #       prints the receipt line; WORKFLOW_DRY_RUN=1 prints the commands for every mode
 #   harness.sh adopt <id> [--quiet]       make an existing thread a child of this one (bb: bb thread update <id> --parent-thread <this>; --quiet adds --parent-notifications off); prints the receipt. Elsewhere: prints the equivalent instruction
+#   harness.sh release <id>               make a child thread top-level again (bb: bb thread update <id> --clear-parent-thread); prints the receipt. Elsewhere: prints that release needs bb
 #   harness.sh wait <id>                  wait for a worker
 #   harness.sh read <id>                  a worker's report
 #   harness.sh tell <id> <message|->       message a worker (- reads stdin); warns on stderr when its report.md or storage folder is missing
@@ -242,6 +244,17 @@ rank() {
   esac
 }
 
+# bb_model_id <id>: bb rejects the short Claude aliases; map them to full ids, pass anything else through.
+bb_model_id() {
+  case $1 in
+    haiku) echo claude-haiku-5-5 ;;
+    sonnet) echo claude-sonnet-5-5 ;;
+    opus) echo claude-opus-5-5 ;;
+    fable) echo claude-fable-5-2 ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
 other_provider() { if [ "$1" = codex ]; then echo claude-code; else echo codex; fi; }
 
 # roster_rule <key>: the entries of that roster line (bb only), else nothing.
@@ -318,7 +331,7 @@ brief_extra() {
 
 spawn() {
   role= tier= effort= brief= slice= goal= isolated= prov= why= author= mod= limited=
-  mode=child wait_go= after= ctx=this after_merge= force= project= host=
+  mode=child wait_go= after= ctx=this after_merge= force= project= host= env=
   while [ $# -gt 0 ]; do
     case $1 in
       --role) role=$2; shift ;;
@@ -337,6 +350,7 @@ spawn() {
       --context) ctx=$2; shift ;;
       --project) project=$2; shift ;;
       --host) host=$2; shift ;;
+      --env) env=$2; shift ;;
       --wait-go) wait_go=1 ;;
       --report-after-merge) after_merge=1 ;;
       --force) force=1 ;;
@@ -346,6 +360,12 @@ spawn() {
   done
   case $mode in child|spin-off|fresh) ;; *) die "spawn: --mode is child | spin-off | fresh" ;; esac
   [ -z "$after_merge" ] || [ "$mode" = spin-off ] || die "spawn: --report-after-merge is for --mode spin-off only"
+  # Environment: fresh silences this thread, so reusing its environment is safe; a spin-off keeps both working, so it gets a new one.
+  if [ "$mode" = child ]; then
+    [ -z "$env" ] || die "spawn: --env is for --mode spin-off|fresh; a child reuses this environment, --isolated gives it a new one"
+  elif [ -z "$env" ]; then
+    if [ "$mode" = fresh ]; then env=this; else env=new; fi
+  fi
   [ -n "$effort" ] && [ -n "$brief" ] || die "spawn: --effort --brief are required"
   [ -f "$brief" ] || die "spawn: brief file not found: $brief"
   h=$(detect)
@@ -428,7 +448,7 @@ spawn() {
         fi
       fi
     fi
-    m=${mod:-$(model "$tier" "$p")}
+    m=$(bb_model_id "${mod:-$(model "$tier" "$p")}")
     [ -n "$project" ] || project=${BB_PROJECT_ID:?BB_PROJECT_ID unset}
     set -- bb thread spawn --project "$project" --provider "$p" --model "$m" \
       --reasoning-level "$effort" --title "$title" --prompt-file "$brief" --permission-mode auto
@@ -437,8 +457,13 @@ spawn() {
       set -- "$@" --parent-self
       if [ -n "$isolated" ]; then set -- "$@" --new-environment "$(new_env_kind "$project")"
       else set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; fi
+      envw=
     else
-      set -- "$@" --new-environment "$(new_env_kind "$project")"
+      case $env in
+        this) set -- "$@" --environment "${BB_ENVIRONMENT_ID:?BB_ENVIRONMENT_ID unset}"; envw=' · env: reused' ;;
+        new) set -- "$@" --new-environment "$(new_env_kind "$project")"; envw=' · env: new' ;;
+        *) set -- "$@" --environment "$env"; envw=" · env: $env" ;;
+      esac
     fi
     case $mode in
       child) word=Delegated place=child; rule="reports once when done, and on failure" ;;
@@ -478,7 +503,7 @@ spawn() {
         printf '| @thread:%s | %s | %s | %s | %s | running | - |\n' "$id" "$title" "$(date '+%F %T')" "$([ -n "$after_merge" ] && echo 'after merge' || echo done)" "${after:--}" >> "$d/spin-offs.md"
       fi
     fi
-    printf '%s → @thread:%s · %s · %s/%s · %s · %s%s · %s\n' "$word" "$id" "$place" "$p" "$m" "$effort" "$rule" "$hold" "$cx"
+    printf '%s → @thread:%s · %s · %s/%s · %s · %s%s · %s%s\n' "$word" "$id" "$place" "$p" "$m" "$effort" "$rule" "$hold" "$cx" "$envw"
     ;;
   claude-code)
     m=${mod:-$(model "$tier" claude-code)}
@@ -531,6 +556,22 @@ adopt() {
   fi
 }
 
+# release <id>: the reverse of adopt; a child thread becomes top-level again, keeping its project, workspace and history.
+release() {
+  [ -n "$1" ] && [ $# = 1 ] || die "release <id>"
+  case $1 in -*) die "release: unknown argument $1" ;; esac
+  id=$1
+  if [ "$(detect)" = bb ]; then
+    [ -n "$BB_THREAD_ID" ] || die "release: BB_THREAD_ID unset"
+    [ "$id" != "$BB_THREAD_ID" ] || die "release: a thread cannot release itself"
+    if [ -n "$WORKFLOW_DRY_RUN" ]; then q bb thread update "$id" --clear-parent-thread
+    else bb thread update "$id" --clear-parent-thread >/dev/null; fi
+    printf 'Released → @thread:%s · top-level\n' "$id"
+  else
+    printf 'release needs bb (threads and parents exist only there); here, stop coordinating %s and let it finish on its own\n' "$id"
+  fi
+}
+
 bb_or_print() {  # $1 = what to do outside bb; the rest = bb thread arguments
   msg=$1; shift
   case $(detect) in
@@ -563,6 +604,7 @@ case ${1:-} in
   title) [ -n "$2" ] || die 'title "<goal>"'; bb_or_print "no thread title here; export WORKFLOW_TASK='$2' so spawn titles carry the goal" update --self --title "$2" ;;
   spawn) shift; spawn "$@" ;;
   adopt) shift; adopt "$@" ;;
+  release) shift; release "$@" ;;
   wait) [ -n "$2" ] || die "wait <id>"; bb_or_print "end your turn; the completion notification wakes you (Claude Code: foreground Agent call; Codex: wait-agent tool)" wait "$2" ;;
   read) [ -n "$2" ] || die "read <id>"; bb_or_print "read the agent's final message" output "$2" ;;
   tell) [ -n "$2" ] && [ -n "$3" ] || die "tell <id> <message|->"
@@ -572,6 +614,6 @@ case ${1:-} in
   install-guards) BACKUP_DIR=${BACKUP_DIR:-$(storage)/guards-backup} sh "$(dirname "$0")/install-guards.sh" ;;
   compact) [ -n "$2" ] || die "compact <id>"; bb_or_print "ask the user to run /compact in that agent, or let auto-compaction run" compact "$2"
            if [ "$(detect)" = bb ]; then echo "note: the next wake from $2 replays its last report; ignore it"; fi ;;
-  ''|-h|--help|help) sed -n '2,31p' "$0" ;;
+  ''|-h|--help|help) sed -n '2,33p' "$0" ;;
   *) die "unknown command: $1 (run harness.sh help)" ;;
 esac
