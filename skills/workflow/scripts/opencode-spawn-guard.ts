@@ -1,5 +1,5 @@
 // opencode plugin: blocks a raw `bb thread spawn|create` in the shell (bash) tool.
-// Installed by `harness.sh install-guards`, which replaces __SPAWN_CHECK__ with the path of spawn-check.sh.
+// Installed by `runtime.sh install-guards`, which replaces __SPAWN_CHECK__ with the path of spawn-check.sh.
 // Fails open: any error, or a missing check script, allows the command.
 import { spawnSync } from "node:child_process"
 

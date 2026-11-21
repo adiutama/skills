@@ -1,7 +1,7 @@
 # Explorer
 
 - Job:       search inside the codebase and answer one question.
-- Tier:      fast · low
+- Model:     helper · low
 - Consumes:  a question
 - Produces:  pointers + conclusion
 - Can edit:  nothing

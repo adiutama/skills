@@ -1,14 +1,14 @@
-# harness.sh
+# runtime.sh
 
-`scripts/harness.sh` is this skill's harness layer. Each term is a subcommand: under bb it performs the action. Elsewhere it runs the honest fallback, or prints the exact tool call to make. Run it; never translate a term yourself.
+`scripts/runtime.sh` is this skill's runtime layer. Each term is a subcommand: under bb it performs the action. Elsewhere it runs the honest fallback, or prints the exact tool call to make. Run it; never translate a term yourself.
 
 ## Detect
 
 The script checks top to bottom; the first match wins.
 
-| Harness | Signal |
+| Runtime | Signal |
 |---|---|
-| override | `PR_TESTING_HARNESS` is set (Codex sets no variable: export `PR_TESTING_HARNESS=codex`) |
+| override | `PR_TESTING_RUNTIME` is set (Codex sets no variable: export `PR_TESTING_RUNTIME=codex`; the old name `PR_TESTING_HARNESS` still works as a fallback) |
 | bb | `BB_THREAD_ID` is set |
 | Claude Code | `CLAUDECODE=1` |
 | none | no match |
@@ -17,7 +17,7 @@ bb runs Claude Code or Codex inside it; the bb column names both where they diff
 
 ## Glossary
 
-`harness.sh terms` prints the column for your harness.
+`runtime.sh terms` prints the column for your runtime.
 
 | Term | bb | Claude Code | Codex | none |
 |---|---|---|---|---|
@@ -33,13 +33,13 @@ bb runs Claude Code or Codex inside it; the bb column names both where they diff
 ## Commands
 
 ```
-harness.sh terms | features | storage | invoke | notify-target
-harness.sh run --title T --log FILE --cwd DIR -- CMD...      → "handle <id>" and "log <file>"
-harness.sh stop-run <handle>
-harness.sh share <port>                                      → "remote <url>" or "local <url>  (reason)"
-harness.sh unshare <port>
-harness.sh spawn-implementer --brief FILE --title T [--model M] [--effort E]
-harness.sh tell <id> -                                        message on stdin
+runtime.sh terms | features | storage | invoke | notify-target
+runtime.sh run --title T --log FILE --cwd DIR -- CMD...      → "handle <id>" and "log <file>"
+runtime.sh stop-run <handle>
+runtime.sh share <port>                                      → "remote <url>" or "local <url>  (reason)"
+runtime.sh unshare <port>
+runtime.sh spawn-implementer --brief FILE --title T [--model M] [--effort E]
+runtime.sh tell <id> -                                        message on stdin
 ```
 
 - **features** prints `notify=yes|no`, `implementer=thread-worktree|subagent-worktree|subagent-own-worktree|none`, `process=terminal|detached`, `share=remote|local`, and `secret=secure-prompt|user-file`. Base every promise to the user on these values.
@@ -52,7 +52,7 @@ harness.sh tell <id> -                                        message on stdin
 
 Keep this skill explicit-only:
 
-| Harness | Setting |
+| Runtime | Setting |
 |---|---|
 | Claude Code | `disable-model-invocation: true` in the `SKILL.md` frontmatter |
 | Codex | `policy.allow_implicit_invocation: false` in `agents/openai.yaml` |

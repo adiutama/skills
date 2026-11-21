@@ -1,27 +1,29 @@
 #!/bin/sh
-# harness.sh — pr-testing's harness layer. Each term is a subcommand; under bb the action
+# runtime.sh — pr-testing's runtime layer. Each term is a subcommand; under bb the action
 # runs, elsewhere the honest fallback runs or the exact tool call is printed. Never translate
 # a term yourself.
 #
-#   harness.sh terms                     the harness, then each term and what it means here
-#   harness.sh features                  feature flags, one key=value per line
-#   harness.sh storage                   this session's storage directory
-#   harness.sh invoke                    the command that calls this skill
-#   harness.sh notify-target             the dashboard's --notify value (none | bb:<thread>)
-#   harness.sh run --title T --log FILE --cwd DIR -- CMD...   start a long-running process
-#   harness.sh stop-run <handle>         stop what `run` started (its printed handle)
-#   harness.sh share <port>              the address to give the user (remote when possible)
-#   harness.sh unshare <port>            undo share
-#   harness.sh spawn-implementer --brief FILE --title T [--model M] [--effort E]
-#   harness.sh tell <id> -               message a worker (stdin)
+#   runtime.sh terms                     the runtime, then each term and what it means here
+#   runtime.sh features                  feature flags, one key=value per line
+#   runtime.sh storage                   this session's storage directory
+#   runtime.sh invoke                    the command that calls this skill
+#   runtime.sh notify-target             the dashboard's --notify value (none | bb:<thread>)
+#   runtime.sh run --title T --log FILE --cwd DIR -- CMD...   start a long-running process
+#   runtime.sh stop-run <handle>         stop what `run` started (its printed handle)
+#   runtime.sh share <port>              the address to give the user (remote when possible)
+#   runtime.sh unshare <port>            undo share
+#   runtime.sh spawn-implementer --brief FILE --title T [--model M] [--effort E]
+#   runtime.sh tell <id> -               message a worker (stdin)
 #
-# Override detection with PR_TESTING_HARNESS=codex (Codex sets no variable).
+# Override detection with PR_TESTING_RUNTIME=codex (Codex sets no variable).
+# PR_TESTING_HARNESS (the old name) is still accepted as a fallback.
 set -e
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 
 detect() {
-  if [ -n "$PR_TESTING_HARNESS" ]; then printf '%s\n' "$PR_TESTING_HARNESS"
+  if [ -n "$PR_TESTING_RUNTIME" ]; then printf '%s\n' "$PR_TESTING_RUNTIME"
+  elif [ -n "$PR_TESTING_HARNESS" ]; then printf '%s\n' "$PR_TESTING_HARNESS"  # old name, accepted until the next major release
   elif [ -n "$BB_THREAD_ID" ]; then echo bb
   elif [ "$CLAUDECODE" = 1 ]; then echo claude-code
   else echo none
@@ -89,47 +91,47 @@ EOF
 
 terms() {
   h=$(detect)
-  printf 'harness      %s\n' "$h"
+  printf 'runtime      %s\n' "$h"
   case $h in
   bb) cat <<'EOF'
-storage      $BB_THREAD_STORAGE (harness.sh storage)
+storage      $BB_THREAD_STORAGE (runtime.sh storage)
 invoke       /pr-testing under Claude Code · $pr-testing under Codex
-notify       dashboard buttons wake this thread: dashboard --notify "$(harness.sh notify-target)"
-implementer  a child bb thread in its own new worktree: harness.sh spawn-implementer; its turn end wakes you
-process      an environment terminal in Terminal Hub: harness.sh run; stop with harness.sh stop-run <terminal id>
-share        BB Connect when paired and enabled (harness.sh share <port>), else the local URL
+notify       dashboard buttons wake this thread: dashboard --notify "$(runtime.sh notify-target)"
+implementer  a child bb thread in its own new worktree: runtime.sh spawn-implementer; its turn end wakes you
+process      an environment terminal in Terminal Hub: runtime.sh run; stop with runtime.sh stop-run <terminal id>
+share        BB Connect when paired and enabled (runtime.sh share <port>), else the local URL
 secret       the secrets skill writes values into a dotenv file you never read; you see key names only
 link         @thread:<id>
 EOF
   ;;
   claude-code) cat <<'EOF'
-storage      ~/.agents/pr-testing/<session> (harness.sh storage)
+storage      ~/.agents/pr-testing/<session> (runtime.sh storage)
 invoke       /pr-testing
 notify       none: buttons save and offer copy text; the user pastes it into chat or says "check the dashboard" (dashboard inbox)
-implementer  a subagent with isolation "worktree": harness.sh spawn-implementer prints the Agent call
-process      detached with nohup and a log: harness.sh run; stop with harness.sh stop-run <pid>
+implementer  a subagent with isolation "worktree": runtime.sh spawn-implementer prints the Agent call
+process      detached with nohup and a log: runtime.sh run; stop with runtime.sh stop-run <pid>
 share        the local URL only
 secret       the user writes the values into the env file you name; you never ask for or read them
 link         the agent ID
 EOF
   ;;
   codex) cat <<'EOF'
-storage      ~/.agents/pr-testing/<session> (harness.sh storage)
+storage      ~/.agents/pr-testing/<session> (runtime.sh storage)
 invoke       $pr-testing (or pick it from /skills)
 notify       none: buttons save and offer copy text; the user pastes it into chat or says "check the dashboard" (dashboard inbox)
 implementer  a subagent (spawn-agent); no isolation, so its brief makes it create its own git worktree first
-process      detached with nohup and a log: harness.sh run; stop with harness.sh stop-run <pid>
+process      detached with nohup and a log: runtime.sh run; stop with runtime.sh stop-run <pid>
 share        the local URL only
 secret       the user writes the values into the env file you name; you never ask for or read them
 link         the agent ID
 EOF
   ;;
   *) cat <<'EOF'
-storage      ~/.agents/pr-testing/<session> (harness.sh storage)
+storage      ~/.agents/pr-testing/<session> (runtime.sh storage)
 invoke       the skill's name
 notify       none: buttons save and offer copy text
 implementer  none: hand the user the brief to run in a new session in its own worktree; never fix it yourself
-process      detached with nohup and a log: harness.sh run
+process      detached with nohup and a log: runtime.sh run
 share        the local URL only
 secret       the user writes the values into the env file you name
 link         main
@@ -280,5 +282,5 @@ case ${1:-} in
         if [ "$(detect)" = bb ]; then bb thread tell "$2" --message-file -
         else echo "send the message with SendMessage (Claude Code) or send-message (Codex) to $2"; fi ;;
   ''|-h|--help|help) sed -n '2,19p' "$0" ;;
-  *) die "unknown command: $1 (harness.sh help)" ;;
+  *) die "unknown command: $1 (runtime.sh help)" ;;
 esac

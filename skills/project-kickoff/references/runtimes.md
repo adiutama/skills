@@ -1,10 +1,10 @@
-# Harnesses
+# Runtimes
 
 ## Detect
 
-Read the environment with one shell call (`echo "$BB_THREAD_ID|$CLAUDECODE"`), then check top to bottom; the first match is your harness.
+Read the environment with one shell call (`echo "$BB_THREAD_ID|$CLAUDECODE"`), then check top to bottom; the first match is your runtime.
 
-| Harness | Signal |
+| Runtime | Signal |
 |---|---|
 | bb | `BB_THREAD_ID` is set |
 | Claude Code | `CLAUDECODE=1` |
@@ -15,7 +15,7 @@ bb runs Claude Code or Codex inside it; the bb column names both where they diff
 
 ## Glossary
 
-Each term means what your harness's column says, everywhere in this skill and its references.
+Each term means what your runtime's column says, everywhere in this skill and its references.
 
 | Term | Meaning | bb | Claude Code | Codex | none |
 |---|---|---|---|---|---|
@@ -26,7 +26,7 @@ Each term means what your harness's column says, everywhere in this skill and it
 
 This skill loads on its own when the user asks for a new project:
 
-| Harness | Setting |
+| Runtime | Setting |
 |---|---|
 | Claude Code | no `disable-model-invocation` in the `SKILL.md` frontmatter |
 | Codex | `policy.allow_implicit_invocation: true` in `agents/openai.yaml` |

@@ -1,7 +1,7 @@
 # <Role>
 
 - Job:       <one line>
-- Tier:      <tier> · <effort> (+ when to go up a tier)
+- Model:     <work | helper> · <effort> (work = the roster's work model, helper = its helper model)
 - Consumes:  <which artifacts, from which roles>
 - Produces:  <artifact name + exact format>
 - Can edit:  <scope>
