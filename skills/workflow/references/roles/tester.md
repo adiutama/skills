@@ -1,7 +1,7 @@
 # Tester
 
 - Job:       reproduce bugs, write and run tests, give a pass/fail verdict.
-- Tier:      fast · low to run tests and report; balanced · medium to write tricky tests or reproductions
+- Model:     work · medium
 - Consumes:  `spec.md` acceptance criteria (or a bug report) + the diff
 - Produces:  test results (format below)
 - Can edit:  tests only

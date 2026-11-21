@@ -38,8 +38,8 @@ Pending · Pass · Fail · Blocked are the user's. **Needs retest** is set only 
 
 | Command | Use |
 |---|---|
-| `init [--notify "$(harness.sh notify-target)"] [--host H] [--port N]` | once per session; keeps the port and key |
-| `serve` | run with `harness.sh run`; it fails rather than move to another port |
+| `init [--notify "$(runtime.sh notify-target)"] [--host H] [--port N]` | once per session; keeps the port and key |
+| `serve` | run with `runtime.sh run`; it fails rather than move to another port |
 | `url [--public <URL>]` | the link to give the user (it carries the key) |
 | `cases --pr --sha --file [--title --url]` | write or replace a PR's cases at its current SHA |
 | `revision --pr --sha [--retest all\|ID,ID] [--file]` | new head: listed cases → Needs retest, the rest keep their results stamped with the old SHA |
@@ -57,10 +57,10 @@ The three buttons save a submission first (unique ID), then deliver it through *
 
 | Shown | Meaning |
 |---|---|
-| Sent to the agent | the harness accepted it and this thread was woken or steered |
+| Sent to the agent | the runtime accepted it and this thread was woken or steered |
 | Queued | the thread is waiting on an open question; it arrives when that is answered — do not resend |
 | Not delivered | delivery failed; the reason is shown, with **Try sending again** and **Copy for chat** |
-| Saved | this harness cannot wake the agent; **Copy for chat** gives the text to paste |
+| Saved | this runtime cannot wake the agent; **Copy for chat** gives the text to paste |
 
 A double click or a retried request sends once (idempotency key). An identical **Request fixes** at the same SHA returns the earlier submission instead of starting a second batch.
 

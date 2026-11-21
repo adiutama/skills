@@ -5,13 +5,13 @@ disable-model-invocation: true
 argument-hint: '[start] [<service>,…] [--for <worktree>] [--version <n>] | seed <id> [<case>] | status | stop [<id> | all]'
 compatibility: Needs the service's server binaries, or Docker.
 metadata:
-  version: "1.1.1"
+  version: "2.0.0"
   related: "evidence, pr-review, pr-testing"
 ---
 
-## Harness
+## Runtime
 
-At the start, detect your harness with [harnesses.md § Detect](references/harnesses.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **home** (`<home>` in paths) · **invoke** (`<invoke>` in commands).
+At the start, detect your runtime with [runtimes.md § Detect](references/runtimes.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **home** (`<home>` in paths) · **invoke** (`<invoke>` in commands).
 
 ## Route
 

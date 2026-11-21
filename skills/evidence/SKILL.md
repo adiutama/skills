@@ -4,13 +4,13 @@ description: Capture proof that work behaves as claimed — screenshots of web p
 disable-model-invocation: true
 argument-hint: '[capture] <url | curl command | description> [--as <title>] [--from <services.md>] | list | pack'
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   related: "throwaway-services, pr-review"
 ---
 
-## Harness
+## Runtime
 
-At the start, detect your harness with [harnesses.md § Detect](references/harnesses.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill: **home** (`<home>` in paths) · **screenshot** · **invoke** (`<invoke>` in commands).
+At the start, detect your runtime with [runtimes.md § Detect](references/runtimes.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill: **home** (`<home>` in paths) · **screenshot** · **invoke** (`<invoke>` in commands).
 
 ## Route
 
@@ -80,7 +80,7 @@ Report:
 proves: <one line> · `<E>/NN-<slug>.<ext>` · next: `<invoke> pack`
 ```
 
-Show the screenshot or the response inline when your harness can display it.
+Show the screenshot or the response inline when your runtime can display it.
 
 ## List
 

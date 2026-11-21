@@ -2,13 +2,13 @@
 name: project-kickoff
 description: Start a new project or repo from the user's opinionated setup — docs-as-blueprint AGENTS.md, append-only ADRs, specs with numbered rules traced to tests by a check script, TypeScript + Biome + Vitest. Use when the user wants to create, start, or set up a new project, app, plugin, library, or repo ("let's create a new project about …"), or to add that setup to an empty repo.
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   related: ""
 ---
 
-## Harness
+## Runtime
 
-At the start, detect your harness with [harnesses.md § Detect](references/harnesses.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **source link** · **register**.
+At the start, detect your runtime with [runtimes.md § Detect](references/runtimes.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **source link** · **register**.
 
 ## What the setup encodes
 
@@ -36,7 +36,7 @@ Everything in [assets/](assets/) is copied into the new repo. Its opinions, whic
 7. **Seed decisions and specs.** Each decision already made in the conversation becomes a `proposed` ADR; each behaviour discussed becomes a `draft` spec with rules. Leave anything undecided in the spec's Open questions. Skip this step if nothing was decided yet.
 8. **Check.** `npm install && npm run check` (or the adapted stack's check) must pass. Fix what fails; never weaken the check.
 9. **Commit.** One commit: `chore: start <project-name> from project-kickoff`.
-10. **Register** the folder with the harness, if the term names an action.
+10. **Register** the folder with the runtime, if the term names an action.
 11. **Report** the folder, what the brief and seeded ADRs and specs contain, the open questions, and which ADRs and specs wait for the user's approval. Create a remote repo or push only when the user asks.
 
 ## Changing the setup

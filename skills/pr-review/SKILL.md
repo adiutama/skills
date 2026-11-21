@@ -5,13 +5,13 @@ disable-model-invocation: true
 argument-hint: '<PR URL or number> [--services <services.md | URL>] | submit [C1,W1] [--message <text>] [--accept-moved-head]'
 compatibility: Requires git and authenticated gh.
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   related: "throwaway-services, evidence"
 ---
 
-## Harness
+## Runtime
 
-At the start, detect your harness with [harnesses.md § Detect](references/harnesses.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **storage** (`<storage>` in paths) · **invoke** (`<invoke>` in commands) · **AI name** · **render**.
+At the start, detect your runtime with [runtimes.md § Detect](references/runtimes.md#detect), then read its glossary column. These terms mean exactly what that column says, everywhere in this skill and its references: **storage** (`<storage>` in paths) · **invoke** (`<invoke>` in commands) · **AI name** · **render**.
 
 ## Route
 

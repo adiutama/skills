@@ -2,7 +2,7 @@
 name: dreaming
 description: "Consolidate thread history into durable agent memory (\"dreaming\") and keep the memory store tidy. Use to run the nightly run or weekly deep sleep, re-run a failed one, undo or correct what a dream changed (e.g. \"revert dream 2026-11-04 #3\", \"#2 is wrong because …\"), apply proposals when dreaming is in propose mode, or tune what dreams keep."
 metadata:
-  version: "1.0.3"
+  version: "2.0.0"
   related: ""
 ---
 
@@ -10,9 +10,9 @@ metadata:
 
 Scanner helpers read every new thread message since a saved cursor; the judge (you) turns them into memory writes each night; a weekly deep sleep audits and organizes the whole store. Memory is yours to manage: you write, audit and correct it; the user reads reports and points out problems.
 
-## Harness
+## Runtime
 
-At the start, detect your harness with [harnesses.md § Detect](references/harnesses.md#detect) and read its glossary column. These terms mean exactly what that column says: **data** (`<data>` in paths) · **run script** · **run id** · **me** · **spawn scanner** · **wait** · **thread status** · **thread search** · **thread context** · **thread link** · **memory read** · **file link**. Unsupported → say so in one line and stop.
+At the start, detect your runtime with [runtimes.md § Detect](references/runtimes.md#detect) and read its glossary column. These terms mean exactly what that column says: **data** (`<data>` in paths) · **run script** · **run id** · **me** · **spawn scanner** · **wait** · **thread status** · **thread search** · **thread context** · **thread link** · **memory read** · **file link**. Unsupported → say so in one line and stop.
 
 ## Route
 

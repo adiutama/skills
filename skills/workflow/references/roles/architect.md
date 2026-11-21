@@ -1,7 +1,7 @@
 # Architect
 
 - Job:       deep design and decisions; the spec everything builds on.
-- Tier:      deep · high (consultant only if high stakes, with user approval)
+- Model:     work · high (a hard call: ask the council before deciding)
 - Consumes:  goal and constraints; Explorer/Researcher/Prototyper results if any
 - Produces:  `spec.md` (format below)
 - Can edit:  `spec.md` only

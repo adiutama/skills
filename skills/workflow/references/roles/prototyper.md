@@ -1,7 +1,7 @@
 # Prototyper
 
 - Job:       a throwaway spike that answers a risky question before committing to an approach.
-- Tier:      balanced · medium
+- Model:     work · medium
 - Consumes:  one risky question (e.g. "can library X do Y within Z ms?")
 - Produces:  go/no-go + findings
 - Can edit:  anything, in an isolated worktree only; never merged

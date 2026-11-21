@@ -20,7 +20,7 @@ Start from: <tested SHA> (must equal the remote head; if not, stop and report)
 Worktree: your own. Create it from the PR branch; never use <S>/tree, the coordinator checkout, or any running test environment.
 Repo instructions: read the repo's agent instruction files and CONTRIBUTING first and follow them.
 Runtime: load the throwaway-services skill for any database or app you run; never use the repo's shared dev services or the coordinator's ports (<app port>, <dashboard port>, <S> set). Stop processes only with that skill's stop command or the PIDs you recorded; never pkill or killall.
-Hosted checks: wait with `gh pr checks <n> --watch` in the background (your harness's background or monitor tool), not in a foreground call; macOS has no `timeout`.
+Hosted checks: wait with `gh pr checks <n> --watch` in the background (your runtime's background or monitor tool), not in a foreground call; macOS has no `timeout`.
 
 ## Feedback (from manual testing at <tested SHA>)
 - <case id> — <title>: <steps> → expected <…>, saw <user note / your reproduction, log lines>

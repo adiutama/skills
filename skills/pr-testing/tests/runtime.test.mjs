@@ -1,4 +1,4 @@
-// The harness layer must not claim features a harness lacks.
+// The runtime layer must not claim features a runtime lacks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -7,16 +7,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const SH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../scripts/harness.sh');
+const SH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../scripts/runtime.sh');
 const run = (h, ...args) => {
   const env = { PATH: process.env.PATH, HOME: '/tmp/prt-home' };
   if (h === 'bb') Object.assign(env, { BB_THREAD_ID: 'thr_test1234', BB_THREAD_STORAGE: '/tmp/prt-storage' });
   if (h === 'claude-code') env.CLAUDECODE = '1';
-  if (h === 'codex') env.PR_TESTING_HARNESS = 'codex';
+  if (h === 'codex') env.PR_TESTING_RUNTIME = 'codex';
   return spawnSync('sh', [SH, ...args], { encoding: 'utf8', env });
 };
 
-test('no harness: nothing pretends to notify, spawn, or share', () => {
+test('no runtime: nothing pretends to notify, spawn, or share', () => {
   assert.match(run('none', 'features').stdout, /notify=no\nimplementer=none\nprocess=detached\nshare=local/);
   assert.equal(run('none', 'notify-target').stdout.trim(), 'none');
   const s = run('none', 'spawn-implementer', '--brief', SH, '--title', 't');
