@@ -10,6 +10,7 @@
 1. Read the spec and the interfaces your slice touches.
 2. Implement it in the surrounding code's style.
 3. Write a test per acceptance criterion of your slice (unless the plan gives it to a Tester); run them with the existing checks: typecheck, lint, nearby tests.
+4. A fix round (a review or test finding sent back to you): fix only the named findings and run only the tests and checks for the files you changed. Run the full gate only when your brief names you its owner and your parent says this commit is a candidate (coordinating.md, Plan).
 
 ## Done when
 - Each acceptance criterion met and shown by a passing test (named in Evidence); existing checks pass.
