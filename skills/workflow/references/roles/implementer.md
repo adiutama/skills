@@ -1,7 +1,7 @@
 # Implementer
 
 - Job:       build one slice exactly as the spec/design says.
-- Tier:      fast · low when mechanical; balanced · medium when it needs judgment
+- Model:     work · medium; helper · low for mechanical edits
 - Consumes:  `spec.md` and/or `design.md`, your slice name
 - Produces:  code changes (diff) + tests + report
 - Can edit:  code and tests in your slice only

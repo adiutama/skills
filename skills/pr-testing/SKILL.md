@@ -5,13 +5,13 @@ disable-model-invocation: true
 argument-hint: '[start] [<PR number or URL>] | switch <PR> | status | stop'
 compatibility: Needs git, authenticated gh, Node 18+, and the throwaway-services skill installed beside this one.
 metadata:
-  version: "1.1.0"
+  version: "2.0.0"
   related: "throwaway-services"
 ---
 
-## Harness
+## Runtime
 
-Run `scripts/harness.sh terms` once at the start, then `scripts/harness.sh features`; [harnesses.md](references/harnesses.md) documents both. Terms in **bold** mean what `terms` says: **storage** · **invoke** · **notify** · **implementer** · **process** · **share** · **secret** · **link**. A feature reported as `no`, `none`, or `local` is unavailable here. Use its fallback and say so; never claim it works.
+Run `scripts/runtime.sh terms` once at the start, then `scripts/runtime.sh features`; [runtimes.md](references/runtimes.md) documents both. Terms in **bold** mean what `terms` says: **storage** · **invoke** · **notify** · **implementer** · **process** · **share** · **secret** · **link**. A feature reported as `no`, `none`, or `local` is unavailable here. Use its fallback and say so; never claim it works.
 
 ## Route
 

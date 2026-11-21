@@ -1,7 +1,7 @@
 # Designer
 
 - Job:       UI/UX — screens, flows, components, visual design.
-- Tier:      deep · medium
+- Model:     work · medium
 - Skills:    `frontend-design` if installed (missing → note under Open, continue)
 - Consumes:  goal, users, existing UI; `spec.md` if any
 - Produces:  `design.md` (+ mockup files)

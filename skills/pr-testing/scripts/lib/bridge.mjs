@@ -1,5 +1,5 @@
 // Delivery of saved submissions to the coordinating agent.
-// The core never knows the harness: it hands a submission to the bridge chosen at startup.
+// The core never knows the runtime: it hands a submission to the bridge chosen at startup.
 //
 //   none          save only; the dashboard offers copy/export and says no agent was woken
 //   bb:<thread>   `bb thread tell <thread> --mode auto --json --message-file -`, no shell,
@@ -47,7 +47,7 @@ export function features(target) {
   return {
     notify: t.kind !== 'none',
     bridge: t.kind,
-    // What the buttons do in this harness, shown verbatim in the UI.
+    // What the buttons do in this runtime, shown verbatim in the UI.
     deliveryNote: t.kind === 'none'
       ? 'Saved here only — this setup cannot wake the agent. Copy the text into the chat.'
       : 'Sent straight to the agent thread.',
@@ -58,7 +58,7 @@ export function features(target) {
 export function createBridge(target, { exec = execFile, bin = 'bb', timeoutMs = 30000 } = {}) {
   const t = parseTarget(target);
   if (t.kind === 'none') {
-    return { kind: 'none', deliver: async () => ({ state: 'saved', detail: 'no bridge in this harness' }) };
+    return { kind: 'none', deliver: async () => ({ state: 'saved', detail: 'no bridge in this runtime' }) };
   }
   return {
     kind: 'bb',

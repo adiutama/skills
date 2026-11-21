@@ -4,7 +4,7 @@
 # Skips an agent that is not installed. JSON is built in a temp file, validated, then moved into place.
 # The guard scripts are copied to a fixed per-user folder ($WORKFLOW_GUARD_DIR, default ~/.local/share/workflow-guard)
 # and every hook/plugin points there, so moving or updating the skill folder never breaks a guard. Re-run to refresh the copies.
-# Called by `harness.sh install-guards`. Test overrides: CLAUDE_SETTINGS, CODEX_DIR, OPENCODE_DIR, BACKUP_DIR, WORKFLOW_GUARD_DIR.
+# Called by `runtime.sh install-guards`. Test overrides: CLAUDE_SETTINGS, CODEX_DIR, OPENCODE_DIR, BACKUP_DIR, WORKFLOW_GUARD_DIR.
 set -e
 here=$(cd "$(dirname "$0")" && pwd)
 backup=${BACKUP_DIR:-$HOME/.agents/workflow/backups}

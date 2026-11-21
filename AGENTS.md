@@ -36,23 +36,23 @@ Each skill lists the skills it works with in `metadata.related` (comma-separated
 
 Blocks marked `<!-- contract:<name> -->` are shared between skills: the report (`orchestration/templates.md` §6 ⊆ `specialist/SKILL.md` "Report") and the handoff note (identical in `orchestration/templates.md` §7 and `specialist/SKILL.md` "Context"). Change both sides in the same commit and bump both skills.
 
-## Harness rule
+## Runtime rule
 
-Every skill works with any agent harness (bb, Claude Code, Codex, …).
+Every skill works in any runtime: the environment the agent runs in and can call (bb, a CLI agent such as Claude Code, Codex or opencode, or none).
 
-- Each skill has `references/harnesses.md` with two parts:
-  - **Detect** — signals to identify the harness, checked top to bottom.
-  - **Glossary** — one row per term, one column per harness (plus `none`), saying what the term means there.
-- A skill may hold Detect and the Glossary in `scripts/harness.sh` instead, one subcommand per term that performs the action where the harness has a CLI and prints the tool parameters where it does not; `harnesses.md` then documents the script and keeps the tier table. The `workflow` skill does this.
-- `SKILL.md` opens by telling the agent to detect its harness and read its glossary column (or run the script), then uses only those terms. No harness names, commands, paths, model names, or examples outside `harnesses.md` and `harness.sh`.
-- Harness metadata files (e.g. `agents/openai.yaml` for Codex) and harness adapter scripts (e.g. a hook for one harness) live in the skill folder; they may name their harness. Frontmatter keys one harness needs (e.g. `disable-model-invocation`, `argument-hint`) stay top-level in `SKILL.md`.
+- Each skill has `references/runtimes.md` with two parts:
+  - **Detect** — signals to identify the runtime, checked top to bottom.
+  - **Glossary** — one row per term, one column per runtime (plus `none`), saying what the term means there.
+- A skill may hold Detect and the Glossary in `scripts/runtime.sh` instead, one subcommand per term that performs the action where the runtime has a CLI and prints the tool parameters where it does not; `runtimes.md` then documents the script. The `workflow` skill does this.
+- `SKILL.md` detects its runtime before the first step that needs it and reads its glossary column (or runs the script), then uses only those terms. No runtime names, commands, paths, model names, or examples outside `runtimes.md` and `runtime.sh`.
+- Runtime metadata files (e.g. `agents/openai.yaml` for Codex) and runtime adapter scripts (e.g. a hook for one runtime) live in the skill folder; they may name their runtime. Frontmatter keys one runtime needs (e.g. `disable-model-invocation`, `argument-hint`) stay top-level in `SKILL.md`.
 
 ## Family conventions
 
 Skills stay standalone, but shared ideas use the same words and shapes:
 
-- **Storage.** Per-conversation: thread storage where the harness has it (bb), else `~/.agents/<skill>/<session or task>/`. Shared across conversations: `~/.agents/<skill>/`. Never inside a repo.
-- **Bb-hosted line.** Every `harnesses.md` Detect section says: "bb runs Claude Code or Codex inside it; the bb column names both where they differ". No "hosted" cells.
+- **Storage.** Per-conversation: thread storage where the runtime has it (bb), else `~/.agents/<skill>/<session or task>/`. Shared across conversations: `~/.agents/<skill>/`. Never inside a repo.
+- **Runtime inside bb.** Every `runtimes.md` Detect section says: "bb runs Claude Code or Codex inside it; the bb column names both where they differ". No separate cells for the CLI agent bb runs.
 - **Verdicts.** `Approve | Request changes`. Severities `C` critical 🛑 · `W` warning 🟠 · `N` nit ⚪. Map status ✅ checked · ⚠️ not verified · ❌ broken. 🟢🟡🔴 mean context zones only.
 - **Reports.** The part the user acts on comes first, in a fixed shape; details below a rule; machine data last.
 - **User-invoked skills** (`disable-model-invocation`) are never run by agents; an agent hands the user the exact command instead.

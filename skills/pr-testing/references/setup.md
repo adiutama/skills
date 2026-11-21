@@ -1,6 +1,6 @@
 # Setup, switching, and cleanup
 
-`<S>`, `<skill>`, and `<ts>` are as in SKILL.md. `H` = `sh <skill>/scripts/harness.sh`, `DASH` = `node <skill>/scripts/dashboard.mjs`, `GUARD` = `node <skill>/scripts/guard.mjs`.
+`<S>`, `<skill>`, and `<ts>` are as in SKILL.md. `H` = `sh <skill>/scripts/runtime.sh`, `DASH` = `node <skill>/scripts/dashboard.mjs`, `GUARD` = `node <skill>/scripts/guard.mjs`.
 
 ## Workspace
 

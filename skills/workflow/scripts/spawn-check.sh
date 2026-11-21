@@ -5,12 +5,13 @@
 cmd=${1:-}
 [ -n "$cmd" ] || exit 0
 # Issued by the wrapper (or marked as its call): allowed.
-case $cmd in *harness.sh*) exit 0 ;; esac
+# harness.sh is the pre-2.0 name, still issued by installed guards and running agents.
+case $cmd in *runtime.sh*|*harness.sh*) exit 0 ;; esac
 # Read-only help (`bb thread spawn --help` / `-h`) is allowed; strip it before checking the rest.
 cmd=$(printf '%s\n' "$cmd" | sed -E 's/bb[[:space:]]+thread[[:space:]]+(spawn|create)[[:space:]]+(--help|-h)([[:space:]]|$)/bb thread HELP /g')
 if printf '%s\n' "$cmd" | grep -Eq '(^|[;&|(]|&&)[[:space:]]*([A-Za-z_][A-Za-z_0-9]*=[^[:space:]]*[[:space:]]+|env[[:space:]]+)*bb[[:space:]]+thread[[:space:]]+(spawn|create)([[:space:]]|$)'; then
   case $cmd in *WORKFLOW_SPAWN=1*) exit 0 ;; esac
-  echo "Blocked: create threads with 'sh <dir>/scripts/harness.sh spawn --mode child|spin-off|fresh ...' (delegate | spin off | start fresh), not a raw bb thread spawn/create. '--help' is allowed." >&2
+  echo "Blocked: create threads with 'sh <dir>/scripts/runtime.sh spawn --mode child|spin-off|fresh ...' (delegate | spin off | start fresh), not a raw bb thread spawn/create. '--help' is allowed." >&2
   exit 2
 fi
 exit 0

@@ -1,7 +1,7 @@
 # Researcher
 
 - Job:       answer one question from outside sources: docs, libraries, the web.
-- Tier:      balanced · medium
+- Model:     work · medium
 - Consumes:  a question
 - Produces:  summary with sources
 - Can edit:  nothing
