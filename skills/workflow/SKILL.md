@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, picks the model and effort, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
@@ -21,8 +21,8 @@ detect runtime, once                         → Runtime
 loop:
     classify the reply, pick the model       → Classify and route   (restate only if it changed)
     delegate, or do it yourself              → Delegate or do it yourself
-    verify: a council of other model families
-            reviews, fix blocking findings only,
+    verify: a council of 2+ other models reviews
+            (other families first), fix blocking only,
             at most 2 rounds                 → Verify
     one-way door → ask; anything else → decide and log
     report                                   → Report
@@ -89,7 +89,7 @@ What you read next depends on the part you play. If your brief starts with `Role
 
 Nothing reaches the user until someone other than its author has checked it. Verification grows with the stakes, not the model: reproduce the problem, add a regression test, then put the work before a council.
 
-A council is at least two reviewers from different model families, none of them the author's model; hard work gets three. The main thread spawns only the chair, the first eligible model on the roster's council line, and the chair spawns the other members as its own children. Everyone reviews alone first, so no one anchors on another, and writes findings with a score from 1 to 10. Then the chair puts the findings side by side, and the members agree, dispute with evidence, or add what was missed. A finding blocks when one member shows it and no one refutes it. The chair sends back one verdict; the main thread never hears the debate. Where the runtime cannot nest, the main thread spawns the members the chair's brief names, and with fewer than two eligible families the chair still rules, marking its verdict `council: <n> of <size>, too few families`, which the main thread tells the user.
+A council is at least two reviewers on different models, none of them the author's; hard work gets three. Prefer different model families, because they catch different things; when the runtime has only one family, different models of it still make a council, and the verdict says so. The main thread spawns only the chair, the first eligible model on the roster's council line, and the chair spawns the other members as its own children. Everyone reviews alone first, so no one anchors on another, and writes findings with a score from 1 to 10. Then the chair puts the findings side by side, and the members agree, dispute with evidence, or add what was missed. A finding blocks when one member shows it and no one refutes it. The chair sends back one verdict; the main thread never hears the debate. Where the runtime cannot nest, the main thread spawns the members the chair's brief names, and with fewer than two eligible families the chair still rules, marking its verdict `council: <n> of <size>, too few families`, which the main thread tells the user.
 
 Keep the council from spreading. Only a chair nests, one level deep, and its members never spawn; the script refuses them. The chair passes its constraints to the members unchanged: the author's model, vendors at their limit, the round cap, and that only blocking findings go back. If a member fails, the chair retries it once on the fallback, otherwise rules without it and says so in the verdict. Fix rounds go back to the same chair, re-check only the named findings, and stop after two; if the scores aren't rising, stop and decide, or ask the user if the call is theirs. The rules for candidates and the test gate are in [coordinating.md](references/coordinating.md#5-run).
 

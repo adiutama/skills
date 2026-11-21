@@ -18,7 +18,7 @@
 ## verdict.md format
 ```
 Verdict:   Approve | Request changes
-Council:   <provider:model — score> per member, chair first; missing: <member — why> if any; council: <n> of <size>, too few families (when the spawn found no model left)
+Council:   <provider:model — score [— same family as chair|<member>]> per member, chair first (mark each seat its spawn reported as same family); missing: <member — why> if any; council: 1 of <size> (when no member could be seated: tell your parent, which tells the user)
 Rounds:    <round — score per member>, one line per round
 Blocking:  <C1 | W1> — <file:line> — <what> — <why> — <fix> — raised by <member>, agreed by <members>
 Disputed:  <id> — <claim> — <counter-evidence> — unresolved after 2 exchanges

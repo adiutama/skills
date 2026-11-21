@@ -21,8 +21,9 @@
 #       (through any provider), whose provider and family (the model's maker) are not in never, and whose provider is not --limited
 #       or missing; --size (default 2) is recorded in the chair's brief
 #       --role council-member --author P:ID --chair P:ID [--limited P,...] (from a chair; outside bb from the main thread): the next
-#       such entry whose family differs from the chair's and every existing member's, skipping seats logged failed; at most size-1
-#       members; none left → exit 1 naming the verdict mark "council: <n> of <size>, too few families"
+#       such entry whose family differs from the chair's and every existing member's; if none, the next whose model is not seated
+#       yet (same family, marked "same family as chair|<member>"); never a seated model; skipping seats logged failed; at most
+#       size-1 members; none left → exit 1; with no member at all the verdict is marked "council: 1 of <size>"
 #       --provider/--model on a council role pass the same checks. The seat is reserved in council.log under a lock before the launch;
 #       a failed bb launch is reported, logged failed, and the next eligible seat is tried. A pending seat whose spawn died stays
 #       taken until the chair's children show its thread (the seat gets its id) or its absence (lost). Council roles run in auto;
@@ -328,8 +329,10 @@ council_list() {
   c=$(roster_rule council)
   if [ -n "$c" ]; then printf '%s\n' "$c"; return; fi
   p0=$(provider); o=$(other_provider "$p0")
-  if [ "$p0" = codex ]; then a0=gpt-6-luna; else a0=fable; fi
-  printf '%s:%s %s:%s %s:%s\n' "$o" "$(model work "$o")" "$p0" "$(model work "$p0")" "$p0" "$a0"
+  # This vendor's other models follow, so a one-vendor runtime still seats two distinct models (same family).
+  if [ "$p0" = codex ]; then a0="gpt-6.2-astra gpt-6-luna"; else a0="fable sonnet"; fi
+  printf '%s:%s %s:%s' "$o" "$(model work "$o")" "$p0" "$(model work "$p0")"
+  for x in $a0; do printf ' %s:%s' "$p0" "$x"; done; echo
 }
 
 # have_providers: the providers a spawn can use here (bb: bb provider list; elsewhere only this vendor).
@@ -361,8 +364,8 @@ same_model() { n=$(bb_model_id "$1"); printf '%s\n' "${n##*/}"; }
 
 # council_ctx <author P:ID> <taken P:ID ...>: sets what council_ok checks against, once per pick.
 council_ctx() {
-  am=$(same_model "${1#*:}"); tf_=" "
-  for x in $2; do tf_="$tf_$(family "$x") "; done
+  am=$(same_model "${1#*:}"); tf_=" " tm_=" " fam_=1
+  for x in $2; do tf_="$tf_$(family "$x") "; tm_="$tm_$(same_model "${x#*:}") "; done
   never=" $(roster_rule never) "
   lim=" $(printf '%s' "$limited" | tr ',' ' ') "
   have=" $(have_providers) "
@@ -391,18 +394,35 @@ council_ok() {
   case $have in *" $ep "*) ;; *) why="$why $e(missing)"; return 1 ;; esac
   case "${auto_:- $ep }" in *" $ep "*) ;; *) why="$why $e(no auto mode)"; noauto_="$noauto_ $e"; return 1 ;; esac
   [ "$(same_model "${e#*:}")" != "$am" ] || { why="$why $e(author)"; return 1; }
-  case "$tf_" in *" $ef "*) why="$why $e(family $ef taken)"; return 1 ;; esac
+  case "$tm_" in *" $(same_model "${e#*:}") "*) why="$why $e(seated)"; return 1 ;; esac
+  [ -z "$fam_" ] || case "$tf_" in *" $ef "*) why="$why $e(family $ef taken)"; return 1 ;; esac
 }
 
 # council_pick <author P:ID> <taken P:ID ...> [failed P:ID ...]: sets pick= to the first eligible council entry
 # (council_ok). Returns 1 when none is left; why= lists what was skipped.
+# Two passes: first an entry of a family not yet seated; if none, any entry whose model is not seated yet (same family allowed;
+# same_ names the seat it shares a family with). A model is never seated twice.
 council_pick() {
-  council_ctx "$1" "$2"; pick= why=
+  council_ctx "$1" "$2"; pick= why= same_=
+  council_walk "$3" && return 0
+  [ -n "$2" ] || return 1
+  fam_=; why=
+  council_walk "$3" || return 1
+  same_=$(same_as "$pick" "$2")
+}
+council_walk() {
   for e in $(council_list); do
-    council_ok "$e" "$3" || continue
+    council_ok "$e" "$1" || continue
     pick=$e; return 0
   done
   return 1
+}
+# same_as <P:ID> <seated P:ID ...>: "same family as chair" or "same family as <member>" for the first seat sharing its family.
+same_as() {
+  f_=$(family "$1"); for x in $2; do
+    [ "$(family "$x")" = "$f_" ] || continue
+    if [ "$x" = "$chair" ]; then echo "same family as chair"; else echo "same family as $x"; fi; return 0
+  done
 }
 
 # The member seats live in council.log (<chair>\t<member>\t<thread id | - | pending:<pid>:<slice> | failed | no-auto | lost>). A
@@ -472,7 +492,7 @@ council_seat() {
 # failed in this run. A member: the same, against the chair and its seated members, skipping failed seats; the seat is
 # reserved in council.log (tok=) unless this is a dry run.
 council_choose() {
-  why= noauto_= rs_=
+  why= noauto_= rs_= same_=
   if [ "$council" = council-chair ]; then
     if [ -n "$explicit" ]; then
       council_ctx "$author" ""; council_ok "$explicit" "$failed" || { noauto_report; die "spawn: $explicit cannot chair this council (skipped:$why)"; }
@@ -492,15 +512,28 @@ council_choose() {
   fi
   fs_="$failed $(council_seats failed | tr '\n' ' ')"
   if [ -n "$explicit" ]; then
-    council_ctx "$author" "$chair $members"
+    # An explicit model passes the same checks; a family already seated only when no entry of a new family is eligible.
+    council_ctx "$author" "$chair $members"; fam_=
     council_ok "$explicit" "$fs_" || { noauto_report; [ -z "$rs_" ] || council_unlock; die "spawn: $explicit cannot sit on this council (skipped:$why)"; }
+    case "$tf_" in *" $(family "$explicit") "*)
+      fam_=1; w_=$why
+      if council_walk "$fs_"; then
+        [ -z "$rs_" ] || council_unlock
+        die "spawn: $explicit cannot sit on this council (skipped:$w_ $explicit(family $(family "$explicit") taken; $pick is a new family))"
+      fi
+      same_=$(same_as "$explicit" "$chair $members") ;;
+    esac
     cmodel=$explicit
   elif council_pick "$author" "$chair $members" "$fs_"; then
     cmodel=$pick; noauto_report
   else
     noauto_report; [ -z "$rs_" ] || council_unlock
-    die "spawn: no council model left for a member (skipped:$why); rule with fewer members: mark the verdict \"council: $((n + 1)) of $size, too few families\" and name the gap under Council: missing"
+    if [ "$n" = 0 ]; then
+      die "spawn: no council model left for a member (skipped:$why); rule alone: mark the verdict \"council: 1 of $size\", which the main thread tells the user"
+    fi
+    die "spawn: no council model left for a member (skipped:$why); rule with fewer members ($((n + 1)) of $size seats) and name the gap under Council: missing"
   fi
+  [ -z "$same_" ] || printf 'spawn: no model of a new family is eligible; seating %s, %s (mark it on the verdict Council line)\n' "$cmodel" "$same_" >&2
   if [ -n "$rs_" ]; then
     tok=pending:$$:$slice; printf '%s\t%s\t%s\n' "$chair" "$cmodel" "$tok" >> "$cdir/council.log"
     council_unlock
@@ -867,15 +900,16 @@ council_block() {
     cmd=$(q sh "$self" spawn --role council-member --author "$author" --chair "$cmodel" ${limited:+--limited "$limited"} --effort "$effort" --brief '<member brief>' --slice '<member name>')
     if [ "$h" = bb ]; then
       printf 'Members:  spawn each with this command, changing only --effort, --brief and --slice; it picks the model and refuses more than %s:\n          %s\n' "$((size - 1))" "$cmd"
+      printf '          A member seated from a family already on the council ("same family as …" in its spawn output): mark it so on the Council line.\n'
       printf '          Exit 1 "no council model left": rule with the members you have, mark the verdict as the error says, and name the gap under Council: missing.\n'
       printf 'End:      after verdict.md and your report, stop the members: %s\n' "$(q sh "$self" council-stop)"
     else
       printf 'Members:  your parent spawns them (no nesting here) with: %s\n' "$cmd"
-      printf '          Run the discussion through files in your storage (runtimes.md, Council outside bb). When that command exits 1 "no council model left"\n'
-      printf '          (one vendor here), rule alone and mark the verdict "council: 1 of %s, too few families".\n' "$size"
+      printf '          Run the discussion through files in your storage (runtimes.md, Council outside bb). Members on other models of this vendor are\n'
+      printf '          marked "same family as …"; when that command exits 1 with no member seated, rule alone and mark the verdict "council: 1 of %s".\n' "$size"
     fi
   else
-    printf 'You:      council member on %s\n' "$cmodel"
+    printf 'You:      council member on %s%s\n' "$cmodel" "${same_:+ ($same_: no model of a new family was eligible)}"
     printf 'Chair:    %s · author: %s\n' "$chair" "$author"
     printf "Rules:    review alone first; write findings.md with your score in your storage; answer the chair's agree / dispute / add request; never spawn (runtime.sh refuses).\n"
   fi

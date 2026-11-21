@@ -14,7 +14,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 | [project-kickoff](skills/project-kickoff/SKILL.md) | 2.0.0 | Start a new project from your setup: docs-as-blueprint AGENTS.md, append-only ADRs, specs with numbered rules traced to tests by a check script, TypeScript + Biome + Vitest. Loads on its own when you ask for a new project. |
 | [specialist](skills/specialist/SKILL.md) | 2.0.0 | Deprecated: merged into `workflow`. |
 | [throwaway-services](skills/throwaway-services/SKILL.md) | 2.0.0 | A disposable environment for manual verification: start new local services, emulators, and the app for a worktree, seed them for the case you want to check, get the link to open first, and keep it all running until you stop it. Manual only. |
-| [workflow](skills/workflow/SKILL.md) | 2.0.0 | Classify work, pick the model and effort, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a council of other model families to verify, a runtime script for spawn, tell, read, and storage. |
+| [workflow](skills/workflow/SKILL.md) | 2.1.0 | Classify work, pick the model and effort, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a council of other models (other families preferred) to verify, a runtime script for spawn, tell, read, and storage. |
 
 ## Setup
 

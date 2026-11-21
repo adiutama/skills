@@ -1,6 +1,6 @@
 # Council member
 
-- Job:       review the work alone, from a model family (maker) other than the chair's and every other member's, never the author's model, then answer the chair.
+- Job:       review the work alone, on a model no one else on the council runs, never the author's model, then answer the chair; preferably from a model family (maker) other than the chair's and every other member's (your brief says when it is not).
 - Model:     work · medium (the spawn picks the next eligible model on the roster's council line)
 - Consumes:  the brief from your chair: the work to review (spec/design, diff, author's report, or a PR's stated intent and diff) and the council constraints
 - Produces:  `<storage>/findings.md` (format below)
