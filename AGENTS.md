@@ -21,11 +21,11 @@ metadata:
 ```
 
 - A new skill starts at `1.0.0`.
-- Any commit that changes files under `skills/<skill-name>/` bumps that skill's version in the same commit:
-  - **major** — breaking: renamed or removed inputs, changed invocation, removed behavior.
-  - **minor** — new capability, backward compatible.
-  - **patch** — fixes and wording.
-- After committing, create an annotated tag `<skill-name>@<version>` (for example `pr-review@1.2.0`) on that commit.
+- Bump the version only at a release: when the change is about to be pushed or merged, not on every commit or round of feedback. Work in progress commits without a bump; at the release, one commit bumps each changed skill once for everything since its last release:
+  - **major**: breaking, such as renamed or removed inputs, changed invocation, or removed behavior.
+  - **minor**: a new capability, backward compatible.
+  - **patch**: fixes and wording.
+- Tag the release commit with an annotated tag `<skill-name>@<version>` (for example `pr-review@1.2.0`).
 - Push commits and tags only when the user asks.
 
 ## Related skills
@@ -43,7 +43,7 @@ Every skill works in any runtime: the environment the agent runs in and can call
 - Each skill has `references/runtimes.md` with two parts:
   - **Detect** — signals to identify the runtime, checked top to bottom.
   - **Glossary** — one row per term, one column per runtime (plus `none`), saying what the term means there.
-- A skill may hold Detect and the Glossary in `scripts/runtime.sh` instead, one subcommand per term that performs the action where the runtime has a CLI and prints the tool parameters where it does not; `runtimes.md` then documents the script. The `workflow` skill does this.
+- A skill may hold the Glossary in `scripts/runtime.sh` instead, one subcommand per term that performs the action where the runtime has a CLI and prints the tool parameters where it does not. The script then documents itself (`runtime.sh help [command]`), and `runtimes.md` keeps only what the script is and the Detect section. The `workflow` skill does this.
 - `SKILL.md` detects its runtime before the first step that needs it and reads its glossary column (or runs the script), then uses only those terms. No runtime names, commands, paths, model names, or examples outside `runtimes.md` and `runtime.sh`.
 - Runtime metadata files (e.g. `agents/openai.yaml` for Codex) and runtime adapter scripts (e.g. a hook for one runtime) live in the skill folder; they may name their runtime. Frontmatter keys one runtime needs (e.g. `disable-model-invocation`, `argument-hint`) stay top-level in `SKILL.md`.
 
@@ -57,3 +57,4 @@ Skills stay standalone, but shared ideas use the same words and shapes:
 - **Reports.** The part the user acts on comes first, in a fixed shape; details below a rule; machine data last.
 - **User-invoked skills** (`disable-model-invocation`) are never run by agents; an agent hands the user the exact command instead.
 - **Hand-offs** between skills go through files (a `services.md` record, a report, `pack.md`) passed as optional arguments, so each skill still works alone.
+- **Init.** A rule that must hold before the skill is loaded (on every task, after compaction) goes in `init.md` in the skill folder: a heading and a few lines, always-on rules only, no runtime names. `install.sh` writes it inline into the user's global instructions between `<!-- skill:<name> <version> -->` and `<!-- /skill:<name> -->`. Everything situational stays in `SKILL.md`. Run `./test-install.sh` after changing `install.sh`.

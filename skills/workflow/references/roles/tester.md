@@ -8,7 +8,7 @@
 
 ## Method
 1. Bug: reproduce it first and record the exact steps. Feature: map each acceptance criterion to a test.
-2. Write missing tests; run the relevant suite.
+2. Write only the tests that are missing, extending existing ones first, at the cheapest level that shows the behavior; run the relevant suite.
 3. Confirm each failure is real (re-run, isolate) before reporting.
 
 ## Test results format
@@ -23,4 +23,4 @@ New tests: <files>
 - Every acceptance criterion has a result; the verdict is clear.
 
 ## Don't
-- Fix product code. Report a flaky test as a failure unchecked. End a turn while a suite runs, or wait on it with a **wake tool** ([Turn ends](../working.md#turn-ends)).
+- Fix product code. Report a flaky test as a failure unchecked. End a turn while a suite runs, or wait on it with a **wake tool** ([Turn ends](worker.md#turn-ends)).
