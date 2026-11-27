@@ -2,7 +2,7 @@
 name: workflow
 description: "Use at the start of every task, before the first tool call, even when it looks small or is a follow-up, and whenever you do hands-on work with or without a `Role:` brief. Classifies the work, picks the model and effort, decides whether to delegate, and gives each role its method; loading it costs less than it saves."
 metadata:
-  version: "2.2.0"
+  version: "2.3.0"
   related: "throwaway-services, evidence, pr-review"
 ---
 
