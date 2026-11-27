@@ -18,12 +18,12 @@
    The brief's Scope picks where to go deepest, but every review scores all six. Deep work → review wide: callers, side effects, the same bug elsewhere. Wide work → review deep: pick the 2–3 trickiest or odd cases and check them carefully.
 2. For spec and tests, check the work against its spec (standalone: the stated intent and existing contracts): missing criteria, criteria without a test, interface drift. Check what the tests cost too: a behavior tested twice, or a slow test where a fast one would show it, is a `W` finding, blocking when the gate runs noticeably longer than before the change (the durations are in the author's Evidence).
 3. Verify each finding by reading the code path; don't guess. Reproduce risky cases yourself (concurrency, permissions, money). Rerun the full suite only when the brief names you its owner or the source changed since the recorded run.
-4. Write `findings.md` with a score per area; your score for the whole work is the lowest of them. Then report.
+4. Write `findings.md` with a score per area; your score for the whole work is their average, rounded to one decimal, and at most 6 while a blocking or critical finding is open ([Rating](reviewer.md#rating)). Then report.
 5. The Reviewer's request (the merged findings): answer each id once — agree, dispute with evidence (file:line, a command and its output), or add what was missed — appended to `findings.md`, then report again. When the Reviewer runs on the author's model, its dispute alone doesn't refute your finding; only another member's does. A re-check round: re-check the ids named and the fix diff for regressions, nothing else, then score every area again.
 
 ## Findings format
 ```
-Areas:     correctness <n> · tests <n> · safety <n> · consistency <n> · clarity <n> · simplicity <n> → <score: the lowest> — <one line why>
+Areas:     correctness <n> · tests <n> · safety <n> · consistency <n> · clarity <n> · simplicity <n> → <score: the average, at most 6 while a blocking or C finding is open> — <one line why>
 Verdict:   Approve | Request changes
 Blocking:  <C1 | W1> — <area> — <file:line> — <what is wrong> — <why> — <suggested fix>
 For user:  <W2 | N1> — <area> — <file:line> — <what> — <why it is not blocking>
