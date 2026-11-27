@@ -27,9 +27,10 @@
 #   runtime.sh spawn --role R --effort E --brief FILE [--slice S] [--goal G] [--isolated] [--helper] [--provider P] [--model ID]
 #       the model comes from the role card (work | helper) through the roster's work/helper line, else the built-in default;
 #       --helper puts a work-card role on the helper model (mechanical edits); --provider/--model override both
-#       --role reviewer --author P:ID [--size 2|3] [--limited P,...] (alias: council-chair): the Reviewer chairs a council; the first roster council entry that is not the author's model
-#       (through any provider), whose provider and family (the model's maker) are not in never, and whose provider is not --limited
-#       or missing; --size (default 2) is recorded in the Reviewer's brief
+#       --role reviewer --author P:ID [--size 2|3] [--limited P,...] (alias: council-chair): the Reviewer chairs a council; the first roster council entry, even when it is the author's
+#       model (marked "author's model"; an explicit --provider/--model must name it), else the first that is not the author's model
+#       (through any provider); either way one whose provider and family (the model's maker) are not in never, and whose provider is
+#       not --limited or missing; --size (default 2) is recorded in the Reviewer's brief
 #       --role council-member --author P:ID --chair P:ID [--limited P,...] (from a Reviewer; outside bb from the main thread): the next
 #       such entry whose family differs from the chair's and every existing member's; if none, the next whose model is not seated
 #       yet (same family, marked "same family as Reviewer|<member>"); never a seated model; skipping seats logged failed; at most
@@ -581,13 +582,29 @@ council_seat() {
   council_unlock
 }
 
-# council_choose: sets cmodel= for this launch. A chair: the explicit model if eligible, else the first eligible entry not yet
-# failed in this run. A member: the same, against the chair and its seated members, skipping failed seats; the seat is
+# chair_first: sets pick= to the first entry of the roster's council line (not the built-in list) when it is the author's model
+# and passes every other council_ok check (an explicit --provider/--model must name that entry). Else returns 1 with why= and
+# noauto_ untouched, so the usual pick follows.
+chair_first() {
+  c_=$(roster_rule council); [ -n "$c_" ] || return 1
+  set -- $c_; e1_=$1
+  [ -z "$explicit" ] || { [ "${explicit%%:*}" = "${e1_%%:*}" ] && [ "$(same_model "${explicit#*:}")" = "$(same_model "${e1_#*:}")" ]; } || return 1
+  council_ctx "$author" ""; [ "$(same_model "${e1_#*:}")" = "$am" ] || return 1
+  am= w_=$why n_=$noauto_
+  council_ok "$e1_" "$failed" || { why=$w_ noauto_=$n_; return 1; }
+  pick=$e1_
+}
+
+# council_choose: sets cmodel= for this launch. A chair: the first council entry when it is the author's model and otherwise
+# eligible (chair_first; achair_=1), else the explicit model if eligible, else the first eligible entry not yet failed in this run. A member: the same, against the chair and its seated members, skipping failed seats; the seat is
 # reserved in council.log (tok=) unless this is a dry run.
 council_choose() {
-  why= noauto_= rs_= same_=
+  why= noauto_= rs_= same_= achair_=
   if [ "$council" = council-chair ]; then
-    if [ -n "$explicit" ]; then
+    if chair_first; then
+      cmodel=$pick; achair_=1
+      printf 'spawn: seating %s as Reviewer, the author'"'"'s model (first council entry; mark it on the verdict Council line)\n' "$cmodel" >&2
+    elif [ -n "$explicit" ]; then
       council_ctx "$author" ""; council_ok "$explicit" "$failed" || { noauto_report; die "spawn: $explicit cannot be the Reviewer (skipped:$why)"; }
       cmodel=$explicit
     else
@@ -1076,7 +1093,7 @@ council_block() {
   self=$(cd "$(dirname "$0")" && pwd)/runtime.sh
   printf '\n---\nCouncil (added by runtime.sh; do not edit)\n\n'
   if [ "$council" = council-chair ]; then
-    printf 'You:      Reviewer, chairing the council, on %s\n' "$cmodel"
+    printf 'You:      Reviewer, chairing the council, on %s%s\n' "$cmodel" "${achair_:+ (author's model: you may not refute a member's finding alone)}"
     printf 'Author:   %s (never a member)\n' "$author"
     printf 'Size:     %s: you and %s member(s)\n' "$size" "$((size - 1))"
     printf 'Limited:  %s\n' "${limited:-none}"

@@ -19,7 +19,7 @@
 2. For spec and tests, check the work against its spec (standalone: the stated intent and existing contracts): missing criteria, criteria without a test, interface drift. Check what the tests cost too: a behavior tested twice, or a slow test where a fast one would show it, is a `W` finding, blocking when the gate runs noticeably longer than before the change (the durations are in the author's Evidence).
 3. Verify each finding by reading the code path; don't guess. Reproduce risky cases yourself (concurrency, permissions, money). Rerun the full suite only when the brief names you its owner or the source changed since the recorded run.
 4. Write `findings.md` with a score per area; your score for the whole work is the lowest of them. Then report.
-5. The Reviewer's request (the merged findings): answer each id once — agree, dispute with evidence (file:line, a command and its output), or add what was missed — appended to `findings.md`, then report again. A re-check round: re-check the ids named and the fix diff for regressions, nothing else, then score every area again.
+5. The Reviewer's request (the merged findings): answer each id once — agree, dispute with evidence (file:line, a command and its output), or add what was missed — appended to `findings.md`, then report again. When the Reviewer runs on the author's model, its dispute alone doesn't refute your finding; only another member's does. A re-check round: re-check the ids named and the fix diff for regressions, nothing else, then score every area again.
 
 ## Findings format
 ```
