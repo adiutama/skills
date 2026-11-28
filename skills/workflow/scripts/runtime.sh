@@ -30,10 +30,11 @@
 #       --role reviewer --author P:ID [--size 2|3] [--limited P,...] (alias: council-chair): the Reviewer chairs a council; the first roster council entry, even when it is the author's
 #       model (marked "author's model"; an explicit --provider/--model must name it), else the first that is not the author's model
 #       (through any provider); either way one whose provider and family (the model's maker) are not in never, and whose provider is
-#       not --limited or missing; --size (default 2) is recorded in the Reviewer's brief
+#       not --limited or missing; if none, the author's model itself (marked "author's model"); --size (default 2) is recorded in the Reviewer's brief
 #       --role council-member --author P:ID --chair P:ID [--limited P,...] (from a Reviewer; outside bb from the main thread): the next
 #       such entry whose family differs from the chair's and every existing member's; if none, the next whose model is not seated
-#       yet (same family, marked "same family as Reviewer|<member>"); never a seated model; skipping seats logged failed; at most
+#       yet (same family, marked "same family as Reviewer|<member>"); if none, the author's model (marked "author's model"); if none,
+#       a model already seated (a second seat, marked "second seat of <model>, same model as Reviewer|<member>"); skipping seats logged failed; at most
 #       size-1 members; none left → exit 1; with no member at all the verdict is marked "council: 1 of <size>"
 #       --replace <thread id | P:ID> (council-member): a member that cannot be resumed gives up its seat to a new member, picked like
 #       any other (the same model may sit again). On bb the seat is named by its thread id and is given up only once that thread is
@@ -405,7 +406,7 @@ same_model() { n=$(bb_model_id "$1"); printf '%s\n' "${n##*/}"; }
 
 # council_ctx <author P:ID> <taken P:ID ...>: sets what council_ok checks against, once per pick.
 council_ctx() {
-  am=$(same_model "${1#*:}"); tf_=" " tm_=" " fam_=1
+  am=$(same_model "${1#*:}"); tf_=" " tm_=" " fam_=1 au_= dup_=
   for x in $2; do tf_="$tf_$(family "$x") "; tm_="$tm_$(same_model "${x#*:}") "; done
   never=" $(roster_rule never) "
   lim=" $(printf '%s' "$limited" | tr ',' ' ') "
@@ -425,8 +426,9 @@ auto_providers() {
 }
 
 # council_ok <P:ID> [failed P:ID ...]: eligible after council_ctx: its seat has not failed, neither its provider nor its family
-# is in never, its provider is not --limited and is present, it is not the author's model (through any provider), and its
-# family differs from every taken entry (the chair and existing members). Else appends the reason to why= and returns 1.
+# is in never, its provider is not --limited and is present, it is not the author's model (through any provider; allowed once
+# au_ is set), its model is not seated yet (allowed once dup_ is set), and its family differs from every taken entry (the chair
+# and existing members; dropped once fam_ is empty). Else appends the reason to why= and returns 1.
 council_ok() {
   e=$1; ep=${e%%:*}; ef=$(family "$e")
   case " $2 " in *" $e "*) why="$why $e(failed)"; return 1 ;; esac
@@ -434,22 +436,29 @@ council_ok() {
   case "$lim" in *" $ep "*) why="$why $e(limited)"; return 1 ;; esac
   case $have in *" $ep "*) ;; *) why="$why $e(missing)"; return 1 ;; esac
   case "${auto_:- $ep }" in *" $ep "*) ;; *) why="$why $e(no auto mode)"; noauto_="$noauto_ $e"; return 1 ;; esac
-  [ "$(same_model "${e#*:}")" != "$am" ] || { why="$why $e(author)"; return 1; }
-  case "$tm_" in *" $(same_model "${e#*:}") "*) why="$why $e(seated)"; return 1 ;; esac
+  [ -n "$au_" ] || [ "$(same_model "${e#*:}")" != "$am" ] || { why="$why $e(author)"; return 1; }
+  [ -n "$dup_" ] || case "$tm_" in *" $(same_model "${e#*:}") "*) why="$why $e(seated)"; return 1 ;; esac
   [ -z "$fam_" ] || case "$tf_" in *" $ef "*) why="$why $e(family $ef taken)"; return 1 ;; esac
 }
 
 # council_pick <author P:ID> <taken P:ID ...> [failed P:ID ...]: sets pick= to the first eligible council entry
 # (council_ok). Returns 1 when none is left; why= lists what was skipped.
-# Two passes: first an entry of a family not yet seated; if none, any entry whose model is not seated yet (same family allowed;
-# same_ names the seat it shares a family with). A model is never seated twice.
+# Four passes, each only when the one before finds nothing: 1. an entry of a family not yet seated; 2. any entry whose model is
+# not seated yet (same family allowed); 3. the author's model too; 4. (members only) a model already seated, a second seat.
+# same_ names how the pick falls short: the seat it shares a family with, "author's model", or the seat whose model it repeats.
 council_pick() {
   council_ctx "$1" "$2"; pick= why= same_=
   council_walk "$3" && return 0
+  fam_=
+  if [ -n "$2" ]; then why=; council_walk "$3" && { same_=$(same_as "$pick" "$2"); return 0; }; fi
+  au_=1; why=
+  if council_walk "$3"; then
+    s_=$(same_as "$pick" "$2"); same_="author's model${s_:+, $s_}"; return 0
+  fi
   [ -n "$2" ] || return 1
-  fam_=; why=
+  dup_=1; why=
   council_walk "$3" || return 1
-  same_=$(same_as "$pick" "$2")
+  same_=$(same_model_as "$pick" "$2")
 }
 council_walk() {
   for e in $(council_list); do
@@ -457,6 +466,13 @@ council_walk() {
     pick=$e; return 0
   done
   return 1
+}
+# same_model_as <P:ID> <seated P:ID ...>: "second seat of <model>, same model as Reviewer|<member>" for the first seat it repeats.
+same_model_as() {
+  m_=$(same_model "${1#*:}"); for x in $2; do
+    [ "$(same_model "${x#*:}")" = "$m_" ] || continue
+    if [ "$x" = "$chair" ]; then echo "second seat of $m_, same model as Reviewer"; else echo "second seat of $m_, same model as $x"; fi; return 0
+  done
 }
 # same_as <P:ID> <seated P:ID ...>: "same family as Reviewer" or "same family as <member>" for the first seat sharing its family.
 same_as() {
@@ -596,8 +612,9 @@ chair_first() {
 }
 
 # council_choose: sets cmodel= for this launch. A chair: the first council entry when it is the author's model and otherwise
-# eligible (chair_first; achair_=1), else the explicit model if eligible, else the first eligible entry not yet failed in this run. A member: the same, against the chair and its seated members, skipping failed seats; the seat is
-# reserved in council.log (tok=) unless this is a dry run.
+# eligible (chair_first), else the explicit model if eligible, else the first eligible entry not yet failed in this run;
+# achair_=1 when the chair runs the author's model. A member: the same, against the chair and its seated members, skipping
+# failed seats; the seat is reserved in council.log (tok=) unless this is a dry run.
 council_choose() {
   why= noauto_= rs_= same_= achair_=
   if [ "$council" = council-chair ]; then
@@ -609,8 +626,9 @@ council_choose() {
       cmodel=$explicit
     else
       if council_pick "$author" "" "$failed"; then rc_=0; else rc_=1; fi; noauto_report
+      [ -z "$same_" ] || printf 'spawn: no other model is eligible; the Reviewer runs on %s, %s (mark it on the verdict Council line)\n' "$pick" "$same_" >&2
       [ "$rc_" = 0 ] || die "spawn: no council model is eligible to be the Reviewer (skipped:$why); wait for a reset, or pass --provider P --model ID"
-      cmodel=$pick
+      cmodel=$pick; [ -z "$same_" ] || achair_=1
     fi
     return 0
   fi
@@ -1093,8 +1111,8 @@ council_block() {
   self=$(cd "$(dirname "$0")" && pwd)/runtime.sh
   printf '\n---\nCouncil (added by runtime.sh; do not edit)\n\n'
   if [ "$council" = council-chair ]; then
-    printf 'You:      Reviewer, chairing the council, on %s%s\n' "$cmodel" "${achair_:+ (author's model: you may not refute a member's finding alone)}"
-    printf 'Author:   %s (never a member)\n' "$author"
+    printf 'You:      Reviewer, chairing the council, on %s%s\n' "$cmodel" "${achair_:+ (author's model${same_:+, no other model was eligible}: you may not refute a member's finding alone)}"
+    printf 'Author:   %s (a member only when no other model is eligible)\n' "$author"
     printf 'Size:     %s: you and %s member(s)\n' "$size" "$((size - 1))"
     printf 'Limited:  %s\n' "${limited:-none}"
     # A member's brief folder is a workers/<member name>/ folder of the storage that spawns it, so its name is the slice and the
@@ -1107,7 +1125,8 @@ council_block() {
       printf '          your thread, not your own Storage: folder; create the folder) and put that folder on the brief'"'"'s Storage: line, so the\n'
       printf '          member writes findings.md and report.md where the script looks for them. Then spawn it with this command, changing only\n'
       printf '          --effort and <member name>; it picks the model and refuses more than %s:\n          %s\n' "$((size - 1))" "$cmd"
-      printf '          A member seated from a family already on the council ("same family as …" in its spawn output): mark it so on the Council line.\n'
+      printf '          A member seated from a family already on the council, on the author'"'"'s model, or on a model already seated ("same family as …",\n'
+      printf '          "author'"'"'s model" or "second seat of …" in its spawn output): mark it so on the Council line.\n'
       printf '          Exit 1 "no council model left": rule with the members you have, mark the verdict as the error says, and name the gap under Council: missing.\n'
       printf '          A member that cannot be resumed: add --replace <its thread id> to stop it and seat its replacement in the same seat;\n'
       printf '          exit 1 "keeps its seat": it could not be stopped and still exists, so rule without it and name the gap under Council: missing.\n'
