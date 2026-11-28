@@ -14,7 +14,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 | [project-kickoff](skills/project-kickoff/SKILL.md) | 2.0.0 | Start a new project from your setup: docs-as-blueprint AGENTS.md, append-only ADRs, specs with numbered rules traced to tests by a check script, TypeScript + Biome + Vitest. Loads on its own when you ask for a new project. |
 | [specialist](skills/specialist/SKILL.md) | 2.0.1 | Deprecated: merged into `workflow`. |
 | [throwaway-services](skills/throwaway-services/SKILL.md) | 2.0.0 | A disposable environment for manual verification: start new local services, emulators, and the app for a worktree, seed them for the case you want to check, get the link to open first, and keep it all running until you stop it. Manual only. |
-| [workflow](skills/workflow/SKILL.md) | 2.2.0 | Classify work, pick the model and effort, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a Reviewer that convenes a council of other models (other families preferred) to verify, a runtime script for spawn, tell, read, and storage. |
+| [workflow](skills/workflow/SKILL.md) | 2.3.0 | Classify work, pick the model and effort, decide whether to delegate, and do or coordinate it: one coordinator, workers with role cards, a Reviewer that convenes a council of other models (other families preferred) to verify, a runtime script for spawn, tell, read, and storage. |
 
 ## Setup
 
@@ -22,7 +22,7 @@ Reusable AI agent skills following the [agentskills.io](https://agentskills.io/)
 2. **Global instructions come with it.** A skill whose rules must hold before it's loaded ships `init.md` (workflow does: load it on every task). `install.sh` writes that text inline into your global instructions (bb `~/.bb/AGENTS.md`, Claude Code `~/.claude/CLAUDE.md`, Codex `~/.codex/AGENTS.md`) as a block it owns, replaced on update and removed on uninstall. Your own text outside the markers is kept byte for byte: the only bytes the installer adds are the blank line before a block it appends (just a newline when your file didn't end with one), and uninstalling takes back exactly those, whatever the order. It tells its own blank lines from yours by where the blocks sit, so blocks you move or respace by hand may come back with a blank line more or less. Before changing anything it checks the whole file and every skill it was given, and stops with nothing changed on a name that isn't a folder name, a broken, nested or duplicate block of any skill (named or not), or an uninstall that would delete the source (a skills directory linked to this repo):
 
    ```markdown
-   <!-- skill:workflow 2.2.0 -->
+   <!-- skill:workflow 2.3.0 -->
    ## Workflow
 
    At the start of every task, and after context compaction, load the `workflow` skill …
